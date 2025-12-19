@@ -8,7 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from .models import MessageRequest, ScreenResponse, MessageResponse
-from .database import init_db, create_screen, get_screen_by_id, get_screen_by_api_key, save_message, get_last_message, get_all_screens, delete_screen
+from .database import init_db, create_screen, get_screen_by_id, get_screen_by_api_key, save_message, get_last_message, get_all_screens, delete_screen, update_screen_name
 from .connection_manager import manager
 
 app = FastAPI(title="Big Beautiful Screens", version="0.1.0")
@@ -101,6 +101,15 @@ async def reload_screen(screen_id: str):
     return {"success": True, "viewers_reloaded": viewers}
 
 
+@app.patch("/api/screens/{screen_id}")
+async def update_screen(screen_id: str, name: str | None = None):
+    """Update a screen's properties (currently just name)."""
+    updated = await update_screen_name(screen_id, name)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    return {"success": True, "name": name}
+
+
 @app.get("/screen/{screen_id}", response_class=HTMLResponse)
 async def view_screen(screen_id: str):
     """Serve the screen viewer page."""
@@ -118,38 +127,68 @@ async def admin_screens():
     """Admin page listing all screens."""
     screens = await get_all_screens()
 
-    # Build HTML table rows
-    rows = ""
+    # Build screen cards
+    cards = ""
     for screen in screens:
         screen_url = f"/screen/{screen['id']}"
         api_url = f"/api/screens/{screen['id']}/message"
-
         viewer_count = manager.get_viewer_count(screen['id'])
-        rows += f"""
-        <tr data-screen-id="{screen['id']}" data-api-key="{screen['api_key']}" data-screen-url="{screen_url}" data-api-url="{api_url}">
-            <td data-label="Screen ID"><code>{screen['id']}</code></td>
-            <td data-label="API Key"><code class="api-key">{screen['api_key']}</code></td>
-            <td data-label="Screen URL"><a href="{screen_url}" target="_blank">{screen_url}</a></td>
-            <td data-label="API URL"><code>{api_url}</code></td>
-            <td data-label="Created">{screen['created_at'][:19].replace('T', ' ')}</td>
-            <td data-label="Viewers" class="viewers-cell">{viewer_count}</td>
-            <td class="actions-cell">
-                <div class="copy-dropdown">
-                    <button class="btn-copy" onclick="toggleDropdown(this)">Copy ▾</button>
-                    <div class="dropdown-menu">
-                        <button onclick="copyFromRow(this, 'screen-id')">Screen ID</button>
-                        <button onclick="copyFromRow(this, 'api-key')">API Key</button>
-                        <button onclick="copyFromRow(this, 'screen-url')">Screen URL</button>
-                        <button onclick="copyFromRow(this, 'api-url')">API URL</button>
-                        <hr>
-                        <button onclick="copyExample(this, 'bash')">Bash Example</button>
-                        <button onclick="copyExample(this, 'python')">Python Example</button>
+        created = screen['created_at'][:19].replace('T', ' ')
+        last_updated = screen.get('last_updated')
+        last_updated_display = last_updated[:19].replace('T', ' ') if last_updated else 'Never'
+        name = screen.get('name') or ''
+        name_display = name if name else 'Unnamed Screen'
+        name_class = '' if name else 'unnamed'
+
+        cards += f"""
+        <div class="screen-card" data-screen-id="{screen['id']}" data-api-key="{screen['api_key']}" data-screen-url="{screen_url}" data-api-url="{api_url}">
+            <div class="card-header" onclick="toggleExpand(this.parentElement)">
+                <div class="card-summary">
+                    <span class="screen-name {name_class}" onclick="editName(this, event)" title="Click to edit name">{name_display}</span>
+                    <code class="screen-id">{screen['id']}</code>
+                    <a href="{screen_url}" target="_blank" class="screen-link" onclick="event.stopPropagation()">
+                        <span class="link-icon">↗</span> {screen_url}
+                    </a>
+                    <span class="viewer-badge">{viewer_count} viewer{"s" if viewer_count != 1 else ""}</span>
+                </div>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="card-details">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>API Key</label>
+                        <div class="detail-value">
+                            <code class="api-key">{screen['api_key']}</code>
+                            <button class="btn-icon" onclick="copyValue(this, '{screen['api_key']}')" title="Copy API Key">📋</button>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <label>API Endpoint</label>
+                        <div class="detail-value">
+                            <code>{api_url}</code>
+                            <button class="btn-icon" onclick="copyValue(this, BASE_URL + '{api_url}')" title="Copy API URL">📋</button>
+                        </div>
                     </div>
                 </div>
-                <button class="btn-reload" onclick="reloadScreen('{screen['id']}')">Reload</button>
-                <button class="btn-delete" onclick="deleteScreen('{screen['id']}')">Delete</button>
-            </td>
-        </tr>
+                <div class="detail-footer">
+                    <div class="detail-timestamps">
+                        <span>Created: {created}</span>
+                        <span>Last Updated: {last_updated_display}</span>
+                    </div>
+                    <div class="detail-actions">
+                        <div class="copy-dropdown">
+                            <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Copy Example ▾</button>
+                            <div class="dropdown-menu">
+                                <button onclick="copyExample(this, 'bash')">Bash / cURL</button>
+                                <button onclick="copyExample(this, 'python')">Python</button>
+                            </div>
+                        </div>
+                        <button class="btn-reload" onclick="reloadScreen('{screen['id']}'); event.stopPropagation();">Reload Viewers</button>
+                        <button class="btn-delete" onclick="deleteScreen('{screen['id']}'); event.stopPropagation();">Delete Screen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         """
 
     html = f"""
@@ -170,22 +209,9 @@ async def admin_screens():
                 <button id="create-screen" class="btn-primary">+ Create New Screen</button>
             </div>
 
-            <table>
-                <thead>
-                    <tr>
-                        <th>Screen ID</th>
-                        <th>API Key</th>
-                        <th>Screen URL</th>
-                        <th>API URL</th>
-                        <th>Created</th>
-                        <th>Viewers</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows if rows else '<tr><td colspan="7" class="empty">No screens yet. Create one to get started!</td></tr>'}
-                </tbody>
-            </table>
+            <div class="screen-list">
+                {cards if cards else '<div class="empty">No screens yet. Create one to get started!</div>'}
+            </div>
         </div>
 
         <script>
@@ -194,9 +220,20 @@ async def admin_screens():
             document.getElementById('create-screen').addEventListener('click', async () => {{
                 const response = await fetch('/api/screens', {{ method: 'POST' }});
                 const data = await response.json();
-                alert('Screen created!\\n\\nScreen ID: ' + data.screen_id + '\\nAPI Key: ' + data.api_key);
+                // Auto-expand the new screen card after reload
+                sessionStorage.setItem('expandScreen', data.screen_id);
                 location.reload();
             }});
+
+            // Auto-expand newly created screen
+            const expandScreen = sessionStorage.getItem('expandScreen');
+            if (expandScreen) {{
+                sessionStorage.removeItem('expandScreen');
+                const card = document.querySelector(`[data-screen-id="${{expandScreen}}"]`);
+                if (card) {{
+                    card.classList.add('expanded');
+                }}
+            }}
 
             // Close dropdowns when clicking outside
             document.addEventListener('click', (e) => {{
@@ -206,6 +243,10 @@ async def admin_screens():
                     }});
                 }}
             }});
+
+            function toggleExpand(card) {{
+                card.classList.toggle('expanded');
+            }}
 
             function toggleDropdown(btn) {{
                 const menu = btn.nextElementSibling;
@@ -222,29 +263,31 @@ async def admin_screens():
                 }}
             }}
 
-            function getRowData(btn) {{
-                const row = btn.closest('tr');
+            function getCardData(el) {{
+                const card = el.closest('.screen-card');
                 return {{
-                    screenId: row.dataset.screenId,
-                    apiKey: row.dataset.apiKey,
-                    screenUrl: row.dataset.screenUrl,
-                    apiUrl: row.dataset.apiUrl
+                    screenId: card.dataset.screenId,
+                    apiKey: card.dataset.apiKey,
+                    screenUrl: card.dataset.screenUrl,
+                    apiUrl: card.dataset.apiUrl
                 }};
             }}
 
-            function copyFromRow(btn, field) {{
-                const data = getRowData(btn);
-                const values = {{
-                    'screen-id': data.screenId,
-                    'api-key': data.apiKey,
-                    'screen-url': BASE_URL + data.screenUrl,
-                    'api-url': BASE_URL + data.apiUrl
-                }};
-                copyAndFeedback(btn, values[field]);
+            function copyValue(btn, value) {{
+                navigator.clipboard.writeText(value).then(() => {{
+                    const original = btn.textContent;
+                    btn.textContent = '✓';
+                    btn.classList.add('copied');
+                    setTimeout(() => {{
+                        btn.textContent = original;
+                        btn.classList.remove('copied');
+                    }}, 1000);
+                }});
+                event.stopPropagation();
             }}
 
             function copyExample(btn, type) {{
-                const data = getRowData(btn);
+                const data = getCardData(btn);
                 let text = '';
 
                 if (type === 'bash') {{
@@ -262,20 +305,18 @@ response = requests.post(
 )
 print(response.json())`;
                 }}
-                copyAndFeedback(btn, text);
-            }}
 
-            function copyAndFeedback(btn, text) {{
                 navigator.clipboard.writeText(text).then(() => {{
-                    const originalText = btn.textContent;
+                    const original = btn.textContent;
                     btn.textContent = 'Copied!';
                     btn.classList.add('copied');
                     setTimeout(() => {{
-                        btn.textContent = originalText;
+                        btn.textContent = original;
                         btn.classList.remove('copied');
                         btn.closest('.dropdown-menu').classList.remove('show');
                     }}, 1000);
                 }});
+                event.stopPropagation();
             }}
 
             async function reloadScreen(screenId) {{
@@ -308,6 +349,51 @@ print(response.json())`;
                 }} catch (error) {{
                     alert('Failed to delete screen: ' + error.message);
                 }}
+            }}
+
+            function editName(el, event) {{
+                event.stopPropagation();
+                const card = el.closest('.screen-card');
+                const screenId = card.dataset.screenId;
+                const currentName = el.classList.contains('unnamed') ? '' : el.textContent;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'name-input';
+                input.value = currentName;
+                input.placeholder = 'Enter screen name...';
+
+                const saveName = async () => {{
+                    const newName = input.value.trim();
+                    try {{
+                        const response = await fetch(`/api/screens/${{screenId}}?name=${{encodeURIComponent(newName)}}`, {{
+                            method: 'PATCH'
+                        }});
+                        if (response.ok) {{
+                            el.textContent = newName || 'Unnamed Screen';
+                            el.classList.toggle('unnamed', !newName);
+                        }}
+                    }} catch (error) {{
+                        console.error('Failed to update name:', error);
+                    }}
+                    input.replaceWith(el);
+                }};
+
+                input.addEventListener('blur', saveName);
+                input.addEventListener('keydown', (e) => {{
+                    if (e.key === 'Enter') {{
+                        e.preventDefault();
+                        input.blur();
+                    }}
+                    if (e.key === 'Escape') {{
+                        input.value = currentName;
+                        input.blur();
+                    }}
+                }});
+
+                el.replaceWith(input);
+                input.focus();
+                input.select();
             }}
         </script>
     </body>
