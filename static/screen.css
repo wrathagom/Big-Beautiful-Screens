@@ -1,0 +1,276 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #1a1a2e;
+    color: #eaeaea;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.screen {
+    width: 100vw;
+    height: 100vh;
+    display: grid;
+    gap: 1rem;
+    padding: 1rem;
+}
+
+/* Waiting state */
+.waiting-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    font-size: 2rem;
+    color: #666;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+/* Panel styles */
+.panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #16213e;
+    border-radius: 1rem;
+    padding: 2rem;
+    overflow: hidden;
+}
+
+/* Cover mode panels - edge-to-edge media */
+.panel.panel-cover {
+    padding: 0;
+    border-radius: 0;
+}
+
+.panel-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Text content */
+.content-text {
+    text-align: center;
+}
+
+/* Image content */
+.content-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 0.5rem;
+}
+
+/* Image display modes */
+.content-image.mode-contain {
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.content-image.mode-cover {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+}
+
+.content-image.mode-cover-width {
+    width: 100%;
+    height: auto;
+    max-height: none;
+}
+
+.content-image.mode-cover-height {
+    width: auto;
+    height: 100%;
+    max-width: none;
+}
+
+/* Video content */
+.content-video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 0.5rem;
+}
+
+/* Video display modes (same as image) */
+.content-video.mode-contain {
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.content-video.mode-cover {
+    object-fit: cover;
+    width: 100%;
+    height: 100%;
+}
+
+.content-video.mode-cover-width {
+    width: 100%;
+    height: auto;
+    max-height: none;
+}
+
+.content-video.mode-cover-height {
+    width: auto;
+    height: 100%;
+    max-width: none;
+}
+
+/* Markdown content */
+.content-markdown {
+    text-align: center;
+    transform-origin: center center;
+}
+
+.content-markdown.auto-scale-markdown {
+    overflow: visible;
+}
+
+.content-markdown h1 {
+    font-size: 3em;
+    margin-bottom: 0.5em;
+    color: #fff;
+}
+
+.content-markdown h2 {
+    font-size: 2.5em;
+    margin-bottom: 0.4em;
+    color: #f0f0f0;
+}
+
+.content-markdown h3 {
+    font-size: 2em;
+    margin-bottom: 0.3em;
+    color: #e0e0e0;
+}
+
+.content-markdown p {
+    font-size: 1.5em;
+    line-height: 1.6;
+    margin-bottom: 0.5em;
+}
+
+.content-markdown code {
+    background: #0d1b2a;
+    padding: 0.2em 0.4em;
+    border-radius: 0.25em;
+    font-family: 'Fira Code', 'Consolas', monospace;
+}
+
+.content-markdown pre {
+    background: #0d1b2a;
+    padding: 1em;
+    border-radius: 0.5em;
+    overflow-x: auto;
+    margin: 0.5em 0;
+}
+
+.content-markdown pre code {
+    background: none;
+    padding: 0;
+}
+
+.content-markdown ul, .content-markdown ol {
+    margin-left: 1.5em;
+    font-size: 1.5em;
+}
+
+.content-markdown blockquote {
+    border-left: 4px solid #4a69bd;
+    padding-left: 1em;
+    margin: 0.5em 0;
+    color: #aaa;
+    font-style: italic;
+}
+
+/* Layout variations based on panel count */
+.screen.panels-1 {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+}
+
+.screen.panels-2 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr;
+}
+
+.screen.panels-3 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+
+.screen.panels-3 .panel:first-child {
+    grid-column: span 2;
+}
+
+.screen.panels-4 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+}
+
+.screen.panels-5 {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr 1fr;
+}
+
+.screen.panels-5 .panel:nth-child(4) {
+    grid-column: span 1;
+}
+
+.screen.panels-5 .panel:nth-child(5) {
+    grid-column: span 1;
+}
+
+.screen.panels-6 {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: 1fr 1fr;
+}
+
+/* Connection status indicator */
+.connection-status {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 2rem;
+    font-size: 0.875rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.connection-status.visible {
+    opacity: 1;
+}
+
+.connection-status.connected {
+    background: #27ae60;
+    color: white;
+}
+
+.connection-status.disconnected {
+    background: #e74c3c;
+    color: white;
+}
+
+.connection-status.reconnecting {
+    background: #f39c12;
+    color: white;
+}

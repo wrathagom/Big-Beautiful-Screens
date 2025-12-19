@@ -1,0 +1,323 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background: #0f0f23;
+    color: #ccc;
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+h1 {
+    font-size: 2.5rem;
+    color: #fff;
+    margin-bottom: 0.25rem;
+}
+
+.subtitle {
+    color: #666;
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+}
+
+.actions {
+    margin-bottom: 1.5rem;
+}
+
+.btn-primary {
+    background: #4a69bd;
+    color: white;
+    border: none;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #6a89dd;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #1a1a2e;
+    border-radius: 0.5rem;
+}
+
+/* Border radius on corner cells instead of overflow:hidden on table */
+thead tr th:first-child {
+    border-top-left-radius: 0.5rem;
+}
+
+thead tr th:last-child {
+    border-top-right-radius: 0.5rem;
+}
+
+tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 0.5rem;
+}
+
+tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 0.5rem;
+}
+
+th, td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid #2a2a4e;
+}
+
+th {
+    background: #16213e;
+    color: #fff;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+
+tr:last-child td {
+    border-bottom: none;
+}
+
+tr:hover {
+    background: #1e1e3e;
+}
+
+code {
+    background: #0d1b2a;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.875rem;
+}
+
+.api-key {
+    color: #f39c12;
+}
+
+a {
+    color: #4a69bd;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.empty {
+    text-align: center;
+    color: #666;
+    padding: 3rem;
+}
+
+.viewers-cell {
+    text-align: center;
+    font-weight: 600;
+    color: #4a69bd;
+}
+
+.actions-cell {
+    position: relative;
+    white-space: nowrap;
+}
+
+.btn-reload {
+    background: #27ae60;
+    color: #fff;
+    border: none;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 0.5rem;
+}
+
+.btn-reload:hover {
+    background: #2ecc71;
+}
+
+.btn-delete {
+    background: #c0392b;
+    color: #fff;
+    border: none;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-left: 0.5rem;
+}
+
+.btn-delete:hover {
+    background: #e74c3c;
+}
+
+.copy-cell {
+    position: relative;
+    width: 80px;
+}
+
+.copy-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.btn-copy {
+    background: #4a69bd;
+    color: #fff;
+    border: none;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-copy:hover {
+    background: #6a89dd;
+}
+
+.dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 0.25rem;
+    background: #1a1a2e;
+    border: 1px solid #3a3a5e;
+    border-radius: 0.5rem;
+    min-width: 160px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-menu button {
+    display: block;
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background: none;
+    border: none;
+    color: #ccc;
+    text-align: left;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.15s;
+}
+
+.dropdown-menu button:hover {
+    background: #2a2a4e;
+    color: #fff;
+}
+
+.dropdown-menu button.copied {
+    background: #27ae60;
+    color: #fff;
+}
+
+.dropdown-menu hr {
+    border: none;
+    border-top: 1px solid #3a3a5e;
+    margin: 0.25rem 0;
+}
+
+@media (max-width: 1200px) {
+    body {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 900px) {
+    h1 {
+        font-size: 1.75rem;
+    }
+
+    .subtitle {
+        font-size: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Hide table header */
+    thead {
+        display: none;
+    }
+
+    table, tbody, tr, td {
+        display: block;
+        width: 100%;
+    }
+
+    /* Each row becomes a card */
+    tr {
+        background: #1a1a2e;
+        border-radius: 0.5rem;
+        margin-bottom: 1rem;
+        padding: 1rem;
+        border: 1px solid #2a2a4e;
+    }
+
+    tr:hover {
+        background: #1a1a2e;
+    }
+
+    td {
+        padding: 0.5rem 0;
+        border-bottom: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    td:before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #888;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        flex-shrink: 0;
+        width: 80px;
+    }
+
+    td code, td a {
+        word-break: break-all;
+        text-align: right;
+        flex: 1;
+    }
+
+    /* Copy cell on mobile */
+    .copy-cell {
+        width: 100%;
+        justify-content: flex-end;
+        padding-top: 0.75rem;
+        margin-top: 0.5rem;
+        border-top: 1px solid #2a2a4e;
+    }
+
+    .copy-cell:before {
+        display: none;
+    }
+
+    .dropdown-menu {
+        right: 0;
+        left: auto;
+    }
+}
