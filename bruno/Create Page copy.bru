@@ -1,0 +1,29 @@
+meta {
+  name: Create Page copy
+  type: http
+  seq: 7
+}
+
+post {
+  url: http://localhost:8000/api/screens/bb16042004de/pages/test
+  body: json
+  auth: inherit
+}
+
+headers {
+  X-API-Key: sk_txHCGpw8DYBu86U7SLXmNirX9mja4-YS
+}
+
+body:json {
+  {
+    "content": [
+      {"type": "text", "value": "testing a 3rd page, with 2 panels", "color": "#000000"},
+      {"type": "text", "value": "3rd Page, 2nd panel!", "color": "#111111"}
+    ]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

@@ -124,7 +124,7 @@ class TestMessages:
                 "content": [
                     {"type": "text", "value": "Plain text"},
                     {"type": "markdown", "value": "# Heading"},
-                    {"type": "text", "value": "Colored", "color": "#c0392b"}
+                    {"type": "text", "value": "Colored", "panel_color": "#c0392b"}
                 ]
             }
         )
@@ -336,3 +336,171 @@ class TestContentAutoDetection:
             json={"content": ["https://example.com/video.mp4"]}
         )
         assert response.status_code == 200
+
+
+class TestPages:
+    """Tests for multi-page functionality."""
+
+    def test_list_pages_empty(self, client, screen):
+        """Test listing pages for a new screen."""
+        response = client.get(f"/api/screens/{screen['screen_id']}/pages")
+        assert response.status_code == 200
+        data = response.json()
+        assert "pages" in data
+        assert "rotation" in data
+
+    def test_create_page(self, client, screen):
+        """Test creating a new page."""
+        response = client.post(
+            f"/api/screens/{screen['screen_id']}/pages/alerts",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Alert message!"]}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["page"]["name"] == "alerts"
+
+    def test_update_existing_page(self, client, screen):
+        """Test updating an existing page."""
+        # Create page
+        client.post(
+            f"/api/screens/{screen['screen_id']}/pages/weather",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Sunny"]}
+        )
+
+        # Update page
+        response = client.post(
+            f"/api/screens/{screen['screen_id']}/pages/weather",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Rainy"]}
+        )
+        assert response.status_code == 200
+        assert response.json()["page"]["content"][0]["value"] == "Rainy"
+
+    def test_create_page_with_duration(self, client, screen):
+        """Test creating a page with custom duration."""
+        response = client.post(
+            f"/api/screens/{screen['screen_id']}/pages/promo",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Special offer!"], "duration": 10}
+        )
+        assert response.status_code == 200
+        assert response.json()["page"]["duration"] == 10
+
+    def test_create_ephemeral_page(self, client, screen):
+        """Test creating an ephemeral page with expiry."""
+        from datetime import datetime, timedelta, timezone
+        expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+
+        response = client.post(
+            f"/api/screens/{screen['screen_id']}/pages/flash",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Flash sale!"], "expires_at": expires}
+        )
+        assert response.status_code == 200
+        assert response.json()["page"]["expires_at"] is not None
+
+    def test_delete_page(self, client, screen):
+        """Test deleting a page."""
+        # Create page
+        client.post(
+            f"/api/screens/{screen['screen_id']}/pages/temp",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Temporary"]}
+        )
+
+        # Delete page
+        response = client.delete(
+            f"/api/screens/{screen['screen_id']}/pages/temp",
+            headers={"X-API-Key": screen["api_key"]}
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_cannot_delete_default_page(self, client, screen):
+        """Test that the default page cannot be deleted."""
+        response = client.delete(
+            f"/api/screens/{screen['screen_id']}/pages/default",
+            headers={"X-API-Key": screen["api_key"]}
+        )
+        assert response.status_code == 400
+
+    def test_delete_nonexistent_page(self, client, screen):
+        """Test deleting a page that doesn't exist."""
+        response = client.delete(
+            f"/api/screens/{screen['screen_id']}/pages/nonexistent",
+            headers={"X-API-Key": screen["api_key"]}
+        )
+        assert response.status_code == 404
+
+    def test_page_wrong_api_key(self, client, screen):
+        """Test that wrong API key is rejected for page operations."""
+        response = client.post(
+            f"/api/screens/{screen['screen_id']}/pages/test",
+            headers={"X-API-Key": "wrong_key"},
+            json={"content": ["Should fail"]}
+        )
+        assert response.status_code == 401
+
+
+class TestRotation:
+    """Tests for rotation settings."""
+
+    def test_update_rotation_settings(self, client, screen):
+        """Test updating rotation settings."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}/rotation?enabled=true&interval=15",
+            headers={"X-API-Key": screen["api_key"]}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["rotation"]["enabled"] is True
+        assert data["rotation"]["interval"] == 15
+
+    def test_disable_rotation(self, client, screen):
+        """Test disabling rotation."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}/rotation?enabled=false",
+            headers={"X-API-Key": screen["api_key"]}
+        )
+        assert response.status_code == 200
+        assert response.json()["rotation"]["enabled"] is False
+
+    def test_rotation_wrong_api_key(self, client, screen):
+        """Test that wrong API key is rejected for rotation settings."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}/rotation?enabled=true",
+            headers={"X-API-Key": "wrong_key"}
+        )
+        assert response.status_code == 401
+
+    def test_reorder_pages(self, client, screen):
+        """Test reordering pages."""
+        # Create some pages
+        client.post(
+            f"/api/screens/{screen['screen_id']}/pages/default",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Default"]}
+        )
+        client.post(
+            f"/api/screens/{screen['screen_id']}/pages/page1",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Page 1"]}
+        )
+        client.post(
+            f"/api/screens/{screen['screen_id']}/pages/page2",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Page 2"]}
+        )
+
+        # Reorder
+        response = client.put(
+            f"/api/screens/{screen['screen_id']}/pages/order",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"page_names": ["page2", "page1", "default"]}
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True

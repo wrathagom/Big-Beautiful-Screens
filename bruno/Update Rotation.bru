@@ -1,0 +1,34 @@
+meta {
+  name: Update Rotation
+  type: http
+  seq: 5
+}
+
+patch {
+  url: http://localhost:8000/api/screens/bb16042004de/rotation?enabled=true&interval=5
+  body: none
+  auth: inherit
+}
+
+params:query {
+  enabled: true
+  interval: 5
+}
+
+headers {
+  X-API-Key: sk_txHCGpw8DYBu86U7SLXmNirX9mja4-YS
+}
+
+body:json {
+  {
+    "rotation": {
+      "enabled": true,
+      "interval": 5
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

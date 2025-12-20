@@ -7,8 +7,16 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Head
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from .models import MessageRequest, ScreenResponse, MessageResponse
-from .database import init_db, create_screen, get_screen_by_id, get_screen_by_api_key, save_message, get_last_message, get_all_screens, delete_screen, update_screen_name
+from .models import (
+    MessageRequest, ScreenResponse, MessageResponse,
+    PageRequest, RotationSettings, PageOrderRequest, PageResponse, PagesListResponse
+)
+from .database import (
+    init_db, create_screen, get_screen_by_id, get_screen_by_api_key,
+    save_message, get_last_message, get_all_screens, delete_screen, update_screen_name,
+    upsert_page, get_all_pages, get_page, delete_page, reorder_pages,
+    get_rotation_settings, update_rotation_settings, cleanup_expired_pages
+)
 from .connection_manager import manager
 
 app = FastAPI(title="Big Beautiful Screens", version="0.1.0")
@@ -46,7 +54,7 @@ async def send_message(
     request: MessageRequest,
     x_api_key: str = Header(alias="X-API-Key")
 ):
-    """Send a message to a screen. Requires API key authentication."""
+    """Send a message to a screen (updates the 'default' page). Requires API key authentication."""
     # Validate screen exists
     screen = await get_screen_by_id(screen_id)
     if not screen:
@@ -68,12 +76,21 @@ async def send_message(
         "font_color": request.font_color
     }
 
-    # Save message to database
+    # Save to pages table as "default" page (backward compatible)
+    page_data = await upsert_page(screen_id, "default", message_payload)
+
+    # Also save to messages table for legacy compatibility
     created_at = datetime.now(timezone.utc).isoformat()
     await save_message(screen_id, message_payload, created_at)
 
-    # Broadcast to all connected viewers
+    # Broadcast page update to all connected viewers
     viewers = await manager.broadcast(screen_id, {
+        "type": "page_update",
+        "page": page_data
+    })
+
+    # Also broadcast legacy message format for backward compatibility
+    await manager.broadcast(screen_id, {
         "type": "message",
         **message_payload
     })
@@ -108,6 +125,161 @@ async def update_screen(screen_id: str, name: str | None = None):
     if not updated:
         raise HTTPException(status_code=404, detail="Screen not found")
     return {"success": True, "name": name}
+
+
+# ============== Page Endpoints ==============
+
+@app.get("/api/screens/{screen_id}/pages")
+async def list_pages(screen_id: str):
+    """List all pages for a screen with rotation settings."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    pages = await get_all_pages(screen_id)
+    rotation = await get_rotation_settings(screen_id)
+
+    return {
+        "pages": pages,
+        "rotation": rotation
+    }
+
+
+@app.post("/api/screens/{screen_id}/pages/{page_name}")
+async def create_or_update_page(
+    screen_id: str,
+    page_name: str,
+    request: PageRequest,
+    x_api_key: str = Header(alias="X-API-Key")
+):
+    """Create or update a specific page. Requires API key authentication."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Normalize content
+    normalized_content = normalize_content(request.content)
+
+    message_payload = {
+        "content": normalized_content,
+        "background_color": request.background_color,
+        "panel_color": request.panel_color,
+        "font_family": request.font_family,
+        "font_color": request.font_color
+    }
+
+    # Convert expires_at to ISO string if provided
+    expires_at_str = request.expires_at.isoformat() if request.expires_at else None
+
+    page_data = await upsert_page(
+        screen_id, page_name, message_payload,
+        duration=request.duration,
+        expires_at=expires_at_str
+    )
+
+    # Broadcast page update
+    viewers = await manager.broadcast(screen_id, {
+        "type": "page_update",
+        "page": page_data
+    })
+
+    # If updating default page, also broadcast legacy message
+    if page_name == "default":
+        await manager.broadcast(screen_id, {
+            "type": "message",
+            **message_payload
+        })
+
+    return {"success": True, "page": page_data, "viewers": viewers}
+
+
+@app.delete("/api/screens/{screen_id}/pages/{page_name}")
+async def delete_page_endpoint(
+    screen_id: str,
+    page_name: str,
+    x_api_key: str = Header(alias="X-API-Key")
+):
+    """Delete a page. Cannot delete the 'default' page. Requires API key authentication."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    if page_name == "default":
+        raise HTTPException(status_code=400, detail="Cannot delete the default page")
+
+    deleted = await delete_page(screen_id, page_name)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    # Broadcast page deletion
+    viewers = await manager.broadcast(screen_id, {
+        "type": "page_delete",
+        "page_name": page_name
+    })
+
+    return {"success": True, "viewers": viewers}
+
+
+@app.put("/api/screens/{screen_id}/pages/order")
+async def reorder_pages_endpoint(
+    screen_id: str,
+    request: PageOrderRequest,
+    x_api_key: str = Header(alias="X-API-Key")
+):
+    """Reorder pages by providing an ordered list of page names. Requires API key authentication."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    await reorder_pages(screen_id, request.page_names)
+
+    # Get updated pages and broadcast
+    pages = await get_all_pages(screen_id)
+    rotation = await get_rotation_settings(screen_id)
+
+    await manager.broadcast(screen_id, {
+        "type": "pages_sync",
+        "pages": pages,
+        "rotation": rotation
+    })
+
+    return {"success": True}
+
+
+@app.patch("/api/screens/{screen_id}/rotation")
+async def update_rotation(
+    screen_id: str,
+    enabled: bool | None = None,
+    interval: int | None = None,
+    x_api_key: str = Header(alias="X-API-Key")
+):
+    """Update rotation settings for a screen. Requires API key authentication."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    await update_rotation_settings(screen_id, enabled=enabled, interval=interval)
+    rotation = await get_rotation_settings(screen_id)
+
+    # Broadcast rotation update
+    await manager.broadcast(screen_id, {
+        "type": "rotation_update",
+        "rotation": rotation
+    })
+
+    return {"success": True, "rotation": rotation}
 
 
 @app.get("/screen/{screen_id}", response_class=HTMLResponse)
@@ -414,7 +586,17 @@ async def websocket_endpoint(websocket: WebSocket, screen_id: str):
     await manager.connect(screen_id, websocket)
 
     try:
-        # Send the last message if one exists
+        # Send full pages sync on connect
+        pages = await get_all_pages(screen_id)
+        rotation = await get_rotation_settings(screen_id)
+
+        await websocket.send_json({
+            "type": "pages_sync",
+            "pages": pages,
+            "rotation": rotation
+        })
+
+        # Also send legacy message format for backward compatibility
         last_message = await get_last_message(screen_id)
         if last_message:
             await websocket.send_json({
@@ -453,8 +635,8 @@ def normalize_content(content: list) -> list:
                 entry = {"type": item.type, "value": item.value}
 
             # Preserve per-panel styling if specified
-            if item.color:
-                entry["color"] = item.color
+            if item.panel_color:
+                entry["panel_color"] = item.panel_color
             if item.font_family:
                 entry["font_family"] = item.font_family
             if item.font_color:

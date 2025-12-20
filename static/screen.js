@@ -4,13 +4,18 @@ const screenId = pathParts[pathParts.length - 1];
 
 // WebSocket connection
 let ws = null;
-let reconnectAttempts = 0;
-const maxReconnectAttempts = 10;
-const reconnectDelay = 1000;
+const reconnectDelay = 1000;  // Retry every second, forever
 
 // DOM elements
 const screenEl = document.getElementById('screen');
 const statusEl = document.getElementById('connection-status');
+
+// Page state
+let pages = [];              // Array of page objects
+let currentPageIndex = 0;
+let rotationEnabled = false;
+let rotationInterval = 30;   // seconds
+let rotationTimer = null;
 
 // Initialize
 connect();
@@ -23,23 +28,48 @@ function connect() {
 
     ws.onopen = () => {
         console.log('Connected to screen');
-        reconnectAttempts = 0;
         showStatus('connected', 'Connected');
         setTimeout(() => hideStatus(), 2000);
     };
 
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        if (data.type === 'message') {
-            renderContent(data.content, {
-                backgroundColor: data.background_color,
-                panelColor: data.panel_color,
-                fontFamily: data.font_family,
-                fontColor: data.font_color
-            });
-        } else if (data.type === 'reload') {
-            // Force reload, bypassing cache
-            location.reload(true);
+
+        switch (data.type) {
+            case 'pages_sync':
+                // Full state replacement
+                handlePagesSync(data.pages, data.rotation);
+                break;
+
+            case 'page_update':
+                // Upsert single page
+                handlePageUpdate(data.page);
+                break;
+
+            case 'page_delete':
+                // Remove page
+                handlePageDelete(data.page_name);
+                break;
+
+            case 'rotation_update':
+                // Update rotation settings
+                handleRotationUpdate(data.rotation);
+                break;
+
+            case 'message':
+                // Legacy format - still supported for backward compatibility
+                renderContent(data.content, {
+                    backgroundColor: data.background_color,
+                    panelColor: data.panel_color,
+                    fontFamily: data.font_family,
+                    fontColor: data.font_color
+                });
+                break;
+
+            case 'reload':
+                // Force reload, bypassing cache
+                location.reload(true);
+                break;
         }
     };
 
@@ -58,14 +88,8 @@ function connect() {
 }
 
 function scheduleReconnect() {
-    if (reconnectAttempts < maxReconnectAttempts) {
-        reconnectAttempts++;
-        const delay = reconnectDelay * Math.min(reconnectAttempts, 5);
-        showStatus('reconnecting', `Reconnecting (${reconnectAttempts}/${maxReconnectAttempts})...`);
-        setTimeout(connect, delay);
-    } else {
-        showStatus('disconnected', 'Connection lost. Refresh to retry.');
-    }
+    showStatus('reconnecting', 'Reconnecting...');
+    setTimeout(connect, reconnectDelay);
 }
 
 function showStatus(type, message) {
@@ -75,6 +99,164 @@ function showStatus(type, message) {
 
 function hideStatus() {
     statusEl.classList.remove('visible');
+}
+
+// ============== Page Handling ==============
+
+function handlePagesSync(newPages, rotation) {
+    pages = newPages || [];
+    currentPageIndex = 0;
+
+    // Update rotation settings
+    if (rotation) {
+        rotationEnabled = rotation.enabled;
+        rotationInterval = rotation.interval || 30;
+    }
+
+    // Render current page
+    renderCurrentPage();
+
+    // Start/stop rotation based on settings
+    if (rotationEnabled && pages.length > 1) {
+        startRotation();
+    } else {
+        stopRotation();
+    }
+}
+
+function handlePageUpdate(page) {
+    if (!page) return;
+
+    // Find existing page by name
+    const existingIndex = pages.findIndex(p => p.name === page.name);
+
+    if (existingIndex >= 0) {
+        // Update existing page
+        pages[existingIndex] = page;
+    } else {
+        // Add new page at correct position based on display_order
+        pages.push(page);
+        pages.sort((a, b) => a.display_order - b.display_order);
+    }
+
+    // Re-render if viewing the updated page
+    const activePages = getActivePages();
+    if (activePages.length > 0 && currentPageIndex < activePages.length) {
+        const currentPage = activePages[currentPageIndex];
+        if (currentPage.name === page.name) {
+            renderCurrentPage();
+        }
+    }
+
+    // Start rotation if we now have multiple pages
+    if (rotationEnabled && pages.length > 1) {
+        startRotation();
+    }
+}
+
+function handlePageDelete(pageName) {
+    const deletedIndex = pages.findIndex(p => p.name === pageName);
+    if (deletedIndex < 0) return;
+
+    pages.splice(deletedIndex, 1);
+
+    // Adjust current index if needed
+    if (currentPageIndex >= pages.length) {
+        currentPageIndex = Math.max(0, pages.length - 1);
+    }
+
+    // Re-render
+    renderCurrentPage();
+
+    // Stop rotation if only one page left
+    if (pages.length <= 1) {
+        stopRotation();
+    }
+}
+
+function handleRotationUpdate(rotation) {
+    if (!rotation) return;
+
+    rotationEnabled = rotation.enabled;
+    rotationInterval = rotation.interval || 30;
+
+    if (rotationEnabled && pages.length > 1) {
+        startRotation();
+    } else {
+        stopRotation();
+    }
+}
+
+function getActivePages() {
+    // Filter out expired pages
+    const now = new Date().toISOString();
+    return pages.filter(page => !page.expires_at || page.expires_at > now);
+}
+
+function renderCurrentPage() {
+    const activePages = getActivePages();
+
+    if (activePages.length === 0) {
+        // No pages to show
+        screenEl.innerHTML = '<div class="panel"><div class="panel-content"><div class="content-text">No content</div></div></div>';
+        screenEl.className = 'screen panels-1';
+        return;
+    }
+
+    // Ensure index is valid
+    if (currentPageIndex >= activePages.length) {
+        currentPageIndex = 0;
+    }
+
+    const page = activePages[currentPageIndex];
+
+    renderContent(page.content, {
+        backgroundColor: page.background_color,
+        panelColor: page.panel_color,
+        fontFamily: page.font_family,
+        fontColor: page.font_color
+    });
+}
+
+function startRotation() {
+    stopRotation(); // Clear any existing timer
+
+    if (!rotationEnabled || pages.length <= 1) return;
+
+    const activePages = getActivePages();
+    const currentPage = activePages[currentPageIndex];
+
+    // Use per-page duration if set, otherwise use screen default
+    const duration = (currentPage && currentPage.duration) || rotationInterval;
+
+    rotationTimer = setTimeout(() => {
+        advanceToNextPage();
+    }, duration * 1000);
+}
+
+function stopRotation() {
+    if (rotationTimer) {
+        clearTimeout(rotationTimer);
+        rotationTimer = null;
+    }
+}
+
+function advanceToNextPage() {
+    const activePages = getActivePages();
+
+    if (activePages.length <= 1) {
+        stopRotation();
+        return;
+    }
+
+    // Move to next page
+    currentPageIndex = (currentPageIndex + 1) % activePages.length;
+
+    // Render the new page
+    renderCurrentPage();
+
+    // Schedule next rotation
+    startRotation();
 }
 
 function renderContent(content, styles = {}) {
@@ -113,8 +295,8 @@ function renderContent(content, styles = {}) {
         panel.className = 'panel';
 
         // Apply panel color (per-item override takes precedence over default)
-        if (item.color) {
-            panel.style.backgroundColor = item.color;
+        if (item.panel_color) {
+            panel.style.backgroundColor = item.panel_color;
         } else if (panelColor) {
             panel.style.backgroundColor = panelColor;
         }
@@ -349,3 +531,29 @@ window.addEventListener('resize', () => {
         autoScaleMarkdown();
     }, 100);
 });
+
+// Periodic check for expired pages (client-side fallback)
+setInterval(() => {
+    if (pages.length === 0) return;
+
+    const activePages = getActivePages();
+    const expiredCount = pages.length - activePages.length;
+
+    if (expiredCount > 0) {
+        // Remove expired pages from local state
+        pages = activePages;
+
+        // Adjust current index if needed
+        if (currentPageIndex >= pages.length) {
+            currentPageIndex = Math.max(0, pages.length - 1);
+        }
+
+        // Re-render current page
+        renderCurrentPage();
+
+        // Update rotation
+        if (pages.length <= 1) {
+            stopRotation();
+        }
+    }
+}, 1000); // Check every second

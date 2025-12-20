@@ -1,0 +1,26 @@
+meta {
+  name: Create Page
+  type: http
+  seq: 4
+}
+
+post {
+  url: http://localhost:8000/api/screens/bb16042004de/pages/test3
+  body: json
+  auth: inherit
+}
+
+headers {
+  X-API-Key: sk_txHCGpw8DYBu86U7SLXmNirX9mja4-YS
+}
+
+body:json {
+  {
+    "content": [{"type": "text", "value": "testing a 3rd page", "color": "#000000"}]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

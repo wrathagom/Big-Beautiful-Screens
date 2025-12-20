@@ -15,6 +15,9 @@ A MicroSaaS that provides developers with API endpoints to push content to real-
 - **Custom fonts** - set font family and color globally or per-panel
 - **Message persistence** - new viewers see the last message immediately
 - **Admin dashboard** - view all screens, active viewers, copy credentials, reload or delete screens
+- **Multi-page support** - screens can have multiple named pages that rotate automatically
+- **Page rotation** - configurable timer to cycle between pages with per-page duration overrides
+- **Ephemeral pages** - temporary pages that auto-expire after a set time
 
 ## Quick Start
 
@@ -94,6 +97,69 @@ curl -X POST http://localhost:8000/api/screens/{screen_id}/reload
 curl -X DELETE http://localhost:8000/api/screens/{screen_id}
 ```
 
+### Pages API
+
+Screens support multiple named pages that can rotate automatically. The existing `/message` endpoint updates the "default" page for backward compatibility.
+
+#### List All Pages
+
+```bash
+curl http://localhost:8000/api/screens/{screen_id}/pages
+```
+
+**Response:**
+```json
+{
+  "pages": [
+    {"name": "default", "content": [...], "display_order": 0, "duration": null, "expires_at": null},
+    {"name": "alerts", "content": [...], "display_order": 1, "duration": 10, "expires_at": null}
+  ],
+  "rotation": {"enabled": true, "interval": 30}
+}
+```
+
+#### Create or Update a Page
+
+```bash
+curl -X POST http://localhost:8000/api/screens/{screen_id}/pages/alerts \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_your_api_key" \
+  -d '{
+    "content": ["ALERT: Server maintenance in 10 minutes"],
+    "background_color": "#c0392b",
+    "duration": 10
+  }'
+```
+
+Optional fields:
+- `duration` - seconds to display this page (overrides screen default)
+- `expires_at` - ISO timestamp for ephemeral pages (e.g., `"2024-12-31T23:59:59Z"`)
+
+#### Delete a Page
+
+```bash
+curl -X DELETE http://localhost:8000/api/screens/{screen_id}/pages/alerts \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+Note: The "default" page cannot be deleted.
+
+#### Update Rotation Settings
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{screen_id}/rotation?enabled=true&interval=30" \
+  -H "X-API-Key: sk_your_api_key"
+```
+
+#### Reorder Pages
+
+```bash
+curl -X PUT http://localhost:8000/api/screens/{screen_id}/pages/order \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_your_api_key" \
+  -d '{"page_names": ["alerts", "default", "weather"]}'
+```
+
 ## Content Types
 
 Content is auto-detected based on the string:
@@ -138,8 +204,8 @@ Override color for individual panels:
 {
   "content": [
     {"type": "text", "value": "Normal panel"},
-    {"type": "text", "value": "Red panel", "color": "#c0392b"},
-    {"type": "text", "value": "Green panel", "color": "#27ae60"}
+    {"type": "text", "value": "Red panel", "panel_color": "#c0392b"},
+    {"type": "text", "value": "Green panel", "panel_color": "#27ae60"}
   ]
 }
 ```
@@ -218,6 +284,57 @@ Videos support autoplay, loop, and mute controls (all default to `true`):
 }
 ```
 
+## Multi-Page Rotation
+
+Screens can display multiple pages that rotate automatically. This is useful for dashboards that need to cycle through different views.
+
+### How Pages Work
+
+- Every screen has a required "default" page
+- Additional pages can be added with any name (e.g., "alerts", "weather", "metrics")
+- The existing `/message` API updates the "default" page for backward compatibility
+- Pages are displayed in order based on `display_order`
+
+### Rotation Settings
+
+Enable rotation and set the interval (in seconds):
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{id}/rotation?enabled=true&interval=30" \
+  -H "X-API-Key: {api_key}"
+```
+
+When rotation is enabled:
+- Pages cycle automatically at the specified interval
+- Each page can override the interval with its own `duration`
+- Expired pages are silently skipped
+
+### Per-Page Duration
+
+Override the rotation interval for a specific page:
+
+```json
+{
+  "content": ["BREAKING NEWS: ..."],
+  "duration": 60
+}
+```
+
+This page will display for 60 seconds instead of the screen's default interval.
+
+### Ephemeral Pages
+
+Create temporary pages that auto-expire:
+
+```json
+{
+  "content": ["Flash Sale! 50% off for the next hour"],
+  "expires_at": "2024-12-31T23:59:59Z"
+}
+```
+
+When the expiry time passes, the page is silently removed from rotation.
+
 ## Auto-Layout
 
 The screen automatically arranges content based on the number of items:
@@ -281,9 +398,9 @@ curl -X POST http://localhost:8000/api/screens/{id}/message \
   -H "X-API-Key: {api_key}" \
   -d '{
     "content": [
-      {"type": "text", "value": "Production: OK", "color": "#27ae60"},
-      {"type": "text", "value": "Staging: DEPLOYING", "color": "#f39c12"},
-      {"type": "text", "value": "Dev: FAILED", "color": "#c0392b"}
+      {"type": "text", "value": "Production: OK", "panel_color": "#27ae60"},
+      {"type": "text", "value": "Staging: DEPLOYING", "panel_color": "#f39c12"},
+      {"type": "text", "value": "Dev: FAILED", "panel_color": "#c0392b"}
     ]
   }'
 ```
@@ -324,6 +441,49 @@ curl -X POST http://localhost:8000/api/screens/{id}/message \
     "content": [
       {"type": "video", "url": "https://example.com/background.mp4", "image_mode": "cover"}
     ]
+  }'
+```
+
+### Multi-Page Dashboard with Rotation
+
+Set up a rotating dashboard with multiple pages:
+
+```bash
+# Enable rotation (30 second interval)
+curl -X PATCH "http://localhost:8000/api/screens/{id}/rotation?enabled=true&interval=30" \
+  -H "X-API-Key: {api_key}"
+
+# Create main dashboard page
+curl -X POST http://localhost:8000/api/screens/{id}/pages/default \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: {api_key}" \
+  -d '{"content": ["# Sales Dashboard", "Revenue: $50,000", "Orders: 150"]}'
+
+# Create metrics page
+curl -X POST http://localhost:8000/api/screens/{id}/pages/metrics \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: {api_key}" \
+  -d '{"content": ["# System Metrics", "CPU: 45%", "Memory: 2.1GB"]}'
+
+# Create weather page (displays for 10 seconds)
+curl -X POST http://localhost:8000/api/screens/{id}/pages/weather \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: {api_key}" \
+  -d '{"content": ["# Weather", "72°F Sunny"], "duration": 10}'
+```
+
+### Ephemeral Alert Page
+
+Create a temporary alert that expires in 1 hour:
+
+```bash
+curl -X POST http://localhost:8000/api/screens/{id}/pages/alert \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: {api_key}" \
+  -d '{
+    "content": ["MAINTENANCE: Server restart in 30 minutes"],
+    "background_color": "#e74c3c",
+    "expires_at": "2024-12-31T12:00:00Z"
   }'
 ```
 
@@ -378,6 +538,8 @@ The tests cover:
 - Authentication (API key validation)
 - Admin page functionality
 - Content type auto-detection
+- Page management and rotation settings
+- Ephemeral pages with expiration
 
 ### Manual Testing Scripts
 

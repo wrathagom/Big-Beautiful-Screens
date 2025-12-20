@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "Big Beautiful Screens",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}
