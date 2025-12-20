@@ -360,6 +360,38 @@ requests.post(
 requests.post(f"{BASE_URL}/api/screens/{screen_id}/reload")
 ```
 
+## Testing
+
+Run the test suite with pytest:
+
+```bash
+source venv/bin/activate
+pytest tests/ -v
+```
+
+The tests cover:
+- Screen creation and management
+- Message sending with all content types
+- Color, font, and styling options
+- Video and image display modes
+- Text wrapping options
+- Authentication (API key validation)
+- Admin page functionality
+- Content type auto-detection
+
+### Manual Testing Scripts
+
+For interactive testing with a running server, use the provided test scripts:
+
+```bash
+# Start the server first
+uvicorn app.main:app --reload
+
+# In another terminal, run tests
+python test_api.py      # Basic API tests
+python test_colors.py   # Color feature tests
+```
+
 ## Project Structure
 
 ```
@@ -375,6 +407,8 @@ big-beautiful-screens/
 │   ├── screen.js            # Client-side rendering
 │   ├── screen.css           # Screen styling
 │   └── admin.css            # Admin page styling
+├── tests/
+│   └── test_screens.py      # Pytest test suite
 ├── data/                    # SQLite database (auto-created)
 ├── requirements.txt
 └── README.md
