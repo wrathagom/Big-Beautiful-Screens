@@ -13,6 +13,11 @@ A MicroSaaS that provides developers with API endpoints to push content to real-
 - **Video support** - embed videos with autoplay, loop, and mute controls
 - **Custom colors** - set background and panel colors globally or per-panel
 - **Custom fonts** - set font family and color globally or per-panel
+- **Customizable gaps** - control spacing between panels (like a tiling window manager)
+- **Customizable corners** - control panel border radius for sharp or rounded corners
+- **Panel shadows** - optional drop shadows for depth and visual hierarchy
+- **Gradient support** - use CSS gradients for backgrounds and panels
+- **Screen-level defaults** - set default colors/fonts that apply to all pages
 - **Message persistence** - new viewers see the last message immediately
 - **Admin dashboard** - view all screens, active viewers, copy credentials, reload or delete screens
 - **Multi-page support** - screens can have multiple named pages that rotate automatically
@@ -134,6 +139,9 @@ curl -X POST http://localhost:8000/api/screens/{screen_id}/pages/alerts \
 Optional fields:
 - `duration` - seconds to display this page (overrides screen default)
 - `expires_at` - ISO timestamp for ephemeral pages (e.g., `"2024-12-31T23:59:59Z"`)
+- `gap` - panel gap for this page (overrides screen default, e.g., `"0"`, `"1rem"`)
+- `border_radius` - panel corner radius for this page (overrides screen default)
+- `panel_shadow` - CSS box-shadow for this page (overrides screen default)
 
 #### Delete a Page
 
@@ -144,12 +152,30 @@ curl -X DELETE http://localhost:8000/api/screens/{screen_id}/pages/alerts \
 
 Note: The "default" page cannot be deleted.
 
-#### Update Rotation Settings
+#### Update Screen Settings
 
 ```bash
-curl -X PATCH "http://localhost:8000/api/screens/{screen_id}/rotation?enabled=true&interval=30" \
-  -H "X-API-Key: sk_your_api_key"
+curl -X PATCH "http://localhost:8000/api/screens/{screen_id}" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_your_api_key" \
+  -d '{
+    "rotation_enabled": true,
+    "rotation_interval": 30,
+    "background_color": "linear-gradient(90deg, #2a7b9b 0%, #57c785 100%)"
+  }'
 ```
+
+Available settings:
+- `name` - Screen display name (no API key required)
+- `rotation_enabled` - Enable/disable page rotation
+- `rotation_interval` - Seconds between page transitions
+- `gap` - Space between panels (e.g., `"1rem"`, `"0"`)
+- `border_radius` - Panel corner rounding (e.g., `"1rem"`, `"0"`)
+- `panel_shadow` - CSS box-shadow for panels
+- `background_color` - Default background (supports gradients)
+- `panel_color` - Default panel color (supports gradients)
+- `font_family` - Default font family
+- `font_color` - Default text color
 
 #### Reorder Pages
 
@@ -284,6 +310,175 @@ Videos support autoplay, loop, and mute controls (all default to `true`):
 }
 ```
 
+### Panel Gaps
+
+Control the spacing between panels, similar to gaps in a tiling window manager. The gap value is any valid CSS size (e.g., `"1rem"`, `"10px"`, `"0"`).
+
+**Screen-level default gap** (applies to all pages):
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{id}?gap=0.5rem" \
+  -H "X-API-Key: {api_key}"
+```
+
+**Per-page gap override**:
+
+```json
+{
+  "content": ["Panel 1", "Panel 2", "Panel 3", "Panel 4"],
+  "gap": "0"
+}
+```
+
+**Per-message gap** (when using the `/message` endpoint):
+
+```json
+{
+  "content": ["Tight Grid", "No Spacing"],
+  "gap": "2px"
+}
+```
+
+Common gap values:
+| Value | Description |
+|-------|-------------|
+| `"1rem"` | Default spacing (comfortable padding) |
+| `"0.5rem"` | Compact layout |
+| `"0"` | Edge-to-edge panels (true tiling) |
+| `"2rem"` | Extra spacious |
+
+### Panel Corner Radius
+
+Control the corner rounding of panels. The value is any valid CSS border-radius (e.g., `"1rem"`, `"10px"`, `"0"`).
+
+**Screen-level default radius** (applies to all pages):
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{id}?border_radius=0" \
+  -H "X-API-Key: {api_key}"
+```
+
+**Per-page radius override**:
+
+```json
+{
+  "content": ["Sharp Corners"],
+  "border_radius": "0"
+}
+```
+
+Common border radius values:
+| Value | Description |
+|-------|-------------|
+| `"1rem"` | Default rounded corners |
+| `"0.5rem"` | Subtle rounding |
+| `"0"` | Sharp corners (true tiling) |
+| `"2rem"` | Very rounded |
+
+**Tiling window manager style** (zero gap + zero radius):
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{id}?gap=0&border_radius=0" \
+  -H "X-API-Key: {api_key}"
+```
+
+### Panel Shadows
+
+Add depth to panels with CSS box-shadow. Shadows are disabled by default (no shadow).
+
+**Screen-level shadow** (applies to all pages):
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{id}?panel_shadow=0%204px%2012px%20rgba(0,0,0,0.3)" \
+  -H "X-API-Key: {api_key}"
+```
+
+**Per-page shadow override**:
+
+```json
+{
+  "content": ["Elevated Panel"],
+  "panel_shadow": "0 8px 24px rgba(0,0,0,0.4)"
+}
+```
+
+Common shadow values:
+| Value | Description |
+|-------|-------------|
+| `null` or omit | No shadow (default) |
+| `"0 2px 4px rgba(0,0,0,0.1)"` | Subtle lift |
+| `"0 4px 12px rgba(0,0,0,0.3)"` | Medium depth |
+| `"0 8px 24px rgba(0,0,0,0.4)"` | Strong elevation |
+
+### Gradient Backgrounds
+
+Both `background_color` and `panel_color` accept any valid CSS value, including gradients:
+
+**Page background gradient**:
+
+```json
+{
+  "content": ["Content on gradient"],
+  "background_color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+}
+```
+
+**Panel gradient**:
+
+```json
+{
+  "content": [
+    {"type": "text", "value": "Gradient Panel", "panel_color": "linear-gradient(180deg, #2c3e50 0%, #4ca1af 100%)"}
+  ]
+}
+```
+
+**Default panel gradient with per-panel override**:
+
+```json
+{
+  "content": [
+    "Uses default gradient",
+    {"type": "text", "value": "Custom gradient", "panel_color": "radial-gradient(circle, #ffd89b 0%, #19547b 100%)"}
+  ],
+  "panel_color": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+}
+```
+
+Common gradient patterns:
+| Pattern | Example |
+|---------|---------|
+| Linear diagonal | `"linear-gradient(135deg, #667eea 0%, #764ba2 100%)"` |
+| Linear vertical | `"linear-gradient(180deg, #2c3e50 0%, #4ca1af 100%)"` |
+| Radial | `"radial-gradient(circle, #ffd89b 0%, #19547b 100%)"` |
+| Sunset | `"linear-gradient(to right, #f83600 0%, #f9d423 100%)"` |
+
+### Screen-Level Defaults
+
+Set default colors and fonts at the screen level that apply to all pages. Pages can override these defaults.
+
+**Set screen-level defaults**:
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{id}" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: {api_key}" \
+  -d '{
+    "background_color": "linear-gradient(90deg, #2a7b9b 0%, #57c785 71%, #eddd53 100%)",
+    "panel_color": "#1a1a2e",
+    "font_family": "Georgia, serif",
+    "font_color": "#f1c40f"
+  }'
+```
+
+**Inheritance order** (first match wins):
+1. Per-panel values (in content items)
+2. Per-page values (in page request)
+3. Screen-level defaults (set via PATCH)
+4. System defaults (no color/transparent)
+
+This lets you set a consistent theme once and override only when needed.
+
 ## Multi-Page Rotation
 
 Screens can display multiple pages that rotate automatically. This is useful for dashboards that need to cycle through different views.
@@ -297,10 +492,10 @@ Screens can display multiple pages that rotate automatically. This is useful for
 
 ### Rotation Settings
 
-Enable rotation and set the interval (in seconds):
+Enable rotation, set the interval (in seconds), and configure the default gap:
 
 ```bash
-curl -X PATCH "http://localhost:8000/api/screens/{id}/rotation?enabled=true&interval=30" \
+curl -X PATCH "http://localhost:8000/api/screens/{id}?rotation_enabled=true&rotation_interval=30&gap=0.5rem" \
   -H "X-API-Key: {api_key}"
 ```
 
@@ -450,7 +645,7 @@ Set up a rotating dashboard with multiple pages:
 
 ```bash
 # Enable rotation (30 second interval)
-curl -X PATCH "http://localhost:8000/api/screens/{id}/rotation?enabled=true&interval=30" \
+curl -X PATCH "http://localhost:8000/api/screens/{id}?rotation_enabled=true&rotation_interval=30" \
   -H "X-API-Key: {api_key}"
 
 # Create main dashboard page
@@ -535,6 +730,7 @@ The tests cover:
 - Color, font, and styling options
 - Video and image display modes
 - Text wrapping options
+- Panel gap, border radius, and shadow settings
 - Authentication (API key validation)
 - Admin page functionality
 - Content type auto-detection

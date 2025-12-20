@@ -9,7 +9,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .models import (
     MessageRequest, ScreenResponse, MessageResponse,
-    PageRequest, RotationSettings, PageOrderRequest, PageResponse, PagesListResponse
+    PageRequest, RotationSettings, PageOrderRequest, PageResponse, PagesListResponse,
+    ScreenUpdateRequest
 )
 from .database import (
     init_db, create_screen, get_screen_by_id, get_screen_by_api_key,
@@ -73,7 +74,10 @@ async def send_message(
         "background_color": request.background_color,
         "panel_color": request.panel_color,
         "font_family": request.font_family,
-        "font_color": request.font_color
+        "font_color": request.font_color,
+        "gap": request.gap,
+        "border_radius": request.border_radius,
+        "panel_shadow": request.panel_shadow
     }
 
     # Save to pages table as "default" page (backward compatible)
@@ -96,6 +100,24 @@ async def send_message(
     })
 
     return MessageResponse(success=True, viewers=viewers)
+
+
+@app.get("/api/screens/{screen_id}")
+async def get_screen(screen_id: str):
+    """Get screen details including display settings."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    settings = await get_rotation_settings(screen_id)
+
+    return {
+        "screen_id": screen["id"],
+        "name": screen.get("name"),
+        "created_at": screen.get("created_at"),
+        "last_updated": screen.get("last_updated"),
+        "settings": settings
+    }
 
 
 @app.delete("/api/screens/{screen_id}")
@@ -130,12 +152,81 @@ async def toggle_debug(screen_id: str, enabled: bool = True):
 
 
 @app.patch("/api/screens/{screen_id}")
-async def update_screen(screen_id: str, name: str | None = None):
-    """Update a screen's properties (currently just name)."""
-    updated = await update_screen_name(screen_id, name)
-    if not updated:
+async def update_screen(
+    screen_id: str,
+    request: ScreenUpdateRequest,
+    x_api_key: str | None = Header(default=None, alias="X-API-Key")
+):
+    """Update a screen's properties via JSON body.
+
+    API key is required for rotation/display settings, optional for name-only updates.
+    """
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
-    return {"success": True, "name": name}
+
+    # Extract values from request
+    name = request.name
+    rotation_enabled = request.rotation_enabled
+    rotation_interval = request.rotation_interval
+    gap = request.gap
+    border_radius = request.border_radius
+    panel_shadow = request.panel_shadow
+    background_color = request.background_color
+    panel_color = request.panel_color
+    font_family = request.font_family
+    font_color = request.font_color
+
+    # Require API key for rotation/display setting changes
+    has_display_settings = (
+        rotation_enabled is not None or
+        rotation_interval is not None or
+        gap is not None or
+        border_radius is not None or
+        panel_shadow is not None or
+        background_color is not None or
+        panel_color is not None or
+        font_family is not None or
+        font_color is not None
+    )
+    if has_display_settings:
+        if not x_api_key or screen["api_key"] != x_api_key:
+            raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Update name if provided
+    if name is not None:
+        await update_screen_name(screen_id, name)
+
+    # Update rotation/display settings if any provided
+    if has_display_settings:
+        await update_rotation_settings(
+            screen_id,
+            enabled=rotation_enabled,
+            interval=rotation_interval,
+            gap=gap,
+            border_radius=border_radius,
+            panel_shadow=panel_shadow,
+            background_color=background_color,
+            panel_color=panel_color,
+            font_family=font_family,
+            font_color=font_color
+        )
+
+        # Broadcast settings update to viewers
+        rotation = await get_rotation_settings(screen_id)
+        await manager.broadcast(screen_id, {
+            "type": "rotation_update",
+            "rotation": rotation
+        })
+
+    # Build response
+    response = {"success": True}
+    if name is not None:
+        response["name"] = name
+    if has_display_settings:
+        response["settings"] = await get_rotation_settings(screen_id)
+
+    return response
 
 
 # ============== Page Endpoints ==============
@@ -179,7 +270,10 @@ async def create_or_update_page(
         "background_color": request.background_color,
         "panel_color": request.panel_color,
         "font_family": request.font_family,
-        "font_color": request.font_color
+        "font_color": request.font_color,
+        "gap": request.gap,
+        "border_radius": request.border_radius,
+        "panel_shadow": request.panel_shadow
     }
 
     # Convert expires_at to ISO string if provided
@@ -264,33 +358,6 @@ async def reorder_pages_endpoint(
     })
 
     return {"success": True}
-
-
-@app.patch("/api/screens/{screen_id}/rotation")
-async def update_rotation(
-    screen_id: str,
-    enabled: bool | None = None,
-    interval: int | None = None,
-    x_api_key: str = Header(alias="X-API-Key")
-):
-    """Update rotation settings for a screen. Requires API key authentication."""
-    screen = await get_screen_by_id(screen_id)
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen not found")
-
-    if screen["api_key"] != x_api_key:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-
-    await update_rotation_settings(screen_id, enabled=enabled, interval=interval)
-    rotation = await get_rotation_settings(screen_id)
-
-    # Broadcast rotation update
-    await manager.broadcast(screen_id, {
-        "type": "rotation_update",
-        "rotation": rotation
-    })
-
-    return {"success": True, "rotation": rotation}
 
 
 @app.get("/screen/{screen_id}", response_class=HTMLResponse)

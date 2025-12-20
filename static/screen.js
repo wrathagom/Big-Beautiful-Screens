@@ -16,6 +16,13 @@ let currentPageIndex = 0;
 let rotationEnabled = false;
 let rotationInterval = 30;   // seconds
 let rotationTimer = null;
+let screenGap = '1rem';      // Screen-level gap default
+let screenBorderRadius = '1rem';  // Screen-level border radius default
+let screenPanelShadow = null;    // Screen-level panel shadow (null = no shadow)
+let screenBackgroundColor = null;  // Screen-level background color
+let screenPanelColor = null;       // Screen-level panel color
+let screenFontFamily = null;       // Screen-level font family
+let screenFontColor = null;        // Screen-level font color
 
 // Debug state
 let debugEnabled = false;
@@ -65,7 +72,10 @@ function connect() {
                     backgroundColor: data.background_color,
                     panelColor: data.panel_color,
                     fontFamily: data.font_family,
-                    fontColor: data.font_color
+                    fontColor: data.font_color,
+                    gap: data.gap,
+                    borderRadius: data.border_radius,
+                    panelShadow: data.panel_shadow
                 });
                 break;
 
@@ -131,6 +141,13 @@ function handlePagesSync(newPages, rotation) {
     if (rotation) {
         rotationEnabled = rotation.enabled;
         rotationInterval = rotation.interval || 30;
+        screenGap = rotation.gap || '1rem';
+        screenBorderRadius = rotation.border_radius || '1rem';
+        screenPanelShadow = rotation.panel_shadow || null;
+        screenBackgroundColor = rotation.background_color || null;
+        screenPanelColor = rotation.panel_color || null;
+        screenFontFamily = rotation.font_family || null;
+        screenFontColor = rotation.font_color || null;
     }
 
     // Render current page
@@ -199,6 +216,16 @@ function handleRotationUpdate(rotation) {
 
     rotationEnabled = rotation.enabled;
     rotationInterval = rotation.interval || 30;
+    screenGap = rotation.gap || '1rem';
+    screenBorderRadius = rotation.border_radius || '1rem';
+    screenPanelShadow = rotation.panel_shadow || null;
+    screenBackgroundColor = rotation.background_color || null;
+    screenPanelColor = rotation.panel_color || null;
+    screenFontFamily = rotation.font_family || null;
+    screenFontColor = rotation.font_color || null;
+
+    // Re-render to apply new settings
+    renderCurrentPage();
 
     if (rotationEnabled && pages.length > 1) {
         startRotation();
@@ -234,7 +261,10 @@ function renderCurrentPage() {
         backgroundColor: page.background_color,
         panelColor: page.panel_color,
         fontFamily: page.font_family,
-        fontColor: page.font_color
+        fontColor: page.font_color,
+        gap: page.gap,  // Page-level gap override (null uses screen default)
+        borderRadius: page.border_radius,  // Page-level border radius override
+        panelShadow: page.panel_shadow  // Page-level panel shadow override
     });
 }
 
@@ -280,28 +310,45 @@ function advanceToNextPage() {
 }
 
 function renderContent(content, styles = {}) {
-    const { backgroundColor, panelColor, fontFamily, fontColor } = styles;
+    const { backgroundColor, panelColor, fontFamily, fontColor, gap, borderRadius, panelShadow } = styles;
 
     // Clear existing content
     screenEl.innerHTML = '';
 
-    // Apply background color
-    if (backgroundColor) {
-        document.body.style.backgroundColor = backgroundColor;
-        screenEl.style.backgroundColor = backgroundColor;
+    // Apply gap (page-level override or screen-level default)
+    const effectiveGap = gap || screenGap;
+    screenEl.style.gap = effectiveGap;
+    screenEl.style.padding = effectiveGap;  // Match padding to gap for tiling WM feel
+
+    // Calculate effective border radius
+    const effectiveBorderRadius = borderRadius || screenBorderRadius;
+
+    // Calculate effective panel shadow
+    const effectivePanelShadow = panelShadow || screenPanelShadow;
+
+    // Calculate effective colors/fonts (page overrides screen defaults)
+    const effectiveBackgroundColor = backgroundColor || screenBackgroundColor;
+    const effectivePanelColor = panelColor || screenPanelColor;
+    const effectiveFontFamily = fontFamily || screenFontFamily;
+    const effectiveFontColor = fontColor || screenFontColor;
+
+    // Apply background color (use 'background' to support gradients)
+    if (effectiveBackgroundColor) {
+        document.body.style.background = effectiveBackgroundColor;
+        screenEl.style.background = effectiveBackgroundColor;
     } else {
-        document.body.style.backgroundColor = '';
-        screenEl.style.backgroundColor = '';
+        document.body.style.background = '';
+        screenEl.style.background = '';
     }
 
     // Apply default font styles to screen
-    if (fontFamily) {
-        screenEl.style.fontFamily = fontFamily;
+    if (effectiveFontFamily) {
+        screenEl.style.fontFamily = effectiveFontFamily;
     } else {
         screenEl.style.fontFamily = '';
     }
-    if (fontColor) {
-        screenEl.style.color = fontColor;
+    if (effectiveFontColor) {
+        screenEl.style.color = effectiveFontColor;
     } else {
         screenEl.style.color = '';
     }
@@ -314,11 +361,20 @@ function renderContent(content, styles = {}) {
         const panel = document.createElement('div');
         panel.className = 'panel';
 
-        // Apply panel color (per-item override takes precedence over default)
+        // Apply border radius
+        panel.style.borderRadius = effectiveBorderRadius;
+
+        // Apply panel shadow
+        if (effectivePanelShadow) {
+            panel.style.boxShadow = effectivePanelShadow;
+        }
+
+        // Apply panel color (per-item override takes precedence, then page, then screen default)
+        // Use 'background' to support gradients
         if (item.panel_color) {
-            panel.style.backgroundColor = item.panel_color;
-        } else if (panelColor) {
-            panel.style.backgroundColor = panelColor;
+            panel.style.background = item.panel_color;
+        } else if (effectivePanelColor) {
+            panel.style.background = effectivePanelColor;
         }
 
         // Apply per-panel font overrides

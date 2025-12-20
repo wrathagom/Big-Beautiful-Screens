@@ -1,18 +1,17 @@
 meta {
-  name: Update Rotation
+  name: Update radius
   type: http
-  seq: 3
+  seq: 7
 }
 
 patch {
-  url: {{url}}api/screens/{{screenID}}/rotation?enabled=true&interval=5
+  url: {{url}}api/screens/{{screenID}}?border_radius=50px
   body: none
   auth: inherit
 }
 
 params:query {
-  enabled: true
-  interval: 5
+  border_radius: 50px
 }
 
 headers {

@@ -257,11 +257,12 @@ html, body {
 /* Connection status indicator */
 .connection-status {
     position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    padding: 0.5rem 1rem;
-    border-radius: 2rem;
-    font-size: 0.875rem;
+    bottom: 2rem;
+    right: 2rem;
+    padding: 1.25rem 2.5rem;
+    border-radius: 3rem;
+    font-size: 1.5rem;
+    font-weight: 600;
     opacity: 0;
     transition: opacity 0.3s;
     pointer-events: none;

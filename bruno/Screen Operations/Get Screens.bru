@@ -1,0 +1,16 @@
+meta {
+  name: Get Screens
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{url}}api/screens
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

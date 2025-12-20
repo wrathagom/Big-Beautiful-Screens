@@ -1,11 +1,11 @@
 meta {
-  name: Get Screen by ID
+  name: Get Screen by ID copy
   type: http
-  seq: 3
+  seq: 9
 }
 
 get {
-  url: http://localhost:8000/api/screens/bb16042004de/pages
+  url: {{url}}api/screens/{{screenID}}
   body: none
   auth: inherit
 }

@@ -233,7 +233,8 @@ class TestScreenManagement:
     def test_update_screen_name(self, client, screen):
         """Test updating a screen's name."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}?name=My%20Test%20Screen"
+            f"/api/screens/{screen['screen_id']}",
+            json={"name": "My Test Screen"}
         )
         assert response.status_code == 200
         assert response.json()["success"] is True
@@ -242,15 +243,24 @@ class TestScreenManagement:
     def test_update_screen_name_empty(self, client, screen):
         """Test clearing a screen's name."""
         # First set a name
-        client.patch(f"/api/screens/{screen['screen_id']}?name=Test")
+        client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            json={"name": "Test"}
+        )
 
         # Then clear it
-        response = client.patch(f"/api/screens/{screen['screen_id']}?name=")
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            json={"name": ""}
+        )
         assert response.status_code == 200
 
     def test_update_nonexistent_screen_name(self, client):
         """Test updating name of nonexistent screen."""
-        response = client.patch("/api/screens/nonexistent123?name=Test")
+        response = client.patch(
+            "/api/screens/nonexistent123",
+            json={"name": "Test"}
+        )
         assert response.status_code == 404
 
     def test_reload_screen(self, client, screen):
@@ -446,36 +456,106 @@ class TestPages:
 
 
 class TestRotation:
-    """Tests for rotation settings."""
+    """Tests for rotation and display settings."""
 
     def test_update_rotation_settings(self, client, screen):
         """Test updating rotation settings."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}/rotation?enabled=true&interval=15",
-            headers={"X-API-Key": screen["api_key"]}
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"rotation_enabled": True, "rotation_interval": 15}
         )
         assert response.status_code == 200
         data = response.json()
         assert data["success"] is True
-        assert data["rotation"]["enabled"] is True
-        assert data["rotation"]["interval"] == 15
+        assert data["settings"]["enabled"] is True
+        assert data["settings"]["interval"] == 15
 
     def test_disable_rotation(self, client, screen):
         """Test disabling rotation."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}/rotation?enabled=false",
-            headers={"X-API-Key": screen["api_key"]}
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"rotation_enabled": False}
         )
         assert response.status_code == 200
-        assert response.json()["rotation"]["enabled"] is False
+        assert response.json()["settings"]["enabled"] is False
 
     def test_rotation_wrong_api_key(self, client, screen):
         """Test that wrong API key is rejected for rotation settings."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}/rotation?enabled=true",
-            headers={"X-API-Key": "wrong_key"}
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": "wrong_key"},
+            json={"rotation_enabled": True}
         )
         assert response.status_code == 401
+
+    def test_update_gap_setting(self, client, screen):
+        """Test updating gap setting."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"gap": "0.5rem"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["gap"] == "0.5rem"
+
+    def test_update_gap_zero(self, client, screen):
+        """Test setting gap to zero for edge-to-edge panels."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"gap": "0"}
+        )
+        assert response.status_code == 200
+        assert response.json()["settings"]["gap"] == "0"
+
+    def test_update_border_radius(self, client, screen):
+        """Test updating border radius setting."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"border_radius": "0.5rem"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["border_radius"] == "0.5rem"
+
+    def test_update_border_radius_zero(self, client, screen):
+        """Test setting border radius to zero for sharp corners."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"border_radius": "0"}
+        )
+        assert response.status_code == 200
+        assert response.json()["settings"]["border_radius"] == "0"
+
+    def test_update_panel_shadow(self, client, screen):
+        """Test updating panel shadow setting."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"panel_shadow": "0 4px 12px rgba(0,0,0,0.3)"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["panel_shadow"] == "0 4px 12px rgba(0,0,0,0.3)"
+
+    def test_panel_shadow_none_by_default(self, client, screen):
+        """Test that panel shadow is null by default."""
+        # Get settings without setting a shadow
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"gap": "1rem"}
+        )
+        assert response.status_code == 200
+        assert response.json()["settings"]["panel_shadow"] is None
 
     def test_reorder_pages(self, client, screen):
         """Test reordering pages."""
@@ -504,3 +584,78 @@ class TestRotation:
         )
         assert response.status_code == 200
         assert response.json()["success"] is True
+
+    def test_update_background_color(self, client, screen):
+        """Test updating screen-level background color."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"background_color": "#1a1a2e"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["background_color"] == "#1a1a2e"
+
+    def test_update_background_color_gradient(self, client, screen):
+        """Test updating screen-level background color with a gradient."""
+        gradient = "linear-gradient(90deg, rgba(42,123,155,1) 0%, rgba(87,199,133,1) 100%)"
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"background_color": gradient}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["background_color"] == gradient
+
+    def test_update_panel_color(self, client, screen):
+        """Test updating screen-level panel color."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"panel_color": "#16213e"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["panel_color"] == "#16213e"
+
+    def test_update_font_family(self, client, screen):
+        """Test updating screen-level font family."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"font_family": "Georgia, serif"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["font_family"] == "Georgia, serif"
+
+    def test_update_font_color(self, client, screen):
+        """Test updating screen-level font color."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"font_color": "#f1c40f"}
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["font_color"] == "#f1c40f"
+
+    def test_color_settings_null_by_default(self, client, screen):
+        """Test that color/font settings are null by default."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"gap": "1rem"}
+        )
+        assert response.status_code == 200
+        settings = response.json()["settings"]
+        assert settings["background_color"] is None
+        assert settings["panel_color"] is None
+        assert settings["font_family"] is None
+        assert settings["font_color"] is None

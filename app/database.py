@@ -67,6 +67,20 @@ async def init_db():
             await db.execute("ALTER TABLE screens ADD COLUMN rotation_enabled INTEGER DEFAULT 0")
         if 'rotation_interval' not in columns:
             await db.execute("ALTER TABLE screens ADD COLUMN rotation_interval INTEGER DEFAULT 30")
+        if 'gap' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN gap TEXT DEFAULT '1rem'")
+        if 'border_radius' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN border_radius TEXT DEFAULT '1rem'")
+        if 'panel_shadow' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN panel_shadow TEXT")
+        if 'background_color' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN background_color TEXT")
+        if 'panel_color' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN panel_color TEXT")
+        if 'font_family' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN font_family TEXT")
+        if 'font_color' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN font_color TEXT")
 
         # Migration: Move existing messages to pages table as "default" page
         await _migrate_messages_to_pages(db)
@@ -276,6 +290,9 @@ async def upsert_page(
             "panel_color": payload.get("panel_color"),
             "font_family": payload.get("font_family"),
             "font_color": payload.get("font_color"),
+            "gap": payload.get("gap"),
+            "border_radius": payload.get("border_radius"),
+            "panel_shadow": payload.get("panel_shadow"),
             "display_order": display_order,
             "duration": duration,
             "expires_at": expires_at
@@ -320,6 +337,9 @@ async def get_all_pages(screen_id: str, include_expired: bool = False) -> list[d
                 "panel_color": content_data.get("panel_color"),
                 "font_family": content_data.get("font_family"),
                 "font_color": content_data.get("font_color"),
+                "gap": content_data.get("gap"),
+                "border_radius": content_data.get("border_radius"),
+                "panel_shadow": content_data.get("panel_shadow"),
                 "display_order": row['display_order'],
                 "duration": row['duration'],
                 "expires_at": row['expires_at']
@@ -350,6 +370,9 @@ async def get_page(screen_id: str, name: str) -> dict | None:
             "panel_color": content_data.get("panel_color"),
             "font_family": content_data.get("font_family"),
             "font_color": content_data.get("font_color"),
+            "gap": content_data.get("gap"),
+            "border_radius": content_data.get("border_radius"),
+            "panel_shadow": content_data.get("panel_shadow"),
             "display_order": row['display_order'],
             "duration": row['duration'],
             "expires_at": row['expires_at']
@@ -396,12 +419,14 @@ async def reorder_pages(screen_id: str, page_names: list[str]) -> bool:
 
 
 async def get_rotation_settings(screen_id: str) -> dict | None:
-    """Get rotation settings for a screen."""
+    """Get rotation/display settings for a screen."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
 
         async with db.execute(
-            "SELECT rotation_enabled, rotation_interval FROM screens WHERE id = ?",
+            """SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
+                      background_color, panel_color, font_family, font_color
+               FROM screens WHERE id = ?""",
             (screen_id,)
         ) as cursor:
             row = await cursor.fetchone()
@@ -411,12 +436,30 @@ async def get_rotation_settings(screen_id: str) -> dict | None:
 
         return {
             "enabled": bool(row['rotation_enabled']),
-            "interval": row['rotation_interval'] or 30
+            "interval": row['rotation_interval'] or 30,
+            "gap": row['gap'] or '1rem',
+            "border_radius": row['border_radius'] or '1rem',
+            "panel_shadow": row['panel_shadow'],
+            "background_color": row['background_color'],
+            "panel_color": row['panel_color'],
+            "font_family": row['font_family'],
+            "font_color": row['font_color']
         }
 
 
-async def update_rotation_settings(screen_id: str, enabled: bool | None = None, interval: int | None = None) -> bool:
-    """Update rotation settings for a screen.
+async def update_rotation_settings(
+    screen_id: str,
+    enabled: bool | None = None,
+    interval: int | None = None,
+    gap: str | None = None,
+    border_radius: str | None = None,
+    panel_shadow: str | None = None,
+    background_color: str | None = None,
+    panel_color: str | None = None,
+    font_family: str | None = None,
+    font_color: str | None = None
+) -> bool:
+    """Update rotation/display settings for a screen.
 
     Returns True if updated, False if screen not found.
     """
@@ -437,6 +480,34 @@ async def update_rotation_settings(screen_id: str, enabled: bool | None = None, 
         if interval is not None:
             updates.append("rotation_interval = ?")
             params.append(interval)
+
+        if gap is not None:
+            updates.append("gap = ?")
+            params.append(gap)
+
+        if border_radius is not None:
+            updates.append("border_radius = ?")
+            params.append(border_radius)
+
+        if panel_shadow is not None:
+            updates.append("panel_shadow = ?")
+            params.append(panel_shadow)
+
+        if background_color is not None:
+            updates.append("background_color = ?")
+            params.append(background_color)
+
+        if panel_color is not None:
+            updates.append("panel_color = ?")
+            params.append(panel_color)
+
+        if font_family is not None:
+            updates.append("font_family = ?")
+            params.append(font_family)
+
+        if font_color is not None:
+            updates.append("font_color = ?")
+            params.append(font_color)
 
         if updates:
             params.append(screen_id)

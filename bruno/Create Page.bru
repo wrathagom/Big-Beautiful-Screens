@@ -1,11 +1,11 @@
 meta {
   name: Create Page
   type: http
-  seq: 4
+  seq: 2
 }
 
 post {
-  url: http://localhost:8000/api/screens/bb16042004de/pages/test
+  url: {{url}}api/screens/{{screenID}}/pages/test3
   body: json
   auth: inherit
 }
@@ -16,10 +16,8 @@ headers {
 
 body:json {
   {
-    "content": [
-      {"type": "text", "value": "testing a 3rd page, with 2 panels", "panel_color": "#000000"},
-      {"type": "text", "value": "3rd Page, 2nd panel!", "panel_color": "#111111"}
-    ]
+    "content": ["1", "2", "3"],
+    "background_color": "linear-gradient(to bottom right, red, yellow)"
   }
 }
 

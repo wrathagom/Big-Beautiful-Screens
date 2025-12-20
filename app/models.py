@@ -23,6 +23,9 @@ class MessageRequest(BaseModel):
     panel_color: str | None = None  # Default panel background color
     font_family: str | None = None  # Default font family
     font_color: str | None = None  # Default text color
+    gap: str | None = None  # Gap between panels (CSS value, e.g., "1rem", "10px", "0")
+    border_radius: str | None = None  # Panel corner rounding (CSS value, e.g., "1rem", "0")
+    panel_shadow: str | None = None  # CSS box-shadow for panels (e.g., "0 4px 12px rgba(0,0,0,0.3)")
 
 
 class PageRequest(BaseModel):
@@ -32,6 +35,9 @@ class PageRequest(BaseModel):
     panel_color: str | None = None
     font_family: str | None = None
     font_color: str | None = None
+    gap: str | None = None  # Gap between panels (overrides screen default)
+    border_radius: str | None = None  # Panel corner rounding (overrides screen default)
+    panel_shadow: str | None = None  # Panel shadow (overrides screen default)
     duration: int | None = None  # Per-page duration override in seconds
     expires_at: datetime | None = None  # Expiration time for ephemeral pages
 
@@ -40,6 +46,20 @@ class RotationSettings(BaseModel):
     """Screen rotation settings."""
     enabled: bool
     interval: int  # seconds
+
+
+class ScreenUpdateRequest(BaseModel):
+    """Request to update screen settings."""
+    name: str | None = None
+    rotation_enabled: bool | None = None
+    rotation_interval: int | None = None
+    gap: str | None = None
+    border_radius: str | None = None
+    panel_shadow: str | None = None
+    background_color: str | None = None
+    panel_color: str | None = None
+    font_family: str | None = None
+    font_color: str | None = None
 
 
 class PageOrderRequest(BaseModel):
