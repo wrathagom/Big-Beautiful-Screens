@@ -118,6 +118,17 @@ async def reload_screen(screen_id: str):
     return {"success": True, "viewers_reloaded": viewers}
 
 
+@app.post("/api/screens/{screen_id}/debug")
+async def toggle_debug(screen_id: str, enabled: bool = True):
+    """Toggle debug mode on all viewers of a screen."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    viewers = await manager.broadcast(screen_id, {"type": "debug", "enabled": enabled})
+    return {"success": True, "debug_enabled": enabled, "viewers": viewers}
+
+
 @app.patch("/api/screens/{screen_id}")
 async def update_screen(screen_id: str, name: str | None = None):
     """Update a screen's properties (currently just name)."""
@@ -355,6 +366,7 @@ async def admin_screens():
                                 <button onclick="copyExample(this, 'python')">Python</button>
                             </div>
                         </div>
+                        <button class="btn-debug" onclick="toggleDebug('{screen['id']}'); event.stopPropagation();">Toggle Debug</button>
                         <button class="btn-reload" onclick="reloadScreen('{screen['id']}'); event.stopPropagation();">Reload Viewers</button>
                         <button class="btn-delete" onclick="deleteScreen('{screen['id']}'); event.stopPropagation();">Delete Screen</button>
                     </div>
@@ -502,6 +514,27 @@ print(response.json())`;
                     }}
                 }} catch (error) {{
                     alert('Failed to reload: ' + error.message);
+                }}
+            }}
+
+            // Track debug state per screen
+            const debugState = {{}};
+
+            async function toggleDebug(screenId) {{
+                // Toggle the state
+                debugState[screenId] = !debugState[screenId];
+                const enabled = debugState[screenId];
+
+                try {{
+                    const response = await fetch(`/api/screens/${{screenId}}/debug?enabled=${{enabled}}`, {{ method: 'POST' }});
+                    const data = await response.json();
+                    if (response.ok) {{
+                        alert(`Debug ${{enabled ? 'enabled' : 'disabled'}} for ${{data.viewers}} viewer(s)`);
+                    }} else {{
+                        alert('Failed to toggle debug: ' + (data.detail || 'Unknown error'));
+                    }}
+                }} catch (error) {{
+                    alert('Failed to toggle debug: ' + error.message);
                 }}
             }}
 

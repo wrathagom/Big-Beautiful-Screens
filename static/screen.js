@@ -17,6 +17,9 @@ let rotationEnabled = false;
 let rotationInterval = 30;   // seconds
 let rotationTimer = null;
 
+// Debug state
+let debugEnabled = false;
+
 // Initialize
 connect();
 
@@ -70,6 +73,12 @@ function connect() {
                 // Force reload, bypassing cache
                 location.reload(true);
                 break;
+
+            case 'debug':
+                // Toggle debug mode
+                debugEnabled = data.enabled;
+                updateDebugDisplay();
+                break;
         }
     };
 
@@ -99,6 +108,17 @@ function showStatus(type, message) {
 
 function hideStatus() {
     statusEl.classList.remove('visible');
+}
+
+function updateDebugDisplay() {
+    const debugEl = document.getElementById('debug-info');
+    if (debugEnabled) {
+        // Debug will be populated on next render
+        renderCurrentPage();
+    } else if (debugEl) {
+        // Remove debug element when disabled
+        debugEl.remove();
+    }
 }
 
 // ============== Page Handling ==============
@@ -453,16 +473,18 @@ function autoScaleText() {
         const maxWidth = Math.floor(parent.clientWidth * 0.95);
         const maxHeight = Math.floor(parent.clientHeight * 0.95);
 
-        // DEBUG: Show dimensions on screen (remove after debugging)
+        // DEBUG: Show dimensions on screen if debug mode is enabled
         let debugEl = document.getElementById('debug-info');
-        if (!debugEl) {
-            debugEl = document.createElement('div');
-            debugEl.id = 'debug-info';
-            debugEl.style.cssText = 'position:fixed;top:10px;left:10px;background:red;color:white;padding:10px;z-index:9999;font-size:14px;';
-            document.body.appendChild(debugEl);
+        if (debugEnabled) {
+            if (!debugEl) {
+                debugEl = document.createElement('div');
+                debugEl.id = 'debug-info';
+                debugEl.style.cssText = 'position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.8);color:#0f0;padding:15px;z-index:9999;font-size:14px;font-family:monospace;border-radius:8px;max-width:400px;';
+                document.body.appendChild(debugEl);
+            }
+            const textContent = el.textContent.substring(0, 30);
+            debugEl.innerHTML = `<strong>Debug Info</strong><br>parentW: ${parent.clientWidth}, parentH: ${parent.clientHeight}<br>maxW: ${maxWidth}, maxH: ${maxHeight}<br>panelCount: ${document.querySelectorAll('.panel').length}<br>text: "${textContent}"<br>scrollW: ${el.scrollWidth}, scrollH: ${el.scrollHeight}<br>wrap: ${el.dataset.wrap}`;
         }
-        const textContent = el.textContent.substring(0, 30);
-        debugEl.innerHTML = `parentW: ${parent.clientWidth}, parentH: ${parent.clientHeight}<br>maxW: ${maxWidth}, maxH: ${maxHeight}<br>panelCount: ${document.querySelectorAll('.panel').length}<br>text: "${textContent}"<br>scrollW: ${el.scrollWidth}, scrollH: ${el.scrollHeight}<br>wrap: ${el.dataset.wrap}`;
 
         const shouldWrap = el.dataset.wrap === 'true';
 
@@ -495,7 +517,7 @@ function autoScaleText() {
                 : el.scrollWidth <= maxWidth + 1 && el.scrollHeight <= maxHeight + 1;
 
             // DEBUG: Log first few iterations
-            if (debugLog.length < 3) {
+            if (debugEnabled && debugLog.length < 3) {
                 debugLog.push(`${midSize}px: ${el.scrollWidth}x${el.scrollHeight} fits=${fits}`);
             }
 
@@ -507,17 +529,13 @@ function autoScaleText() {
             }
         }
 
-        // DEBUG: Show binary search progress
-        if (debugEl) {
+        // DEBUG: Show binary search progress and final font size
+        if (debugEnabled && debugEl) {
             debugEl.innerHTML += `<br>search: ${debugLog.join(' | ')}`;
+            debugEl.innerHTML += `<br>fontSize: ${optimalSize}px`;
         }
 
         el.style.fontSize = `${optimalSize}px`;
-
-        // DEBUG: Update with final font size
-        if (debugEl) {
-            debugEl.innerHTML += `<br>fontSize: ${optimalSize}px`;
-        }
     });
 }
 
