@@ -450,8 +450,20 @@ function autoScaleText() {
         const parent = el.closest('.panel-content');
         if (!parent) return;
 
-        const maxWidth = parent.clientWidth * 0.95;
-        const maxHeight = parent.clientHeight * 0.95;
+        const maxWidth = Math.floor(parent.clientWidth * 0.95);
+        const maxHeight = Math.floor(parent.clientHeight * 0.95);
+
+        // DEBUG: Show dimensions on screen (remove after debugging)
+        let debugEl = document.getElementById('debug-info');
+        if (!debugEl) {
+            debugEl = document.createElement('div');
+            debugEl.id = 'debug-info';
+            debugEl.style.cssText = 'position:fixed;top:10px;left:10px;background:red;color:white;padding:10px;z-index:9999;font-size:14px;';
+            document.body.appendChild(debugEl);
+        }
+        const textContent = el.textContent.substring(0, 30);
+        debugEl.innerHTML = `parentW: ${parent.clientWidth}, parentH: ${parent.clientHeight}<br>maxW: ${maxWidth}, maxH: ${maxHeight}<br>panelCount: ${document.querySelectorAll('.panel').length}<br>text: "${textContent}"<br>scrollW: ${el.scrollWidth}, scrollH: ${el.scrollHeight}<br>wrap: ${el.dataset.wrap}`;
+
         const shouldWrap = el.dataset.wrap === 'true';
 
         // For wrapping text, constrain width so text can wrap at word boundaries
@@ -469,6 +481,7 @@ function autoScaleText() {
         let minSize = 16;
         let maxSize = 500;
         let optimalSize = minSize;
+        let debugLog = [];
 
         while (maxSize - minSize > 2) {
             const midSize = Math.floor((minSize + maxSize) / 2);
@@ -476,9 +489,15 @@ function autoScaleText() {
 
             // For wrapped text, check scrollHeight fits maxHeight
             // For non-wrapped, check both dimensions
+            // Add 1px tolerance for browser rounding differences
             const fits = shouldWrap
-                ? el.scrollHeight <= maxHeight && el.scrollWidth <= maxWidth
-                : el.scrollWidth <= maxWidth && el.scrollHeight <= maxHeight;
+                ? el.scrollHeight <= maxHeight + 1 && el.scrollWidth <= maxWidth + 1
+                : el.scrollWidth <= maxWidth + 1 && el.scrollHeight <= maxHeight + 1;
+
+            // DEBUG: Log first few iterations
+            if (debugLog.length < 3) {
+                debugLog.push(`${midSize}px: ${el.scrollWidth}x${el.scrollHeight} fits=${fits}`);
+            }
 
             if (fits) {
                 optimalSize = midSize;
@@ -488,7 +507,17 @@ function autoScaleText() {
             }
         }
 
+        // DEBUG: Show binary search progress
+        if (debugEl) {
+            debugEl.innerHTML += `<br>search: ${debugLog.join(' | ')}`;
+        }
+
         el.style.fontSize = `${optimalSize}px`;
+
+        // DEBUG: Update with final font size
+        if (debugEl) {
+            debugEl.innerHTML += `<br>fontSize: ${optimalSize}px`;
+        }
     });
 }
 

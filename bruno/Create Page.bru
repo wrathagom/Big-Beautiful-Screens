@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: http://localhost:8000/api/screens/bb16042004de/pages/test3
+  url: http://localhost:8000/api/screens/bb16042004de/pages/test
   body: json
   auth: inherit
 }
@@ -16,7 +16,10 @@ headers {
 
 body:json {
   {
-    "content": [{"type": "text", "value": "testing a 3rd page", "color": "#000000"}]
+    "content": [
+      {"type": "text", "value": "testing a 3rd page, with 2 panels", "panel_color": "#000000"},
+      {"type": "text", "value": "3rd Page, 2nd panel!", "panel_color": "#111111"}
+    ]
   }
 }
 
