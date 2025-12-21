@@ -48,47 +48,60 @@
         const redirectUrl = '{{ redirect_url }}';
 
         async function init() {
-            // Wait for Clerk to be available and loaded
-            while (!window.Clerk || !window.Clerk.loaded) {
+            // Wait for Clerk to be available (with timeout)
+            let attempts = 0;
+            while (!window.Clerk) {
                 await new Promise(r => setTimeout(r, 100));
+                attempts++;
+                if (attempts > 50) throw new Error('Clerk failed to load');
             }
 
             const clerk = window.Clerk;
+            console.log('Clerk object:', clerk);
+            console.log('Clerk.loaded:', clerk.loaded);
+            console.log('Clerk.user:', clerk.user);
+            console.log('Clerk.session:', clerk.session);
+
+            // If Clerk has a load method and isn't loaded, load it
+            if (clerk.load && !clerk.loaded) {
+                await clerk.load();
+            }
+
+            console.log('After load - user:', clerk.user, 'session:', clerk.session);
 
             // Handle the redirect callback from Clerk's Account Portal
             if (clerk.handleRedirectCallback) {
                 try {
                     await clerk.handleRedirectCallback();
+                    console.log('handleRedirectCallback completed');
                 } catch (e) {
-                    console.log('handleRedirectCallback:', e);
+                    console.log('handleRedirectCallback error:', e);
                 }
             }
 
             // Wait a moment for session to be established
             await new Promise(r => setTimeout(r, 500));
+            console.log('After wait - user:', clerk.user, 'session:', clerk.session);
 
             if (clerk.user) {
                 // User is signed in, redirect to the app
+                console.log('User found, redirecting...');
                 window.location.href = redirectUrl || '/admin/screens';
             } else if (clerk.session) {
                 // Session exists
+                console.log('Session found, redirecting...');
                 window.location.href = redirectUrl || '/admin/screens';
             } else {
-                // Check if we have a session after a brief wait
-                await new Promise(r => setTimeout(r, 1000));
-                if (clerk.user || clerk.session) {
-                    window.location.href = redirectUrl || '/admin/screens';
-                } else {
-                    // No session - show sign-in UI directly on this page
-                    document.querySelector('.loading').innerHTML = `
-                        <p>Please sign in to continue</p>
-                        <div id="clerk-sign-in" style="margin-top: 1rem;"></div>
-                    `;
-                    clerk.mountSignIn(document.getElementById('clerk-sign-in'), {
-                        afterSignInUrl: redirectUrl || '/admin/screens',
-                        afterSignUpUrl: redirectUrl || '/admin/screens',
-                    });
-                }
+                console.log('No session, showing sign-in form');
+                // No session - show sign-in UI directly on this page
+                document.querySelector('.loading').innerHTML = `
+                    <p>Please sign in to continue</p>
+                    <div id="clerk-sign-in" style="margin-top: 1rem;"></div>
+                `;
+                clerk.mountSignIn(document.getElementById('clerk-sign-in'), {
+                    afterSignInUrl: redirectUrl || '/admin/screens',
+                    afterSignUpUrl: redirectUrl || '/admin/screens',
+                });
             }
         }
 
