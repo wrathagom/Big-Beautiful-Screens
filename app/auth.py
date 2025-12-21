@@ -137,7 +137,7 @@ async def _verify_clerk_jwt(token: str) -> dict | None:
 
 
 def _extract_token(request: Request) -> str | None:
-    """Extract JWT token from request (cookie or Authorization header)."""
+    """Extract JWT token from request (cookie, header, or query param)."""
     # Try cookie first (for browser sessions)
     token = request.cookies.get("__session")
     if token:
@@ -147,6 +147,11 @@ def _extract_token(request: Request) -> str | None:
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         return auth_header[7:]
+
+    # Try __clerk_db_jwt query param (Clerk development mode)
+    db_jwt = request.query_params.get("__clerk_db_jwt")
+    if db_jwt:
+        return db_jwt
 
     return None
 
