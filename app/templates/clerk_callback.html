@@ -71,18 +71,25 @@
                 if (clerk.user || clerk.session) {
                     window.location.href = redirectUrl || '/admin/screens';
                 } else {
-                    // Still no session, redirect to sign-in
-                    window.location.href = '{{ sign_in_url }}';
+                    // No session - show sign-in UI directly on this page
+                    document.querySelector('.loading').innerHTML = `
+                        <p>Please sign in to continue</p>
+                        <div id="clerk-sign-in" style="margin-top: 1rem;"></div>
+                    `;
+                    clerk.mountSignIn(document.getElementById('clerk-sign-in'), {
+                        afterSignInUrl: redirectUrl || '/admin/screens',
+                        afterSignUpUrl: redirectUrl || '/admin/screens',
+                    });
                 }
             }
         }
 
         init().catch(err => {
             console.error('Clerk init failed:', err);
-            document.querySelector('.loading p').textContent = 'Sign in failed. Redirecting...';
-            setTimeout(() => {
-                window.location.href = '{{ sign_in_url }}';
-            }, 2000);
+            document.querySelector('.loading').innerHTML = `
+                <p>Sign in failed: ${err.message}</p>
+                <p><a href="{{ sign_in_url }}" style="color: #4a69bd;">Try again</a></p>
+            `;
         });
     </script>
 </body>
