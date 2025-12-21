@@ -1,0 +1,15 @@
+{
+  "threshold": 7,
+  "minLines": 10,
+  "minTokens": 50,
+  "reporters": ["console"],
+  "ignore": [
+    "**/venv/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/data/**",
+    "**/*.json",
+    "**/*.md"
+  ],
+  "absolute": true
+}
