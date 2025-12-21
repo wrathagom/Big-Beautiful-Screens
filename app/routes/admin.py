@@ -25,6 +25,25 @@ templates_path = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=templates_path)
 
 
+@router.get("/auth/callback", response_class=HTMLResponse)
+async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
+    """Handle Clerk auth callback - loads Clerk JS SDK to complete auth."""
+    settings = get_settings()
+
+    if settings.APP_MODE != AppMode.SAAS:
+        return RedirectResponse(url=redirect_url, status_code=302)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="clerk_callback.html",
+        context={
+            "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+            "redirect_url": redirect_url,
+            "sign_in_url": get_clerk_sign_in_url(redirect_url),
+        },
+    )
+
+
 @router.get("/admin/screens", response_class=HTMLResponse)
 async def admin_screens(request: Request, page: int = 1):
     """Admin page listing all screens with pagination.

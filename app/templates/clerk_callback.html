@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signing in...</title>
+    <script src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f23;
+            color: #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .loading {
+            text-align: center;
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid #2a2a4e;
+            border-top-color: #4a69bd;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 1rem;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loading">
+        <div class="spinner"></div>
+        <p>Completing sign in...</p>
+    </div>
+
+    <script>
+        const publishableKey = '{{ clerk_publishable_key }}';
+        const redirectUrl = '{{ redirect_url }}';
+
+        async function init() {
+            const clerk = new window.Clerk(publishableKey);
+            await clerk.load();
+
+            if (clerk.user) {
+                // User is signed in, redirect to the app
+                window.location.href = redirectUrl || '/admin/screens';
+            } else {
+                // Not signed in, redirect to sign-in
+                window.location.href = '{{ sign_in_url }}';
+            }
+        }
+
+        init().catch(err => {
+            console.error('Clerk init failed:', err);
+            document.querySelector('.loading p').textContent = 'Sign in failed. Redirecting...';
+            setTimeout(() => {
+                window.location.href = '/admin/screens';
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

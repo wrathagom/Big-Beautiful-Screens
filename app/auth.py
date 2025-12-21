@@ -17,7 +17,7 @@ from .config import AppMode, get_settings
 
 
 def get_clerk_sign_in_url(redirect_url: str) -> str:
-    """Get the Clerk sign-in URL with redirect."""
+    """Get the Clerk sign-in URL with redirect through our callback."""
     settings = get_settings()
 
     if not settings.CLERK_SIGN_IN_URL:
@@ -25,10 +25,11 @@ def get_clerk_sign_in_url(redirect_url: str) -> str:
         return f"/sign-in?redirect_url={redirect_url}"
 
     app_url = settings.APP_URL.rstrip("/")
-    full_redirect = f"{app_url}{redirect_url}"
+    # Redirect through our callback page which loads Clerk JS SDK
+    callback_url = f"{app_url}/auth/callback?redirect_url={quote(redirect_url)}"
     sign_in_base = settings.CLERK_SIGN_IN_URL.rstrip("/")
 
-    return f"{sign_in_base}?redirect_url={quote(full_redirect)}"
+    return f"{sign_in_base}?redirect_url={quote(callback_url)}"
 
 
 @dataclass
