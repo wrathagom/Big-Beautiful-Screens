@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theme Management - Big Beautiful Screens</title>
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body>
+    <div class="container">
+        <div class="admin-header">
+            <div>
+                <h1>Theme Management</h1>
+                <p class="subtitle">Create and customize themes</p>
+            </div>
+            <div class="nav-links">
+                <a href="/docs" class="nav-link" target="_blank">API Docs ↗</a>
+                <a href="/admin/screens" class="nav-link">← Back to Screens</a>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="create-theme" class="btn-primary">+ Create New Theme</button>
+        </div>
+
+        <div class="theme-list">
+            {% if themes %}
+                {% for theme in themes %}
+                <div class="theme-card" data-theme-name="{{ theme.name }}">
+                    <div class="card-header" onclick="toggleExpand(this.parentElement)">
+                        <div class="card-summary">
+                            <span class="theme-name">{{ theme.display_name or theme.name }}</span>
+                            <code class="theme-id">{{ theme.name }}</code>
+                            <div class="theme-swatches">
+                                <span class="color-swatch" style="background: {{ theme.background_color or '' }};" title="Background"></span>
+                                <span class="color-swatch" style="background: {{ theme.panel_color or '' }};" title="Panel"></span>
+                                <span class="color-swatch" style="background: {{ theme.font_color or '' }};" title="Text"></span>
+                            </div>
+                            {% if theme.is_builtin %}<span class="builtin-badge">Built-in</span>{% endif %}
+                            <span class="usage-badge">{{ theme.usage_count }} screen{{ 's' if theme.usage_count != 1 else '' }}</span>
+                        </div>
+                        <span class="expand-icon">▼</span>
+                    </div>
+                    <div class="card-details">
+                        <div class="theme-editor">
+                            <div class="editor-grid">
+                                <div class="editor-field">
+                                    <label>Display Name</label>
+                                    <input type="text" class="theme-input" data-field="display_name"
+                                           value="{{ theme.display_name or '' }}" placeholder="Theme display name">
+                                </div>
+                                <div class="editor-field">
+                                    <label>Background Color</label>
+                                    <input type="text" class="theme-input" data-field="background_color"
+                                           value="{{ theme.background_color or '' }}" placeholder="#1e1e2e or linear-gradient(...)">
+                                </div>
+                                <div class="editor-field">
+                                    <label>Panel Color</label>
+                                    <input type="text" class="theme-input" data-field="panel_color"
+                                           value="{{ theme.panel_color or '' }}" placeholder="#313244 or rgba(...)">
+                                </div>
+                                <div class="editor-field">
+                                    <label>Font Color</label>
+                                    <input type="text" class="theme-input" data-field="font_color"
+                                           value="{{ theme.font_color or '' }}" placeholder="#cdd6f4">
+                                </div>
+                                <div class="editor-field">
+                                    <label>Font Family</label>
+                                    <input type="text" class="theme-input" data-field="font_family"
+                                           value="{{ theme.font_family or '' }}" placeholder="system-ui, sans-serif">
+                                </div>
+                                <div class="editor-field">
+                                    <label>Gap</label>
+                                    <input type="text" class="theme-input" data-field="gap"
+                                           value="{{ theme.gap or '1rem' }}" placeholder="1rem">
+                                </div>
+                                <div class="editor-field">
+                                    <label>Border Radius</label>
+                                    <input type="text" class="theme-input" data-field="border_radius"
+                                           value="{{ theme.border_radius or '1rem' }}" placeholder="0.75rem">
+                                </div>
+                                <div class="editor-field">
+                                    <label>Panel Shadow</label>
+                                    <input type="text" class="theme-input" data-field="panel_shadow"
+                                           value="{{ theme.panel_shadow or '' }}" placeholder="0 4px 12px rgba(0,0,0,0.3)">
+                                </div>
+                            </div>
+                            <div class="theme-preview" id="preview-{{ theme.name }}">
+                                <div class="preview-container" style="background: {{ theme.background_color or '' }}; padding: {{ theme.gap or '1rem' }}; border-radius: 8px;">
+                                    <div class="preview-panel" style="background: {{ theme.panel_color or '' }}; color: {{ theme.font_color or '' }}; font-family: {{ theme.font_family or '' }}; padding: 1rem; border-radius: {{ theme.border_radius or '1rem' }}; box-shadow: {{ theme.panel_shadow or '' }};">
+                                        Preview Text
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="detail-footer">
+                            <div class="detail-actions">
+                                <button class="btn-primary" onclick="saveTheme('{{ theme.name }}', this); event.stopPropagation();">Save Changes</button>
+                                <button class="btn-secondary" onclick="duplicateTheme('{{ theme.name }}'); event.stopPropagation();">Duplicate</button>
+                                <button class="btn-delete" onclick="deleteTheme('{{ theme.name }}', {{ theme.usage_count }}); event.stopPropagation();" {% if theme.usage_count > 0 %}disabled title="In use by screens"{% endif %}>Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty">No themes found. Create one to get started!</div>
+            {% endif %}
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            <span class="page-info">Page {{ page }} of {{ total_pages }} ({{ total_count }} themes)</span>
+            <div class="page-controls">
+                <a href="?page={{ page - 1 }}" class="btn-secondary{{ ' disabled' if page <= 1 else '' }}">← Previous</a>
+                <a href="?page={{ page + 1 }}" class="btn-secondary{{ ' disabled' if page >= total_pages else '' }}">Next →</a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Create Theme Modal -->
+    <div id="create-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New Theme</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="editor-grid">
+                    <div class="editor-field">
+                        <label>Theme ID (URL-safe)</label>
+                        <input type="text" id="new-theme-name" class="new-theme-input" placeholder="my-custom-theme" pattern="[a-z0-9-_]+">
+                    </div>
+                    <div class="editor-field">
+                        <label>Display Name</label>
+                        <input type="text" id="new-theme-display" class="new-theme-input" placeholder="My Custom Theme">
+                    </div>
+                    <div class="editor-field">
+                        <label>Background Color</label>
+                        <input type="text" id="new-theme-bg" class="new-theme-input" data-preview="bg" value="#1e1e2e" placeholder="#1e1e2e">
+                    </div>
+                    <div class="editor-field">
+                        <label>Panel Color</label>
+                        <input type="text" id="new-theme-panel" class="new-theme-input" data-preview="panel" value="#313244" placeholder="#313244">
+                    </div>
+                    <div class="editor-field">
+                        <label>Font Color</label>
+                        <input type="text" id="new-theme-font-color" class="new-theme-input" data-preview="font-color" value="#cdd6f4" placeholder="#cdd6f4">
+                    </div>
+                    <div class="editor-field">
+                        <label>Font Family</label>
+                        <input type="text" id="new-theme-font-family" class="new-theme-input" data-preview="font-family" value="system-ui, -apple-system, sans-serif">
+                    </div>
+                </div>
+                <div class="theme-preview" id="new-theme-preview">
+                    <div class="preview-container" style="background: #1e1e2e; padding: 1rem; border-radius: 8px;">
+                        <div class="preview-panel" style="background: #313244; color: #cdd6f4; font-family: system-ui, -apple-system, sans-serif; padding: 1rem; border-radius: 0.75rem;">
+                            <span>Preview Text</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button class="btn-primary" onclick="submitCreateTheme()">Create Theme</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleExpand(card) {
+            card.classList.toggle('expanded');
+        }
+
+        // Create theme modal
+        document.getElementById('create-theme').addEventListener('click', () => {
+            document.getElementById('create-modal').style.display = 'flex';
+        });
+
+        function closeModal() {
+            document.getElementById('create-modal').style.display = 'none';
+        }
+
+        // Close modal on outside click - with confirmation if data entered
+        document.getElementById('create-modal').addEventListener('click', (e) => {
+            if (e.target.id === 'create-modal') {
+                const hasData = document.getElementById('new-theme-name').value.trim() ||
+                               document.getElementById('new-theme-display').value.trim();
+                if (hasData) {
+                    if (confirm('Discard changes?')) closeModal();
+                } else {
+                    closeModal();
+                }
+            }
+        });
+
+        async function submitCreateTheme() {
+            const name = document.getElementById('new-theme-name').value.trim();
+            const displayName = document.getElementById('new-theme-display').value.trim();
+            const bgColor = document.getElementById('new-theme-bg').value.trim();
+            const panelColor = document.getElementById('new-theme-panel').value.trim();
+            const fontColor = document.getElementById('new-theme-font-color').value.trim();
+            const fontFamily = document.getElementById('new-theme-font-family').value.trim();
+
+            if (!name) {
+                alert('Theme ID is required');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/themes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        display_name: displayName || null,
+                        background_color: bgColor,
+                        panel_color: panelColor,
+                        font_color: fontColor,
+                        font_family: fontFamily
+                    })
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('Failed to create theme: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Failed to create theme: ' + error.message);
+            }
+        }
+
+        async function saveTheme(themeName, btn) {
+            const card = btn.closest('.theme-card');
+            const inputs = card.querySelectorAll('.theme-input');
+            const updates = {};
+
+            inputs.forEach(input => {
+                const field = input.dataset.field;
+                const value = input.value.trim();
+                if (value) {
+                    updates[field] = value;
+                }
+            });
+
+            try {
+                btn.disabled = true;
+                btn.textContent = 'Saving...';
+
+                const response = await fetch(`/api/themes/${themeName}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+
+                if (response.ok) {
+                    btn.textContent = 'Saved!';
+                    updatePreview(card);
+                    setTimeout(() => {
+                        btn.textContent = 'Save Changes';
+                        btn.disabled = false;
+                    }, 1500);
+                } else {
+                    const data = await response.json();
+                    alert('Failed to save: ' + (data.detail || 'Unknown error'));
+                    btn.textContent = 'Save Changes';
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                alert('Failed to save: ' + error.message);
+                btn.textContent = 'Save Changes';
+                btn.disabled = false;
+            }
+        }
+
+        async function deleteTheme(themeName, usageCount) {
+            if (usageCount > 0) {
+                alert(`Cannot delete theme: it is in use by ${usageCount} screen(s)`);
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete the theme "${themeName}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/themes/${themeName}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('Failed to delete: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Failed to delete: ' + error.message);
+            }
+        }
+
+        async function duplicateTheme(themeName) {
+            const newName = prompt('Enter a name for the new theme:', themeName + '-copy');
+            if (!newName) return;
+
+            try {
+                // First get the theme data
+                const getResponse = await fetch(`/api/themes/${themeName}`);
+                if (!getResponse.ok) {
+                    alert('Failed to get theme data');
+                    return;
+                }
+                const theme = await getResponse.json();
+
+                // Create new theme with same values
+                const response = await fetch('/api/themes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: newName,
+                        display_name: (theme.display_name || theme.name) + ' (Copy)',
+                        background_color: theme.background_color,
+                        panel_color: theme.panel_color,
+                        font_color: theme.font_color,
+                        font_family: theme.font_family,
+                        gap: theme.gap,
+                        border_radius: theme.border_radius,
+                        panel_shadow: theme.panel_shadow
+                    })
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const data = await response.json();
+                    alert('Failed to duplicate: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Failed to duplicate: ' + error.message);
+            }
+        }
+
+        function updatePreview(card) {
+            const themeName = card.dataset.themeName;
+            const preview = card.querySelector('.theme-preview');
+            const container = preview.querySelector('.preview-container');
+            const panel = preview.querySelector('.preview-panel');
+
+            const getValue = (field) => {
+                const input = card.querySelector(`[data-field="${field}"]`);
+                return input ? input.value : '';
+            };
+
+            container.style.background = getValue('background_color');
+            container.style.padding = getValue('gap') || '1rem';
+            panel.style.background = getValue('panel_color');
+            panel.style.color = getValue('font_color');
+            panel.style.fontFamily = getValue('font_family');
+            panel.style.borderRadius = getValue('border_radius') || '0.75rem';
+            panel.style.boxShadow = getValue('panel_shadow') || 'none';
+        }
+
+        // Live preview on input change for existing themes
+        document.querySelectorAll('.theme-input').forEach(input => {
+            input.addEventListener('input', () => {
+                const card = input.closest('.theme-card');
+                updatePreview(card);
+            });
+        });
+
+        // Live preview for new theme modal
+        function updateNewThemePreview() {
+            const preview = document.getElementById('new-theme-preview');
+            const container = preview.querySelector('.preview-container');
+            const panel = preview.querySelector('.preview-panel');
+
+            container.style.background = document.getElementById('new-theme-bg').value || '#1e1e2e';
+            panel.style.background = document.getElementById('new-theme-panel').value || '#313244';
+            panel.style.color = document.getElementById('new-theme-font-color').value || '#cdd6f4';
+            panel.style.fontFamily = document.getElementById('new-theme-font-family').value || 'system-ui';
+        }
+
+        document.querySelectorAll('.new-theme-input').forEach(input => {
+            input.addEventListener('input', updateNewThemePreview);
+        });
+    </script>
+</body>
+</html>

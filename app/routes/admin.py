@@ -1,0 +1,145 @@
+"""Admin dashboard routes with Jinja2 template rendering."""
+
+from pathlib import Path
+
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+
+from ..auth import get_current_user
+from ..config import AppMode, get_settings
+from ..connection_manager import manager
+from ..database import (
+    get_all_screens,
+    get_all_themes,
+    get_screens_count,
+    get_theme_usage_counts,
+    get_themes_count,
+)
+
+router = APIRouter(include_in_schema=False)
+
+# Set up Jinja2 templates
+templates_path = Path(__file__).parent.parent / "templates"
+templates = Jinja2Templates(directory=templates_path)
+
+
+@router.get("/admin/screens", response_class=HTMLResponse)
+async def admin_screens(request: Request, page: int = 1):
+    """Admin page listing all screens with pagination.
+
+    In SaaS mode, requires authentication and shows only user's screens.
+    In self-hosted mode, shows all screens without authentication.
+    """
+    settings = get_settings()
+    user = None
+
+    # In SaaS mode, require authentication
+    if settings.APP_MODE == AppMode.SAAS:
+        user = await get_current_user(request)
+        if not user:
+            # Redirect to sign-in page (Clerk will handle this)
+            return RedirectResponse(url="/sign-in?redirect_url=/admin/screens", status_code=302)
+
+    per_page = 10
+    offset = (page - 1) * per_page
+
+    # Filter by ownership in SaaS mode
+    if settings.APP_MODE == AppMode.SAAS and user:
+        total_count = await get_screens_count(owner_id=user.user_id, org_id=user.org_id)
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        screens = await get_all_screens(
+            limit=per_page, offset=offset, owner_id=user.user_id, org_id=user.org_id
+        )
+    else:
+        total_count = await get_screens_count()
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        screens = await get_all_screens(limit=per_page, offset=offset)
+
+    # Enrich screen data for template
+    enriched_screens = []
+    for screen in screens:
+        enriched_screens.append(
+            {
+                **screen,
+                "screen_url": f"/screen/{screen['id']}",
+                "api_url": f"/api/screens/{screen['id']}/message",
+                "viewer_count": manager.get_viewer_count(screen["id"]),
+                "created_display": screen["created_at"][:19].replace("T", " "),
+                "last_updated_display": (
+                    screen["last_updated"][:19].replace("T", " ")
+                    if screen.get("last_updated")
+                    else "Never"
+                ),
+                "name_display": screen.get("name") or "Unnamed Screen",
+                "is_unnamed": not screen.get("name"),
+            }
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_screens.html",
+        context={
+            "screens": enriched_screens,
+            "page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+        },
+    )
+
+
+@router.get("/admin/themes", response_class=HTMLResponse)
+async def admin_themes(request: Request, page: int = 1):
+    """Admin page for managing themes with pagination.
+
+    In SaaS mode, requires authentication and shows only accessible themes.
+    In self-hosted mode, shows all themes without authentication.
+    """
+    settings = get_settings()
+    user = None
+
+    # In SaaS mode, require authentication
+    if settings.APP_MODE == AppMode.SAAS:
+        user = await get_current_user(request)
+        if not user:
+            return RedirectResponse(url="/sign-in?redirect_url=/admin/themes", status_code=302)
+
+    per_page = 10
+    offset = (page - 1) * per_page
+
+    # Get themes
+    if settings.APP_MODE == AppMode.SAAS and user:
+        total_count = await get_themes_count(owner_id=user.user_id)
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        themes = await get_all_themes(limit=per_page, offset=offset, owner_id=user.user_id)
+    else:
+        total_count = await get_themes_count()
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        themes = await get_all_themes(limit=per_page, offset=offset)
+
+    usage_counts = await get_theme_usage_counts()
+
+    # Enrich theme data for template
+    enriched_themes = []
+    for theme in themes:
+        enriched_themes.append(
+            {
+                **theme,
+                "usage_count": usage_counts.get(theme["name"], 0),
+            }
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_themes.html",
+        context={
+            "themes": enriched_themes,
+            "page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+        },
+    )
