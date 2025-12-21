@@ -873,3 +873,49 @@ h1 {
         width: 100%;
     }
 }
+
+/* ============== Pagination ============== */
+.pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #1a1a2e;
+    border-radius: 0.5rem;
+    border: 1px solid #2a2a4e;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.page-info {
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.page-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.page-controls a {
+    text-decoration: none;
+}
+
+.page-controls .btn-secondary.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+    .pagination {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .page-controls {
+        width: 100%;
+        justify-content: center;
+    }
+}

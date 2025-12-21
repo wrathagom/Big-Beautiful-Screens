@@ -14,10 +14,10 @@ from .models import (
 )
 from .database import (
     init_db, create_screen, get_screen_by_id, get_screen_by_api_key,
-    save_message, get_last_message, get_all_screens, delete_screen, update_screen_name,
+    save_message, get_last_message, get_all_screens, get_screens_count, delete_screen, update_screen_name,
     upsert_page, get_all_pages, get_page, update_page, delete_page, reorder_pages,
     get_rotation_settings, update_rotation_settings, cleanup_expired_pages,
-    get_all_themes, get_theme_from_db, create_theme_in_db, update_theme_in_db,
+    get_all_themes, get_themes_count, get_theme_from_db, create_theme_in_db, update_theme_in_db,
     delete_theme_from_db, get_theme_usage_counts
 )
 from .connection_manager import manager
@@ -520,9 +520,16 @@ async def view_screen(screen_id: str):
 
 
 @app.get("/admin/screens", response_class=HTMLResponse)
-async def admin_screens():
-    """Admin page listing all screens."""
-    screens = await get_all_screens()
+async def admin_screens(page: int = 1):
+    """Admin page listing all screens with pagination."""
+    per_page = 10
+    offset = (page - 1) * per_page
+
+    total_count = await get_screens_count()
+    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+    page = max(1, min(page, total_pages))  # Clamp to valid range
+
+    screens = await get_all_screens(limit=per_page, offset=offset)
 
     # Build screen cards
     cards = ""
@@ -621,6 +628,14 @@ async def admin_screens():
             <div class="screen-list">
                 {cards if cards else '<div class="empty">No screens yet. Create one to get started!</div>'}
             </div>
+
+            {'<div class="pagination">' + f'''
+                <span class="page-info">Page {page} of {total_pages} ({total_count} screens)</span>
+                <div class="page-controls">
+                    <a href="?page={page - 1}" class="btn-secondary{' disabled' if page <= 1 else ''}">← Previous</a>
+                    <a href="?page={page + 1}" class="btn-secondary{' disabled' if page >= total_pages else ''}">Next →</a>
+                </div>
+            ''' + '</div>' if total_pages > 1 else ''}
         </div>
 
         <script>
@@ -871,9 +886,16 @@ print(response.json())`;
 
 
 @app.get("/admin/themes", response_class=HTMLResponse)
-async def admin_themes():
-    """Admin page for managing themes."""
-    themes = await get_all_themes()
+async def admin_themes(page: int = 1):
+    """Admin page for managing themes with pagination."""
+    per_page = 10
+    offset = (page - 1) * per_page
+
+    total_count = await get_themes_count()
+    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+    page = max(1, min(page, total_pages))  # Clamp to valid range
+
+    themes = await get_all_themes(limit=per_page, offset=offset)
     usage_counts = await get_theme_usage_counts()
 
     # Build theme cards
@@ -997,6 +1019,14 @@ async def admin_themes():
             <div class="theme-list">
                 {cards if cards else '<div class="empty">No themes found. Create one to get started!</div>'}
             </div>
+
+            {'<div class="pagination">' + f'''
+                <span class="page-info">Page {page} of {total_pages} ({total_count} themes)</span>
+                <div class="page-controls">
+                    <a href="?page={page - 1}" class="btn-secondary{' disabled' if page <= 1 else ''}">← Previous</a>
+                    <a href="?page={page + 1}" class="btn-secondary{' disabled' if page >= total_pages else ''}">Next →</a>
+                </div>
+            ''' + '</div>' if total_pages > 1 else ''}
         </div>
 
         <!-- Create Theme Modal -->
@@ -1062,9 +1092,17 @@ async def admin_themes():
                 document.getElementById('create-modal').style.display = 'none';
             }}
 
-            // Close modal on outside click
+            // Close modal on outside click - with confirmation if data entered
             document.getElementById('create-modal').addEventListener('click', (e) => {{
-                if (e.target.id === 'create-modal') closeModal();
+                if (e.target.id === 'create-modal') {{
+                    const hasData = document.getElementById('new-theme-name').value.trim() ||
+                                   document.getElementById('new-theme-display').value.trim();
+                    if (hasData) {{
+                        if (confirm('Discard changes?')) closeModal();
+                    }} else {{
+                        closeModal();
+                    }}
+                }}
             }});
 
             async function submitCreateTheme() {{

@@ -170,13 +170,14 @@ async def _seed_builtin_themes(db):
 
 # ============== Theme Functions ==============
 
-async def get_all_themes() -> list[dict]:
-    """Get all themes from database."""
+async def get_all_themes(limit: int | None = None, offset: int = 0) -> list[dict]:
+    """Get all themes from database with optional pagination."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM themes ORDER BY is_builtin DESC, name"
-        ) as cursor:
+        query = "SELECT * FROM themes ORDER BY is_builtin DESC, name"
+        if limit:
+            query += f" LIMIT {limit} OFFSET {offset}"
+        async with db.execute(query) as cursor:
             rows = await cursor.fetchall()
 
         return [
@@ -194,6 +195,14 @@ async def get_all_themes() -> list[dict]:
             }
             for row in rows
         ]
+
+
+async def get_themes_count() -> int:
+    """Get total count of themes."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM themes") as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
 
 
 async def get_theme_from_db(name: str) -> dict | None:
@@ -471,15 +480,24 @@ async def get_last_message(screen_id: str) -> dict | None:
             return json.loads(row[0]) if row else None
 
 
-async def get_all_screens() -> list[dict]:
-    """Get all screens."""
+async def get_all_screens(limit: int | None = None, offset: int = 0) -> list[dict]:
+    """Get all screens with optional pagination."""
     async with aiosqlite.connect(DB_PATH) as db:
         db.row_factory = aiosqlite.Row
-        async with db.execute(
-            "SELECT * FROM screens ORDER BY created_at DESC"
-        ) as cursor:
+        query = "SELECT * FROM screens ORDER BY created_at DESC"
+        if limit:
+            query += f" LIMIT {limit} OFFSET {offset}"
+        async with db.execute(query) as cursor:
             rows = await cursor.fetchall()
             return [dict(row) for row in rows]
+
+
+async def get_screens_count() -> int:
+    """Get total count of screens."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM screens") as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
 
 
 async def delete_screen(screen_id: str) -> bool:
