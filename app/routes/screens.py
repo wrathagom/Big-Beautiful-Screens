@@ -35,6 +35,7 @@ from ..models import (
     ScreenResponse,
     ScreenUpdateRequest,
 )
+from ..quota import check_and_increment_quota, get_user_id_from_api_key
 from ..themes import get_theme
 from ..utils import normalize_content, resolve_theme_settings
 
@@ -114,7 +115,10 @@ async def list_screens(page: int = 1, per_page: int = 20):
 async def send_message(
     screen_id: str, request: MessageRequest, x_api_key: str = Header(alias="X-API-Key")
 ):
-    """Send a message to a screen (updates the 'default' page). Requires API key authentication."""
+    """Send a message to a screen (updates the 'default' page). Requires API key authentication.
+
+    Rate-limited in SaaS mode (daily quota based on plan).
+    """
     # Validate screen exists
     screen = await get_screen_by_id(screen_id)
     if not screen:
@@ -123,6 +127,11 @@ async def send_message(
     # Validate API key
     if screen["api_key"] != x_api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Check and increment quota in SaaS mode
+    user_id = await get_user_id_from_api_key(x_api_key)
+    if user_id:
+        await check_and_increment_quota(user_id)
 
     # Normalize content to structured format
     normalized_content = normalize_content(request.content)
@@ -343,13 +352,21 @@ async def list_pages(screen_id: str):
 async def create_or_update_page(
     screen_id: str, page_name: str, request: PageRequest, x_api_key: str = Header(alias="X-API-Key")
 ):
-    """Create or update a specific page. Requires API key authentication."""
+    """Create or update a specific page. Requires API key authentication.
+
+    Rate-limited in SaaS mode (daily quota based on plan).
+    """
     screen = await get_screen_by_id(screen_id)
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
 
     if screen["api_key"] != x_api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Check and increment quota in SaaS mode
+    user_id = await get_user_id_from_api_key(x_api_key)
+    if user_id:
+        await check_and_increment_quota(user_id)
 
     # Normalize content
     normalized_content = normalize_content(request.content)
@@ -385,13 +402,21 @@ async def patch_page(
     request: PageUpdateRequest,
     x_api_key: str = Header(alias="X-API-Key"),
 ):
-    """Partially update a page. Only provided fields are updated. Requires API key."""
+    """Partially update a page. Only provided fields are updated. Requires API key.
+
+    Rate-limited in SaaS mode (daily quota based on plan).
+    """
     screen = await get_screen_by_id(screen_id)
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
 
     if screen["api_key"] != x_api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Check and increment quota in SaaS mode
+    user_id = await get_user_id_from_api_key(x_api_key)
+    if user_id:
+        await check_and_increment_quota(user_id)
 
     # Normalize content if provided
     normalized_content = None

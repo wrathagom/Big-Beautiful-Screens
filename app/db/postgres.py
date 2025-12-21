@@ -139,6 +139,38 @@ class PostgresBackend(DatabaseBackend):
                 CREATE INDEX IF NOT EXISTS idx_themes_owner ON themes(owner_id)
             """)
 
+            # API usage tracking table (for daily quotas)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS api_usage (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    usage_date DATE NOT NULL,
+                    call_count INTEGER NOT NULL DEFAULT 0,
+                    last_call_at TIMESTAMPTZ,
+                    UNIQUE(user_id, usage_date)
+                )
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_api_usage_user_date ON api_usage(user_id, usage_date)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_api_usage_date ON api_usage(usage_date)
+            """)
+
+            # Add Stripe billing columns to users table
+            await conn.execute("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT UNIQUE
+            """)
+            await conn.execute("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT
+            """)
+            await conn.execute("""
+                ALTER TABLE users ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'inactive'
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_users_stripe_customer ON users(stripe_customer_id)
+            """)
+
             # Seed built-in themes
             await self._seed_builtin_themes(conn)
 
@@ -1015,3 +1047,101 @@ class PostgresBackend(DatabaseBackend):
                 user_id,
             )
             return [dict(row) for row in rows]
+
+    # ============== API Quota Methods (SaaS only) ==============
+
+    async def get_daily_quota_usage(self, user_id: str, date: str) -> int:
+        """Get API calls used for a specific date."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.fetchval(
+                "SELECT call_count FROM api_usage WHERE user_id = $1 AND usage_date = $2",
+                user_id,
+                date,
+            )
+            return result or 0
+
+    async def increment_quota_usage(self, user_id: str, date: str) -> int:
+        """Atomically increment and return new usage count."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.fetchval(
+                """
+                INSERT INTO api_usage (user_id, usage_date, call_count, last_call_at)
+                VALUES ($1, $2, 1, NOW())
+                ON CONFLICT (user_id, usage_date)
+                DO UPDATE SET call_count = api_usage.call_count + 1, last_call_at = NOW()
+                RETURNING call_count
+            """,
+                user_id,
+                date,
+            )
+            return result
+
+    async def get_user_id_by_api_key(self, api_key: str) -> str | None:
+        """Get the owner user ID for a screen's API key."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.fetchval(
+                "SELECT owner_id FROM screens WHERE api_key = $1",
+                api_key,
+            )
+            return result
+
+    # ============== Stripe Billing Methods (SaaS only) ==============
+
+    async def get_stripe_customer_id(self, user_id: str) -> str | None:
+        """Get Stripe customer ID for a user."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.fetchval(
+                "SELECT stripe_customer_id FROM users WHERE id = $1",
+                user_id,
+            )
+            return result
+
+    async def set_stripe_customer_id(self, user_id: str, customer_id: str) -> bool:
+        """Set Stripe customer ID for a user."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                "UPDATE users SET stripe_customer_id = $1 WHERE id = $2",
+                customer_id,
+                user_id,
+            )
+            return result == "UPDATE 1"
+
+    async def update_user_plan(
+        self,
+        user_id: str,
+        plan: str,
+        subscription_id: str | None = None,
+        subscription_status: str = "active",
+    ) -> bool:
+        """Update user's plan after subscription change."""
+        now = datetime.now(UTC)
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                UPDATE users
+                SET plan = $1, stripe_subscription_id = $2, subscription_status = $3, updated_at = $4
+                WHERE id = $5
+            """,
+                plan,
+                subscription_id,
+                subscription_status,
+                now,
+                user_id,
+            )
+            return result == "UPDATE 1"
+
+    async def get_user_by_stripe_customer(self, customer_id: str) -> dict | None:
+        """Get a user by their Stripe customer ID."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM users WHERE stripe_customer_id = $1",
+                customer_id,
+            )
+            return dict(row) if row else None

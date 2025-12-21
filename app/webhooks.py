@@ -1,12 +1,14 @@
 """Webhook handlers for Big Beautiful Screens.
 
 Handles Clerk webhooks for user and organization sync.
+Handles Stripe webhooks for subscription management.
 """
 
 import hashlib
 import hmac
 import json
 
+import stripe
 from fastapi import APIRouter, Header, HTTPException, Request
 
 from .config import AppMode, get_settings
@@ -165,5 +167,147 @@ async def clerk_webhook(
 
         if user_id and org_id:
             await db.remove_org_member(user_id, org_id)
+
+    return {"success": True, "event": event_type}
+
+
+# ============== Stripe Webhooks ==============
+
+
+def _get_plan_from_price(price_id: str) -> str:
+    """Map Stripe price ID to plan name."""
+    settings = get_settings()
+    price_to_plan = {
+        settings.STRIPE_PRICE_PRO_MONTHLY: "pro",
+        settings.STRIPE_PRICE_PRO_YEARLY: "pro",
+        settings.STRIPE_PRICE_TEAM_MONTHLY: "team",
+        settings.STRIPE_PRICE_TEAM_YEARLY: "team",
+    }
+    return price_to_plan.get(price_id, "pro")  # Default to pro if unknown
+
+
+@router.post("/stripe")
+async def stripe_webhook(
+    request: Request,
+    stripe_signature: str | None = Header(default=None, alias="stripe-signature"),
+):
+    """Handle Stripe webhook events for subscription management.
+
+    Events handled:
+    - checkout.session.completed: Upgrade user plan after successful checkout
+    - customer.subscription.updated: Sync subscription status changes
+    - customer.subscription.deleted: Downgrade user to free plan
+    - invoice.payment_failed: Mark subscription as past_due
+    """
+    settings = get_settings()
+
+    # Only process in SaaS mode
+    if settings.APP_MODE != AppMode.SAAS:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    if not settings.STRIPE_WEBHOOK_SECRET:
+        raise HTTPException(status_code=500, detail="Stripe webhook secret not configured")
+
+    if not settings.STRIPE_SECRET_KEY:
+        raise HTTPException(status_code=500, detail="Stripe not configured")
+
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    # Get raw body for signature verification
+    body = await request.body()
+
+    # Verify webhook signature
+    try:
+        event = stripe.Webhook.construct_event(
+            body, stripe_signature, settings.STRIPE_WEBHOOK_SECRET
+        )
+    except stripe.error.SignatureVerificationError:
+        raise HTTPException(status_code=401, detail="Invalid signature") from None
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Webhook error: {e!s}") from None
+
+    event_type = event["type"]
+    data = event["data"]["object"]
+
+    db = get_database()
+
+    # Handle checkout completion - upgrade plan
+    if event_type == "checkout.session.completed":
+        user_id = data.get("metadata", {}).get("user_id")
+        subscription_id = data.get("subscription")
+
+        if user_id and subscription_id:
+            # Get subscription to find the plan
+            subscription = stripe.Subscription.retrieve(subscription_id)
+            plan = subscription.get("metadata", {}).get("plan", "pro")
+
+            await db.update_user_plan(
+                user_id=user_id,
+                plan=plan,
+                subscription_id=subscription_id,
+                subscription_status="active",
+            )
+
+    # Handle subscription updates
+    elif event_type == "customer.subscription.updated":
+        subscription_id = data.get("id")
+        customer_id = data.get("customer")
+        status = data.get("status")
+
+        # Map Stripe status to our status
+        status_map = {
+            "active": "active",
+            "past_due": "past_due",
+            "canceled": "canceled",
+            "unpaid": "past_due",
+            "trialing": "active",
+        }
+        our_status = status_map.get(status, "inactive")
+
+        # Get user by Stripe customer ID
+        user = await db.get_user_by_stripe_customer(customer_id)
+        if user:
+            # Get plan from subscription items
+            items = data.get("items", {}).get("data", [])
+            plan = "pro"  # Default
+            if items:
+                price_id = items[0].get("price", {}).get("id")
+                if price_id:
+                    plan = _get_plan_from_price(price_id)
+
+            await db.update_user_plan(
+                user_id=user["id"],
+                plan=plan if our_status == "active" else user.get("plan", "free"),
+                subscription_id=subscription_id,
+                subscription_status=our_status,
+            )
+
+    # Handle subscription cancellation
+    elif event_type == "customer.subscription.deleted":
+        customer_id = data.get("customer")
+
+        # Get user by Stripe customer ID
+        user = await db.get_user_by_stripe_customer(customer_id)
+        if user:
+            await db.update_user_plan(
+                user_id=user["id"],
+                plan="free",  # Downgrade to free
+                subscription_id=None,
+                subscription_status="canceled",
+            )
+
+    # Handle payment failures
+    elif event_type == "invoice.payment_failed":
+        customer_id = data.get("customer")
+
+        # Get user by Stripe customer ID
+        user = await db.get_user_by_stripe_customer(customer_id)
+        if user:
+            await db.update_user_plan(
+                user_id=user["id"],
+                plan=user.get("plan", "free"),  # Keep current plan
+                subscription_id=user.get("stripe_subscription_id"),
+                subscription_status="past_due",
+            )
 
     return {"success": True, "event": event_type}

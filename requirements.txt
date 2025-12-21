@@ -12,6 +12,9 @@ asyncpg>=0.29.0
 PyJWT[crypto]>=2.8.0
 httpx>=0.24.0
 
+# Billing (SaaS mode)
+stripe>=7.0.0
+
 # Testing
 pytest>=7.0.0
 pytest-asyncio>=0.21.0

@@ -7,7 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
 from ..auth import get_current_user
-from ..config import AppMode, get_settings
+from ..config import PLAN_LIMITS, AppMode, get_settings
 from ..connection_manager import manager
 from ..database import (
     get_all_screens,
@@ -16,6 +16,7 @@ from ..database import (
     get_theme_usage_counts,
     get_themes_count,
 )
+from ..db import get_database
 
 router = APIRouter(include_in_schema=False)
 
@@ -141,5 +142,63 @@ async def admin_themes(request: Request, page: int = 1):
             "page": page,
             "total_pages": total_pages,
             "total_count": total_count,
+        },
+    )
+
+
+@router.get("/admin/usage", response_class=HTMLResponse)
+async def admin_usage(request: Request, checkout: str | None = None):
+    """Admin page showing usage statistics and billing information.
+
+    Only available in SaaS mode. Requires authentication.
+    """
+    settings = get_settings()
+
+    # Only available in SaaS mode
+    if settings.APP_MODE != AppMode.SAAS:
+        return RedirectResponse(url="/admin/screens", status_code=302)
+
+    user = await get_current_user(request)
+    if not user:
+        return RedirectResponse(url="/sign-in?redirect_url=/admin/usage", status_code=302)
+
+    db = get_database()
+    user_data = await db.get_user(user.user_id)
+    plan = user_data.get("plan", "free") if user_data else "free"
+    limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+
+    # Count usage
+    screen_count = await get_screens_count(owner_id=user.user_id)
+    all_themes = await get_all_themes(owner_id=user.user_id)
+    custom_theme_count = sum(1 for t in all_themes if not t.get("is_builtin"))
+
+    # Get API quota usage for today
+    from datetime import UTC, datetime
+
+    today = datetime.now(UTC).date()
+    api_calls_today = await db.get_daily_quota_usage(user.user_id, today)
+
+    # Subscription info
+    subscription_status = user_data.get("subscription_status") if user_data else None
+    subscription_id = user_data.get("stripe_subscription_id") if user_data else None
+    customer_id = user_data.get("stripe_customer_id") if user_data else None
+    has_subscription = bool(customer_id)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_usage.html",
+        context={
+            "plan": plan,
+            "limits": limits,
+            "usage": {
+                "screens": screen_count,
+                "themes": custom_theme_count,
+                "api_calls_today": api_calls_today,
+            },
+            "subscription_status": subscription_status,
+            "subscription_id": subscription_id,
+            "customer_id": customer_id,
+            "has_subscription": has_subscription,
+            "checkout": checkout,
         },
     )

@@ -7,7 +7,9 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import AppMode, get_settings
 from .database import init_db
+from .logging_middleware import UsageLoggingMiddleware, configure_usage_logging
 from .routes.admin import router as admin_router
+from .routes.billing import router as billing_router
 from .routes.screens import router as screens_router
 from .routes.themes import router as themes_router
 from .routes_me import router as me_router
@@ -46,6 +48,15 @@ app.include_router(admin_router)
 if settings.APP_MODE == AppMode.SAAS:
     app.include_router(webhooks_router)
     app.include_router(me_router)
+    app.include_router(billing_router)
+
+# Add usage logging middleware in SaaS mode
+if settings.APP_MODE == AppMode.SAAS:
+    configure_usage_logging(
+        destination=settings.USAGE_LOG_DESTINATION,
+        file_path=settings.USAGE_LOG_FILE_PATH,
+    )
+    app.add_middleware(UsageLoggingMiddleware)
 
 # Mount static files
 static_path = Path(__file__).parent.parent / "static"

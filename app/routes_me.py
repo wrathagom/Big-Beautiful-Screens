@@ -207,11 +207,18 @@ async def list_my_themes(user: RequiredUser, page: int = 1, per_page: int = 20):
 
 @router.get("/usage")
 async def get_my_usage(user: RequiredUser):
-    """Get usage statistics and limits for the current user."""
+    """Get usage statistics and limits for the current user.
+
+    Returns:
+        plan: Current plan name
+        limits: Resource limits for the plan
+        usage: Current resource usage
+        quota: API quota status (limit, used, remaining, resets_at)
+    """
     settings = get_settings()
 
     if settings.APP_MODE != AppMode.SAAS:
-        return {"plan": "unlimited", "limits": None, "usage": None}
+        return {"plan": "unlimited", "limits": None, "usage": None, "quota": None}
 
     db = get_database()
     user_data = await db.get_user(user.user_id)
@@ -224,14 +231,41 @@ async def get_my_usage(user: RequiredUser):
     all_themes = await get_all_themes(owner_id=user.user_id)
     custom_theme_count = sum(1 for t in all_themes if not t.get("is_builtin"))
 
+    # Get API quota status
+    from datetime import UTC, datetime, timedelta
+
+    today = datetime.now(UTC).date()
+    api_calls_today = await db.get_daily_quota_usage(user.user_id, today)
+    daily_limit = limits.get("api_calls_daily", 100)
+
+    # Calculate reset time (midnight UTC)
+    tomorrow_midnight = datetime.combine(today + timedelta(days=1), datetime.min.time()).replace(
+        tzinfo=UTC
+    )
+    resets_at = tomorrow_midnight.isoformat()
+
+    quota = {
+        "limit": daily_limit,
+        "used": api_calls_today,
+        "remaining": max(0, daily_limit - api_calls_today) if daily_limit != -1 else -1,
+        "resets_at": resets_at,
+        "is_unlimited": daily_limit == -1,
+    }
+
     return {
         "plan": plan,
         "limits": {
             "screens": limits["screens"],
             "themes": limits["themes"],
             "pages_per_screen": limits["pages_per_screen"],
+            "api_calls_daily": daily_limit,
         },
-        "usage": {"screens": screen_count, "themes": custom_theme_count},
+        "usage": {
+            "screens": screen_count,
+            "themes": custom_theme_count,
+            "api_calls_today": api_calls_today,
+        },
+        "quota": quota,
     }
 
 

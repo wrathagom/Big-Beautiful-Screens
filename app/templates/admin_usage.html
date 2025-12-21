@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Big Beautiful Screens - Usage & Billing</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <link rel="stylesheet" href="/static/admin.css">
+    <style>
+        /* Usage Dashboard Specific Styles */
+        .usage-dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .plan-card {
+            background: #1a1a2e;
+            border-radius: 0.5rem;
+            border: 1px solid #2a2a4e;
+            padding: 1.5rem;
+        }
+
+        .plan-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .plan-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .plan-badge {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.875rem;
+            letter-spacing: 0.05em;
+        }
+
+        .plan-badge.free {
+            background: #16213e;
+            color: #888;
+        }
+
+        .plan-badge.pro {
+            background: #1e3a5f;
+            color: #4a9eff;
+        }
+
+        .plan-badge.team {
+            background: #2d1f3d;
+            color: #9b59b6;
+        }
+
+        .plan-badge.unlimited {
+            background: #1a3d2e;
+            color: #27ae60;
+        }
+
+        .plan-actions {
+            display: flex;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+
+        .btn-upgrade {
+            background: linear-gradient(135deg, #4a69bd 0%, #8e44ad 100%);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .btn-upgrade:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(74, 105, 189, 0.3);
+        }
+
+        .btn-manage {
+            background: #2a2a4e;
+            color: #ccc;
+            border: 1px solid #3a3a5e;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-manage:hover {
+            background: #3a3a5e;
+            color: #fff;
+        }
+
+        /* Usage Stats Grid */
+        .usage-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .usage-item {
+            background: #0d1b2a;
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+        }
+
+        .usage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .usage-label {
+            color: #888;
+            font-size: 0.875rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .usage-count {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .usage-count .limit {
+            color: #666;
+            font-weight: 400;
+            font-size: 1rem;
+        }
+
+        .usage-count.unlimited {
+            color: #27ae60;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-top: 0.5rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: #1a1a2e;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-fill.normal {
+            background: linear-gradient(90deg, #27ae60 0%, #2ecc71 100%);
+        }
+
+        .progress-fill.warning {
+            background: linear-gradient(90deg, #f39c12 0%, #e67e22 100%);
+        }
+
+        .progress-fill.danger {
+            background: linear-gradient(90deg, #c0392b 0%, #e74c3c 100%);
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.5rem;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        /* Quota Reset */
+        .quota-reset {
+            background: #1a1a2e;
+            border-radius: 0.5rem;
+            border: 1px solid #2a2a4e;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .quota-reset-label {
+            color: #888;
+            font-size: 0.875rem;
+        }
+
+        .quota-reset-time {
+            color: #fff;
+            font-weight: 600;
+            font-size: 1.125rem;
+        }
+
+        /* Subscription Status */
+        .subscription-info {
+            background: #1a1a2e;
+            border-radius: 0.5rem;
+            border: 1px solid #2a2a4e;
+            padding: 1.5rem;
+        }
+
+        .subscription-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        .status-indicator.active {
+            background: #27ae60;
+            box-shadow: 0 0 8px rgba(39, 174, 96, 0.5);
+        }
+
+        .status-indicator.inactive {
+            background: #666;
+        }
+
+        .status-indicator.past_due {
+            background: #f39c12;
+            box-shadow: 0 0 8px rgba(243, 156, 18, 0.5);
+        }
+
+        .status-indicator.canceled {
+            background: #c0392b;
+        }
+
+        .status-text {
+            font-size: 0.875rem;
+            color: #ccc;
+        }
+
+        .subscription-details {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: #888;
+        }
+
+        .subscription-details code {
+            background: #0d1b2a;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        /* Success/Error Messages */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background: rgba(39, 174, 96, 0.15);
+            border: 1px solid rgba(39, 174, 96, 0.3);
+            color: #27ae60;
+        }
+
+        .alert-error {
+            background: rgba(192, 57, 43, 0.15);
+            border: 1px solid rgba(192, 57, 43, 0.3);
+            color: #e74c3c;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .plan-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .plan-actions {
+                flex-direction: column;
+            }
+
+            .plan-actions button {
+                width: 100%;
+            }
+
+            .quota-reset {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .usage-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="admin-header">
+            <div class="header-title">
+                <img src="/static/logo.png" alt="BBS Logo" class="header-logo">
+                <div>
+                    <h1>Big Beautiful Screens</h1>
+                    <p class="subtitle">Usage & Billing</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <div></div>
+            <div class="nav-links">
+                <a href="/admin/screens" class="nav-link">Screens</a>
+                <a href="/admin/themes" class="nav-link">Themes</a>
+                <a href="/docs" class="nav-link" target="_blank">API Docs</a>
+            </div>
+        </div>
+
+        {% if checkout == 'success' %}
+        <div class="alert alert-success">
+            Payment successful! Your plan has been upgraded. It may take a moment for changes to reflect.
+        </div>
+        {% elif checkout == 'canceled' %}
+        <div class="alert alert-error">
+            Checkout was canceled. No changes were made to your subscription.
+        </div>
+        {% endif %}
+
+        <div class="usage-dashboard">
+            <!-- Plan Card -->
+            <div class="plan-card">
+                <div class="plan-header">
+                    <div class="plan-info">
+                        <span class="plan-badge {{ plan }}">{{ plan | upper }} Plan</span>
+                        {% if subscription_status and subscription_status != 'inactive' %}
+                        <div class="subscription-status">
+                            <span class="status-indicator {{ subscription_status }}"></span>
+                            <span class="status-text">{{ subscription_status | replace('_', ' ') | title }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="plan-actions">
+                        {% if plan != 'team' and plan != 'unlimited' %}
+                        <button class="btn-upgrade" onclick="upgradePlan()">Upgrade Plan</button>
+                        {% endif %}
+                        {% if has_subscription %}
+                        <button class="btn-manage" onclick="manageSubscription()">Manage Subscription</button>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Usage Stats -->
+                <div class="usage-grid">
+                    <!-- Screens -->
+                    <div class="usage-item">
+                        <div class="usage-header">
+                            <span class="usage-label">Screens</span>
+                            <span class="usage-count {% if limits.screens == -1 %}unlimited{% endif %}">
+                                {% if limits.screens == -1 %}
+                                    {{ usage.screens }} <span class="limit">/ Unlimited</span>
+                                {% else %}
+                                    {{ usage.screens }} <span class="limit">/ {{ limits.screens }}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if limits.screens != -1 %}
+                        <div class="progress-container">
+                            {% set screen_pct = (usage.screens / limits.screens * 100) | int if limits.screens > 0 else 0 %}
+                            <div class="progress-bar">
+                                <div class="progress-fill {% if screen_pct >= 100 %}danger{% elif screen_pct >= 80 %}warning{% else %}normal{% endif %}"
+                                     style="width: {{ [screen_pct, 100] | min }}%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>{{ screen_pct }}% used</span>
+                                <span>{{ limits.screens - usage.screens }} remaining</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Themes -->
+                    <div class="usage-item">
+                        <div class="usage-header">
+                            <span class="usage-label">Custom Themes</span>
+                            <span class="usage-count {% if limits.themes == -1 %}unlimited{% endif %}">
+                                {% if limits.themes == -1 %}
+                                    {{ usage.themes }} <span class="limit">/ Unlimited</span>
+                                {% else %}
+                                    {{ usage.themes }} <span class="limit">/ {{ limits.themes }}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if limits.themes != -1 %}
+                        <div class="progress-container">
+                            {% set theme_pct = (usage.themes / limits.themes * 100) | int if limits.themes > 0 else 0 %}
+                            <div class="progress-bar">
+                                <div class="progress-fill {% if theme_pct >= 100 %}danger{% elif theme_pct >= 80 %}warning{% else %}normal{% endif %}"
+                                     style="width: {{ [theme_pct, 100] | min }}%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>{{ theme_pct }}% used</span>
+                                <span>{{ limits.themes - usage.themes }} remaining</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- API Calls Today -->
+                    <div class="usage-item">
+                        <div class="usage-header">
+                            <span class="usage-label">API Calls Today</span>
+                            <span class="usage-count {% if limits.api_calls_daily == -1 %}unlimited{% endif %}">
+                                {% if limits.api_calls_daily == -1 %}
+                                    {{ usage.api_calls_today }} <span class="limit">/ Unlimited</span>
+                                {% else %}
+                                    {{ usage.api_calls_today }} <span class="limit">/ {{ limits.api_calls_daily }}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                        {% if limits.api_calls_daily != -1 %}
+                        <div class="progress-container">
+                            {% set api_pct = (usage.api_calls_today / limits.api_calls_daily * 100) | int if limits.api_calls_daily > 0 else 0 %}
+                            <div class="progress-bar">
+                                <div class="progress-fill {% if api_pct >= 100 %}danger{% elif api_pct >= 80 %}warning{% else %}normal{% endif %}"
+                                     style="width: {{ [api_pct, 100] | min }}%"></div>
+                            </div>
+                            <div class="progress-text">
+                                <span>{{ api_pct }}% used</span>
+                                <span>{{ limits.api_calls_daily - usage.api_calls_today }} remaining</span>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quota Reset Timer -->
+            {% if limits.api_calls_daily != -1 %}
+            <div class="quota-reset">
+                <span class="quota-reset-label">API quota resets in:</span>
+                <span class="quota-reset-time" id="reset-countdown">--:--:--</span>
+            </div>
+            {% endif %}
+
+            <!-- Subscription Details (if exists) -->
+            {% if has_subscription %}
+            <div class="subscription-info">
+                <h3 style="color: #fff; margin-bottom: 1rem; font-size: 1rem;">Subscription Details</h3>
+                <div class="subscription-details">
+                    {% if subscription_id %}
+                    <div>Subscription ID: <code>{{ subscription_id }}</code></div>
+                    {% endif %}
+                    {% if customer_id %}
+                    <div>Customer ID: <code>{{ customer_id }}</code></div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Countdown to midnight UTC
+        function updateCountdown() {
+            const now = new Date();
+            const tomorrow = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+            const diff = tomorrow - now;
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+            const el = document.getElementById('reset-countdown');
+            if (el) {
+                el.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        // Update every second
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+
+        // Upgrade plan
+        async function upgradePlan() {
+            try {
+                const response = await fetch('/api/v1/billing/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (data.checkout_url) {
+                    window.location.href = data.checkout_url;
+                } else {
+                    alert('Failed to create checkout session: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error creating checkout session: ' + error.message);
+            }
+        }
+
+        // Manage subscription
+        async function manageSubscription() {
+            try {
+                const response = await fetch('/api/v1/billing/portal', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const data = await response.json();
+                if (data.portal_url) {
+                    window.location.href = data.portal_url;
+                } else {
+                    alert('Failed to create portal session: ' + (data.detail || 'Unknown error'));
+                }
+            } catch (error) {
+                alert('Error creating portal session: ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

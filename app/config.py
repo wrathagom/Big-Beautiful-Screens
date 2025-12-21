@@ -29,17 +29,20 @@ class Settings(BaseSettings):
     # Feature flags
     REQUIRE_AUTH_FOR_ADMIN: bool = False  # Auto-set True in SaaS mode
 
-    # Billing tiers (future)
+    # Stripe billing
     STRIPE_SECRET_KEY: str | None = None
     STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_PRICE_PRO_MONTHLY: str | None = None
+    STRIPE_PRICE_PRO_YEARLY: str | None = None
+    STRIPE_PRICE_TEAM_MONTHLY: str | None = None
+    STRIPE_PRICE_TEAM_YEARLY: str | None = None
 
-    # Plan limits
-    FREE_TIER_SCREEN_LIMIT: int = 3
-    FREE_TIER_THEME_LIMIT: int = 5
-    PRO_TIER_SCREEN_LIMIT: int = 25
-    PRO_TIER_THEME_LIMIT: int = 50
-    TEAM_TIER_SCREEN_LIMIT: int = 100
-    TEAM_TIER_THEME_LIMIT: int = 200
+    # Usage logging
+    USAGE_LOG_DESTINATION: str = "stdout"  # stdout, file, or external
+    USAGE_LOG_FILE_PATH: str = "logs/usage.log"
+
+    # App URL (for Stripe redirects)
+    APP_URL: str = "http://localhost:8000"
 
     class Config:
         env_file = ".env"
@@ -70,11 +73,11 @@ class Settings(BaseSettings):
         return missing
 
 
-# Plan limits lookup
+# Plan limits lookup (includes resource counts and API quotas)
 PLAN_LIMITS = {
-    "free": {"screens": 3, "themes": 5, "pages_per_screen": 5},
-    "pro": {"screens": 25, "themes": 50, "pages_per_screen": 50},
-    "team": {"screens": 100, "themes": 200, "pages_per_screen": 100},
+    "free": {"screens": 3, "themes": 200, "pages_per_screen": 5, "api_calls_daily": 100},
+    "pro": {"screens": 25, "themes": 200, "pages_per_screen": 50, "api_calls_daily": 1000},
+    "team": {"screens": 100, "themes": 200, "pages_per_screen": 100, "api_calls_daily": -1},
 }
 
 
