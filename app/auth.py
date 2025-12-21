@@ -4,15 +4,50 @@ Handles Clerk JWT verification in SaaS mode.
 In self-hosted mode, authentication is bypassed.
 """
 
+import base64
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated
+from urllib.parse import quote
 
 import httpx
 from fastapi import Depends, Header, HTTPException, Request
 
 from .config import AppMode, get_settings
+
+
+def get_clerk_frontend_api() -> str | None:
+    """Extract Clerk frontend API domain from publishable key."""
+    settings = get_settings()
+    if not settings.CLERK_PUBLISHABLE_KEY:
+        return None
+
+    try:
+        parts = settings.CLERK_PUBLISHABLE_KEY.split("_")
+        if len(parts) >= 3:
+            encoded = parts[2]
+            # Add padding if needed
+            padding = 4 - len(encoded) % 4
+            if padding != 4:
+                encoded += "=" * padding
+            return base64.b64decode(encoded).decode("utf-8").rstrip("\x00$")
+    except Exception:
+        pass
+    return None
+
+
+def get_clerk_sign_in_url(redirect_url: str) -> str:
+    """Get the Clerk Account Portal sign-in URL with redirect."""
+    frontend_api = get_clerk_frontend_api()
+    if not frontend_api:
+        return f"/sign-in?redirect_url={redirect_url}"
+
+    settings = get_settings()
+    app_url = settings.APP_URL.rstrip("/")
+    full_redirect = f"{app_url}{redirect_url}"
+
+    return f"https://{frontend_api}/sign-in?redirect_url={quote(full_redirect)}"
 
 
 @dataclass

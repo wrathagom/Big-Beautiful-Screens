@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from ..auth import get_current_user
+from ..auth import get_clerk_sign_in_url, get_current_user
 from ..config import PLAN_LIMITS, AppMode, get_settings
 from ..connection_manager import manager
 from ..database import (
@@ -39,8 +39,7 @@ async def admin_screens(request: Request, page: int = 1):
     if settings.APP_MODE == AppMode.SAAS:
         user = await get_current_user(request)
         if not user:
-            # Redirect to sign-in page (Clerk will handle this)
-            return RedirectResponse(url="/sign-in?redirect_url=/admin/screens", status_code=302)
+            return RedirectResponse(url=get_clerk_sign_in_url("/admin/screens"), status_code=302)
 
     per_page = 10
     offset = (page - 1) * per_page
@@ -105,7 +104,7 @@ async def admin_themes(request: Request, page: int = 1):
     if settings.APP_MODE == AppMode.SAAS:
         user = await get_current_user(request)
         if not user:
-            return RedirectResponse(url="/sign-in?redirect_url=/admin/themes", status_code=302)
+            return RedirectResponse(url=get_clerk_sign_in_url("/admin/themes"), status_code=302)
 
     per_page = 10
     offset = (page - 1) * per_page
@@ -160,7 +159,7 @@ async def admin_usage(request: Request, checkout: str | None = None):
 
     user = await get_current_user(request)
     if not user:
-        return RedirectResponse(url="/sign-in?redirect_url=/admin/usage", status_code=302)
+        return RedirectResponse(url=get_clerk_sign_in_url("/admin/usage"), status_code=302)
 
     db = get_database()
     user_data = await db.get_user(user.user_id)
