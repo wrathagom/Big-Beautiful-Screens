@@ -10,16 +10,18 @@ from fastapi.staticfiles import StaticFiles
 from .models import (
     MessageRequest, ScreenResponse, MessageResponse,
     PageRequest, PageUpdateRequest, RotationSettings, PageOrderRequest, PageResponse, PagesListResponse,
-    ScreenUpdateRequest
+    ScreenUpdateRequest, ThemeCreate, ThemeUpdate
 )
 from .database import (
     init_db, create_screen, get_screen_by_id, get_screen_by_api_key,
     save_message, get_last_message, get_all_screens, delete_screen, update_screen_name,
     upsert_page, get_all_pages, get_page, update_page, delete_page, reorder_pages,
-    get_rotation_settings, update_rotation_settings, cleanup_expired_pages
+    get_rotation_settings, update_rotation_settings, cleanup_expired_pages,
+    get_all_themes, get_theme_from_db, create_theme_in_db, update_theme_in_db,
+    delete_theme_from_db, get_theme_usage_counts
 )
 from .connection_manager import manager
-from .themes import get_theme, list_themes
+from .themes import get_theme, list_themes, get_theme_async
 
 app = FastAPI(title="Big Beautiful Screens", version="0.1.0")
 
@@ -36,7 +38,76 @@ async def startup():
 @app.get("/api/themes")
 async def get_available_themes():
     """List all available themes with their properties."""
-    return {"themes": list_themes()}
+    themes = await get_all_themes()
+    usage_counts = await get_theme_usage_counts()
+    # Add usage count to each theme
+    for theme in themes:
+        theme["usage_count"] = usage_counts.get(theme["name"], 0)
+    return {"themes": themes}
+
+
+@app.get("/api/themes/{theme_name}")
+async def get_theme_by_name(theme_name: str):
+    """Get a specific theme by name."""
+    theme = await get_theme_from_db(theme_name)
+    if not theme:
+        raise HTTPException(status_code=404, detail="Theme not found")
+    return theme
+
+
+@app.post("/api/themes")
+async def create_theme(request: ThemeCreate):
+    """Create a new custom theme."""
+    # Check if theme name already exists
+    existing = await get_theme_from_db(request.name)
+    if existing:
+        raise HTTPException(status_code=400, detail="Theme with this name already exists")
+
+    # Validate theme name (URL-safe)
+    if not request.name.replace("-", "").replace("_", "").isalnum():
+        raise HTTPException(status_code=400, detail="Theme name must be alphanumeric with hyphens/underscores only")
+
+    theme = await create_theme_in_db(
+        name=request.name,
+        display_name=request.display_name,
+        background_color=request.background_color,
+        panel_color=request.panel_color,
+        font_family=request.font_family,
+        font_color=request.font_color,
+        gap=request.gap,
+        border_radius=request.border_radius,
+        panel_shadow=request.panel_shadow
+    )
+    return {"success": True, "theme": theme}
+
+
+@app.patch("/api/themes/{theme_name}")
+async def update_theme(theme_name: str, request: ThemeUpdate):
+    """Update a theme. All fields are optional for partial updates."""
+    theme = await update_theme_in_db(
+        name=theme_name,
+        display_name=request.display_name,
+        background_color=request.background_color,
+        panel_color=request.panel_color,
+        font_family=request.font_family,
+        font_color=request.font_color,
+        gap=request.gap,
+        border_radius=request.border_radius,
+        panel_shadow=request.panel_shadow
+    )
+    if not theme:
+        raise HTTPException(status_code=404, detail="Theme not found")
+
+    return {"success": True, "theme": theme}
+
+
+@app.delete("/api/themes/{theme_name}")
+async def delete_theme(theme_name: str):
+    """Delete a theme. Will fail if the theme is in use by any screens."""
+    success, error = await delete_theme_from_db(theme_name)
+    if not success:
+        raise HTTPException(status_code=400, detail=error)
+    return {"success": True}
 
 
 @app.post("/api/screens", response_model=ScreenResponse)
@@ -235,11 +306,12 @@ async def update_screen(
             head_html=head_html
         )
 
-        # Broadcast settings update to viewers
+        # Broadcast settings update to viewers (with theme values resolved)
         rotation = await get_rotation_settings(screen_id)
+        resolved_rotation = await resolve_theme_settings(rotation)
         await manager.broadcast(screen_id, {
             "type": "rotation_update",
-            "rotation": rotation
+            "rotation": resolved_rotation
         })
 
     # Build response
@@ -247,7 +319,8 @@ async def update_screen(
     if name is not None:
         response["name"] = name
     if has_display_settings:
-        response["settings"] = await get_rotation_settings(screen_id)
+        settings = await get_rotation_settings(screen_id)
+        response["settings"] = await resolve_theme_settings(settings)
 
     return response
 
@@ -263,10 +336,11 @@ async def list_pages(screen_id: str):
 
     pages = await get_all_pages(screen_id)
     rotation = await get_rotation_settings(screen_id)
+    resolved_rotation = await resolve_theme_settings(rotation)
 
     return {
         "pages": pages,
-        "rotation": rotation
+        "rotation": resolved_rotation
     }
 
 
@@ -419,14 +493,15 @@ async def reorder_pages_endpoint(
 
     await reorder_pages(screen_id, request.page_names)
 
-    # Get updated pages and broadcast
+    # Get updated pages and broadcast (with theme values resolved)
     pages = await get_all_pages(screen_id)
     rotation = await get_rotation_settings(screen_id)
+    resolved_rotation = await resolve_theme_settings(rotation)
 
     await manager.broadcast(screen_id, {
         "type": "pages_sync",
         "pages": pages,
-        "rotation": rotation
+        "rotation": resolved_rotation
     })
 
     return {"success": True}
@@ -531,8 +606,13 @@ async def admin_screens():
     </head>
     <body>
         <div class="container">
-            <h1>Big Beautiful Screens</h1>
-            <p class="subtitle">Admin Dashboard</p>
+            <div class="admin-header">
+                <div>
+                    <h1>Big Beautiful Screens</h1>
+                    <p class="subtitle">Admin Dashboard</p>
+                </div>
+                <a href="/admin/themes" class="nav-link">Manage Themes →</a>
+            </div>
 
             <div class="actions">
                 <button id="create-screen" class="btn-primary">+ Create New Screen</button>
@@ -790,6 +870,401 @@ print(response.json())`;
     return HTMLResponse(content=html)
 
 
+@app.get("/admin/themes", response_class=HTMLResponse)
+async def admin_themes():
+    """Admin page for managing themes."""
+    themes = await get_all_themes()
+    usage_counts = await get_theme_usage_counts()
+
+    # Build theme cards
+    cards = ""
+    for theme in themes:
+        usage_count = usage_counts.get(theme["name"], 0)
+        builtin_badge = '<span class="builtin-badge">Built-in</span>' if theme["is_builtin"] else ''
+        usage_badge = f'<span class="usage-badge">{usage_count} screen{"s" if usage_count != 1 else ""}</span>'
+
+        # Escape values for HTML attributes
+        bg_color = theme["background_color"] or ""
+        panel_color = theme["panel_color"] or ""
+        font_color = theme["font_color"] or ""
+        font_family = theme["font_family"] or ""
+        gap = theme["gap"] or "1rem"
+        border_radius = theme["border_radius"] or "1rem"
+        panel_shadow = theme["panel_shadow"] or ""
+
+        cards += f"""
+        <div class="theme-card" data-theme-name="{theme['name']}">
+            <div class="card-header" onclick="toggleExpand(this.parentElement)">
+                <div class="card-summary">
+                    <span class="theme-name">{theme['display_name'] or theme['name']}</span>
+                    <code class="theme-id">{theme['name']}</code>
+                    <div class="theme-swatches">
+                        <span class="color-swatch" style="background: {bg_color};" title="Background"></span>
+                        <span class="color-swatch" style="background: {panel_color};" title="Panel"></span>
+                        <span class="color-swatch" style="background: {font_color};" title="Text"></span>
+                    </div>
+                    {builtin_badge}
+                    {usage_badge}
+                </div>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="card-details">
+                <div class="theme-editor">
+                    <div class="editor-grid">
+                        <div class="editor-field">
+                            <label>Display Name</label>
+                            <input type="text" class="theme-input" data-field="display_name"
+                                   value="{theme['display_name'] or ''}" placeholder="Theme display name">
+                        </div>
+                        <div class="editor-field">
+                            <label>Background Color</label>
+                            <input type="text" class="theme-input" data-field="background_color"
+                                   value="{bg_color}" placeholder="#1e1e2e or linear-gradient(...)">
+                        </div>
+                        <div class="editor-field">
+                            <label>Panel Color</label>
+                            <input type="text" class="theme-input" data-field="panel_color"
+                                   value="{panel_color}" placeholder="#313244 or rgba(...)">
+                        </div>
+                        <div class="editor-field">
+                            <label>Font Color</label>
+                            <input type="text" class="theme-input" data-field="font_color"
+                                   value="{font_color}" placeholder="#cdd6f4">
+                        </div>
+                        <div class="editor-field">
+                            <label>Font Family</label>
+                            <input type="text" class="theme-input" data-field="font_family"
+                                   value="{font_family}" placeholder="system-ui, sans-serif">
+                        </div>
+                        <div class="editor-field">
+                            <label>Gap</label>
+                            <input type="text" class="theme-input" data-field="gap"
+                                   value="{gap}" placeholder="1rem">
+                        </div>
+                        <div class="editor-field">
+                            <label>Border Radius</label>
+                            <input type="text" class="theme-input" data-field="border_radius"
+                                   value="{border_radius}" placeholder="0.75rem">
+                        </div>
+                        <div class="editor-field">
+                            <label>Panel Shadow</label>
+                            <input type="text" class="theme-input" data-field="panel_shadow"
+                                   value="{panel_shadow}" placeholder="0 4px 12px rgba(0,0,0,0.3)">
+                        </div>
+                    </div>
+                    <div class="theme-preview" id="preview-{theme['name']}">
+                        <div class="preview-container" style="background: {bg_color}; padding: {gap}; border-radius: 8px;">
+                            <div class="preview-panel" style="background: {panel_color}; color: {font_color}; font-family: {font_family}; padding: 1rem; border-radius: {border_radius}; box-shadow: {panel_shadow};">
+                                Preview Text
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="detail-footer">
+                    <div class="detail-actions">
+                        <button class="btn-primary" onclick="saveTheme('{theme['name']}', this); event.stopPropagation();">Save Changes</button>
+                        <button class="btn-secondary" onclick="duplicateTheme('{theme['name']}'); event.stopPropagation();">Duplicate</button>
+                        <button class="btn-delete" onclick="deleteTheme('{theme['name']}', {usage_count}); event.stopPropagation();" {'disabled title="In use by screens"' if usage_count > 0 else ''}>Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+
+    html = f"""
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Theme Management - Big Beautiful Screens</title>
+        <link rel="stylesheet" href="/static/admin.css">
+    </head>
+    <body>
+        <div class="container">
+            <div class="admin-header">
+                <div>
+                    <h1>Theme Management</h1>
+                    <p class="subtitle">Create and customize themes</p>
+                </div>
+                <a href="/admin/screens" class="nav-link">← Back to Screens</a>
+            </div>
+
+            <div class="actions">
+                <button id="create-theme" class="btn-primary">+ Create New Theme</button>
+            </div>
+
+            <div class="theme-list">
+                {cards if cards else '<div class="empty">No themes found. Create one to get started!</div>'}
+            </div>
+        </div>
+
+        <!-- Create Theme Modal -->
+        <div id="create-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Create New Theme</h2>
+                    <button class="modal-close" onclick="closeModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="editor-grid">
+                        <div class="editor-field">
+                            <label>Theme ID (URL-safe)</label>
+                            <input type="text" id="new-theme-name" class="new-theme-input" placeholder="my-custom-theme" pattern="[a-z0-9-_]+">
+                        </div>
+                        <div class="editor-field">
+                            <label>Display Name</label>
+                            <input type="text" id="new-theme-display" class="new-theme-input" placeholder="My Custom Theme">
+                        </div>
+                        <div class="editor-field">
+                            <label>Background Color</label>
+                            <input type="text" id="new-theme-bg" class="new-theme-input" data-preview="bg" value="#1e1e2e" placeholder="#1e1e2e">
+                        </div>
+                        <div class="editor-field">
+                            <label>Panel Color</label>
+                            <input type="text" id="new-theme-panel" class="new-theme-input" data-preview="panel" value="#313244" placeholder="#313244">
+                        </div>
+                        <div class="editor-field">
+                            <label>Font Color</label>
+                            <input type="text" id="new-theme-font-color" class="new-theme-input" data-preview="font-color" value="#cdd6f4" placeholder="#cdd6f4">
+                        </div>
+                        <div class="editor-field">
+                            <label>Font Family</label>
+                            <input type="text" id="new-theme-font-family" class="new-theme-input" data-preview="font-family" value="system-ui, -apple-system, sans-serif">
+                        </div>
+                    </div>
+                    <div class="theme-preview" id="new-theme-preview">
+                        <div class="preview-container" style="background: #1e1e2e; padding: 1rem; border-radius: 8px;">
+                            <div class="preview-panel" style="background: #313244; color: #cdd6f4; font-family: system-ui, -apple-system, sans-serif; padding: 1rem; border-radius: 0.75rem;">
+                                <span>Preview Text</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="closeModal()">Cancel</button>
+                    <button class="btn-primary" onclick="submitCreateTheme()">Create Theme</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function toggleExpand(card) {{
+                card.classList.toggle('expanded');
+            }}
+
+            // Create theme modal
+            document.getElementById('create-theme').addEventListener('click', () => {{
+                document.getElementById('create-modal').style.display = 'flex';
+            }});
+
+            function closeModal() {{
+                document.getElementById('create-modal').style.display = 'none';
+            }}
+
+            // Close modal on outside click
+            document.getElementById('create-modal').addEventListener('click', (e) => {{
+                if (e.target.id === 'create-modal') closeModal();
+            }});
+
+            async function submitCreateTheme() {{
+                const name = document.getElementById('new-theme-name').value.trim();
+                const displayName = document.getElementById('new-theme-display').value.trim();
+                const bgColor = document.getElementById('new-theme-bg').value.trim();
+                const panelColor = document.getElementById('new-theme-panel').value.trim();
+                const fontColor = document.getElementById('new-theme-font-color').value.trim();
+                const fontFamily = document.getElementById('new-theme-font-family').value.trim();
+
+                if (!name) {{
+                    alert('Theme ID is required');
+                    return;
+                }}
+
+                try {{
+                    const response = await fetch('/api/themes', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{
+                            name: name,
+                            display_name: displayName || null,
+                            background_color: bgColor,
+                            panel_color: panelColor,
+                            font_color: fontColor,
+                            font_family: fontFamily
+                        }})
+                    }});
+
+                    if (response.ok) {{
+                        location.reload();
+                    }} else {{
+                        const data = await response.json();
+                        alert('Failed to create theme: ' + (data.detail || 'Unknown error'));
+                    }}
+                }} catch (error) {{
+                    alert('Failed to create theme: ' + error.message);
+                }}
+            }}
+
+            async function saveTheme(themeName, btn) {{
+                const card = btn.closest('.theme-card');
+                const inputs = card.querySelectorAll('.theme-input');
+                const updates = {{}};
+
+                inputs.forEach(input => {{
+                    const field = input.dataset.field;
+                    const value = input.value.trim();
+                    if (value) {{
+                        updates[field] = value;
+                    }}
+                }});
+
+                try {{
+                    btn.disabled = true;
+                    btn.textContent = 'Saving...';
+
+                    const response = await fetch(`/api/themes/${{themeName}}`, {{
+                        method: 'PATCH',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify(updates)
+                    }});
+
+                    if (response.ok) {{
+                        btn.textContent = 'Saved!';
+                        updatePreview(card);
+                        setTimeout(() => {{
+                            btn.textContent = 'Save Changes';
+                            btn.disabled = false;
+                        }}, 1500);
+                    }} else {{
+                        const data = await response.json();
+                        alert('Failed to save: ' + (data.detail || 'Unknown error'));
+                        btn.textContent = 'Save Changes';
+                        btn.disabled = false;
+                    }}
+                }} catch (error) {{
+                    alert('Failed to save: ' + error.message);
+                    btn.textContent = 'Save Changes';
+                    btn.disabled = false;
+                }}
+            }}
+
+            async function deleteTheme(themeName, usageCount) {{
+                if (usageCount > 0) {{
+                    alert(`Cannot delete theme: it is in use by ${{usageCount}} screen(s)`);
+                    return;
+                }}
+
+                if (!confirm(`Are you sure you want to delete the theme "${{themeName}}"?`)) {{
+                    return;
+                }}
+
+                try {{
+                    const response = await fetch(`/api/themes/${{themeName}}`, {{
+                        method: 'DELETE'
+                    }});
+
+                    if (response.ok) {{
+                        location.reload();
+                    }} else {{
+                        const data = await response.json();
+                        alert('Failed to delete: ' + (data.detail || 'Unknown error'));
+                    }}
+                }} catch (error) {{
+                    alert('Failed to delete: ' + error.message);
+                }}
+            }}
+
+            async function duplicateTheme(themeName) {{
+                const newName = prompt('Enter a name for the new theme:', themeName + '-copy');
+                if (!newName) return;
+
+                try {{
+                    // First get the theme data
+                    const getResponse = await fetch(`/api/themes/${{themeName}}`);
+                    if (!getResponse.ok) {{
+                        alert('Failed to get theme data');
+                        return;
+                    }}
+                    const theme = await getResponse.json();
+
+                    // Create new theme with same values
+                    const response = await fetch('/api/themes', {{
+                        method: 'POST',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{
+                            name: newName,
+                            display_name: (theme.display_name || theme.name) + ' (Copy)',
+                            background_color: theme.background_color,
+                            panel_color: theme.panel_color,
+                            font_color: theme.font_color,
+                            font_family: theme.font_family,
+                            gap: theme.gap,
+                            border_radius: theme.border_radius,
+                            panel_shadow: theme.panel_shadow
+                        }})
+                    }});
+
+                    if (response.ok) {{
+                        location.reload();
+                    }} else {{
+                        const data = await response.json();
+                        alert('Failed to duplicate: ' + (data.detail || 'Unknown error'));
+                    }}
+                }} catch (error) {{
+                    alert('Failed to duplicate: ' + error.message);
+                }}
+            }}
+
+            function updatePreview(card) {{
+                const themeName = card.dataset.themeName;
+                const preview = card.querySelector('.theme-preview');
+                const container = preview.querySelector('.preview-container');
+                const panel = preview.querySelector('.preview-panel');
+
+                const getValue = (field) => {{
+                    const input = card.querySelector(`[data-field="${{field}}"]`);
+                    return input ? input.value : '';
+                }};
+
+                container.style.background = getValue('background_color');
+                container.style.padding = getValue('gap') || '1rem';
+                panel.style.background = getValue('panel_color');
+                panel.style.color = getValue('font_color');
+                panel.style.fontFamily = getValue('font_family');
+                panel.style.borderRadius = getValue('border_radius') || '0.75rem';
+                panel.style.boxShadow = getValue('panel_shadow') || 'none';
+            }}
+
+            // Live preview on input change for existing themes
+            document.querySelectorAll('.theme-input').forEach(input => {{
+                input.addEventListener('input', () => {{
+                    const card = input.closest('.theme-card');
+                    updatePreview(card);
+                }});
+            }});
+
+            // Live preview for new theme modal
+            function updateNewThemePreview() {{
+                const preview = document.getElementById('new-theme-preview');
+                const container = preview.querySelector('.preview-container');
+                const panel = preview.querySelector('.preview-panel');
+
+                container.style.background = document.getElementById('new-theme-bg').value || '#1e1e2e';
+                panel.style.background = document.getElementById('new-theme-panel').value || '#313244';
+                panel.style.color = document.getElementById('new-theme-font-color').value || '#cdd6f4';
+                panel.style.fontFamily = document.getElementById('new-theme-font-family').value || 'system-ui';
+            }}
+
+            document.querySelectorAll('.new-theme-input').forEach(input => {{
+                input.addEventListener('input', updateNewThemePreview);
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
+
+
 @app.websocket("/ws/{screen_id}")
 async def websocket_endpoint(websocket: WebSocket, screen_id: str):
     """WebSocket endpoint for real-time screen updates."""
@@ -802,14 +1277,15 @@ async def websocket_endpoint(websocket: WebSocket, screen_id: str):
     await manager.connect(screen_id, websocket)
 
     try:
-        # Send full pages sync on connect
+        # Send full pages sync on connect (with theme values resolved)
         pages = await get_all_pages(screen_id)
         rotation = await get_rotation_settings(screen_id)
+        resolved_rotation = await resolve_theme_settings(rotation)
 
         await websocket.send_json({
             "type": "pages_sync",
             "pages": pages,
-            "rotation": rotation
+            "rotation": resolved_rotation
         })
 
         # Also send legacy message format for backward compatibility
@@ -826,6 +1302,34 @@ async def websocket_endpoint(websocket: WebSocket, screen_id: str):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(screen_id, websocket)
+
+
+async def resolve_theme_settings(rotation: dict) -> dict:
+    """Resolve theme values and merge with screen-level overrides.
+
+    Theme values are used as defaults; explicit screen values override them.
+    """
+    if not rotation:
+        return rotation
+
+    theme_name = rotation.get("theme")
+    if not theme_name:
+        return rotation
+
+    # Look up theme from database
+    theme = await get_theme_from_db(theme_name)
+    if not theme:
+        return rotation
+
+    # Merge: screen values override theme values
+    resolved = rotation.copy()
+    for key in ["background_color", "panel_color", "font_family", "font_color",
+                "gap", "border_radius", "panel_shadow"]:
+        # Use screen value if set, otherwise use theme value
+        if resolved.get(key) is None:
+            resolved[key] = theme.get(key)
+
+    return resolved
 
 
 def normalize_content(content: list) -> list:

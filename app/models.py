@@ -106,3 +106,44 @@ class PagesListResponse(BaseModel):
     """Response for listing all pages."""
     pages: list[dict]
     rotation: RotationSettings
+
+
+# ============== Theme Models ==============
+
+class ThemeCreate(BaseModel):
+    """Request to create a new theme."""
+    name: str  # URL-safe identifier (e.g., "my-custom-theme")
+    display_name: str | None = None  # Human-readable name
+    background_color: str
+    panel_color: str
+    font_family: str = "system-ui, -apple-system, sans-serif"
+    font_color: str
+    gap: str = "1rem"
+    border_radius: str = "1rem"
+    panel_shadow: str | None = None
+
+
+class ThemeUpdate(BaseModel):
+    """Request to update a theme. All fields optional for partial updates."""
+    display_name: str | None = None
+    background_color: str | None = None
+    panel_color: str | None = None
+    font_family: str | None = None
+    font_color: str | None = None
+    gap: str | None = None
+    border_radius: str | None = None
+    panel_shadow: str | None = None
+
+
+class ThemeResponse(BaseModel):
+    """Response for theme operations."""
+    name: str
+    display_name: str | None
+    background_color: str
+    panel_color: str
+    font_family: str
+    font_color: str
+    gap: str
+    border_radius: str
+    panel_shadow: str | None
+    is_builtin: bool

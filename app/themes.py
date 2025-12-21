@@ -141,15 +141,42 @@ THEMES = {
 
 
 def get_theme(name: str) -> dict | None:
-    """Get a theme by name. Returns None if not found."""
+    """Get a theme by name from hardcoded dict. Returns None if not found.
+
+    NOTE: This is a sync fallback. Use get_theme_async() for database lookup.
+    """
     return THEMES.get(name)
 
 
 def list_themes() -> list[dict]:
-    """List all available themes with their properties."""
+    """List all available themes from hardcoded dict.
+
+    NOTE: This is a sync fallback. Use list_themes_async() for database lookup.
+    """
     return [{"name": name, **values} for name, values in THEMES.items()]
 
 
 def get_theme_names() -> list[str]:
-    """Get just the theme names."""
+    """Get just the theme names from hardcoded dict."""
     return list(THEMES.keys())
+
+
+def get_builtin_themes() -> dict:
+    """Get the built-in themes dict for database seeding."""
+    return THEMES.copy()
+
+
+# ============== Async Database-Backed Functions ==============
+
+async def get_theme_async(name: str) -> dict | None:
+    """Get a theme by name from database. Returns None if not found."""
+    # Import here to avoid circular import
+    from .database import get_theme_from_db
+    return await get_theme_from_db(name)
+
+
+async def list_themes_async() -> list[dict]:
+    """List all available themes from database."""
+    # Import here to avoid circular import
+    from .database import get_all_themes
+    return await get_all_themes()

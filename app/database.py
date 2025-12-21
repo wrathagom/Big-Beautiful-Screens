@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 from datetime import datetime, timezone
 
-from .themes import get_theme
+from .themes import get_theme, get_builtin_themes
 
 DB_PATH = Path(__file__).parent.parent / "data" / "screens.db"
 
@@ -91,6 +91,27 @@ async def init_db():
         # Migration: Move existing messages to pages table as "default" page
         await _migrate_messages_to_pages(db)
 
+        # Themes table for customizable themes
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS themes (
+                name TEXT PRIMARY KEY,
+                display_name TEXT,
+                background_color TEXT NOT NULL,
+                panel_color TEXT NOT NULL,
+                font_family TEXT NOT NULL,
+                font_color TEXT NOT NULL,
+                gap TEXT NOT NULL DEFAULT '1rem',
+                border_radius TEXT NOT NULL DEFAULT '1rem',
+                panel_shadow TEXT,
+                is_builtin INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
+
+        # Seed built-in themes if table is empty
+        await _seed_builtin_themes(db)
+
         await db.commit()
 
 
@@ -110,6 +131,262 @@ async def _migrate_messages_to_pages(db):
             INSERT INTO pages (screen_id, name, content, display_order, created_at, updated_at)
             VALUES (?, 'default', ?, 0, ?, ?)
         """, (screen_id, content, created_at, created_at))
+
+
+async def _seed_builtin_themes(db):
+    """Seed the database with built-in themes if not already present."""
+    # Check if themes already exist
+    async with db.execute("SELECT COUNT(*) FROM themes") as cursor:
+        count = (await cursor.fetchone())[0]
+
+    if count > 0:
+        return  # Already seeded
+
+    now = datetime.now(timezone.utc).isoformat()
+    builtin_themes = get_builtin_themes()
+
+    for name, values in builtin_themes.items():
+        # Create display name from theme name (e.g., "catppuccin-mocha" -> "Catppuccin Mocha")
+        display_name = name.replace("-", " ").title()
+
+        await db.execute("""
+            INSERT INTO themes (name, display_name, background_color, panel_color, font_family,
+                              font_color, gap, border_radius, panel_shadow, is_builtin, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
+        """, (
+            name,
+            display_name,
+            values["background_color"],
+            values["panel_color"],
+            values["font_family"],
+            values["font_color"],
+            values.get("gap", "1rem"),
+            values.get("border_radius", "1rem"),
+            values.get("panel_shadow"),
+            now,
+            now
+        ))
+
+
+# ============== Theme Functions ==============
+
+async def get_all_themes() -> list[dict]:
+    """Get all themes from database."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM themes ORDER BY is_builtin DESC, name"
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+        return [
+            {
+                "name": row["name"],
+                "display_name": row["display_name"],
+                "background_color": row["background_color"],
+                "panel_color": row["panel_color"],
+                "font_family": row["font_family"],
+                "font_color": row["font_color"],
+                "gap": row["gap"],
+                "border_radius": row["border_radius"],
+                "panel_shadow": row["panel_shadow"],
+                "is_builtin": bool(row["is_builtin"]),
+            }
+            for row in rows
+        ]
+
+
+async def get_theme_from_db(name: str) -> dict | None:
+    """Get a theme by name from database."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            "SELECT * FROM themes WHERE name = ?", (name,)
+        ) as cursor:
+            row = await cursor.fetchone()
+
+        if not row:
+            return None
+
+        return {
+            "name": row["name"],
+            "display_name": row["display_name"],
+            "background_color": row["background_color"],
+            "panel_color": row["panel_color"],
+            "font_family": row["font_family"],
+            "font_color": row["font_color"],
+            "gap": row["gap"],
+            "border_radius": row["border_radius"],
+            "panel_shadow": row["panel_shadow"],
+            "is_builtin": bool(row["is_builtin"]),
+        }
+
+
+async def create_theme_in_db(
+    name: str,
+    background_color: str,
+    panel_color: str,
+    font_family: str,
+    font_color: str,
+    display_name: str | None = None,
+    gap: str = "1rem",
+    border_radius: str = "1rem",
+    panel_shadow: str | None = None
+) -> dict:
+    """Create a new custom theme."""
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute("""
+            INSERT INTO themes (name, display_name, background_color, panel_color, font_family,
+                              font_color, gap, border_radius, panel_shadow, is_builtin, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+        """, (
+            name,
+            display_name or name.replace("-", " ").title(),
+            background_color,
+            panel_color,
+            font_family,
+            font_color,
+            gap,
+            border_radius,
+            panel_shadow,
+            now,
+            now
+        ))
+        await db.commit()
+
+    return {
+        "name": name,
+        "display_name": display_name or name.replace("-", " ").title(),
+        "background_color": background_color,
+        "panel_color": panel_color,
+        "font_family": font_family,
+        "font_color": font_color,
+        "gap": gap,
+        "border_radius": border_radius,
+        "panel_shadow": panel_shadow,
+        "is_builtin": False,
+    }
+
+
+async def update_theme_in_db(
+    name: str,
+    display_name: str | None = None,
+    background_color: str | None = None,
+    panel_color: str | None = None,
+    font_family: str | None = None,
+    font_color: str | None = None,
+    gap: str | None = None,
+    border_radius: str | None = None,
+    panel_shadow: str | None = None
+) -> dict | None:
+    """Update a theme. Returns None if theme not found."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Check if theme exists
+        async with db.execute(
+            "SELECT * FROM themes WHERE name = ?", (name,)
+        ) as cursor:
+            row = await cursor.fetchone()
+
+        if not row:
+            return None
+
+        # Build update query dynamically
+        updates = []
+        params = []
+
+        if display_name is not None:
+            updates.append("display_name = ?")
+            params.append(display_name)
+        if background_color is not None:
+            updates.append("background_color = ?")
+            params.append(background_color)
+        if panel_color is not None:
+            updates.append("panel_color = ?")
+            params.append(panel_color)
+        if font_family is not None:
+            updates.append("font_family = ?")
+            params.append(font_family)
+        if font_color is not None:
+            updates.append("font_color = ?")
+            params.append(font_color)
+        if gap is not None:
+            updates.append("gap = ?")
+            params.append(gap)
+        if border_radius is not None:
+            updates.append("border_radius = ?")
+            params.append(border_radius)
+        if panel_shadow is not None:
+            updates.append("panel_shadow = ?")
+            params.append(panel_shadow)
+
+        if updates:
+            updates.append("updated_at = ?")
+            params.append(datetime.now(timezone.utc).isoformat())
+            params.append(name)
+
+            await db.execute(
+                f"UPDATE themes SET {', '.join(updates)} WHERE name = ?",
+                params
+            )
+            await db.commit()
+
+    # Return updated theme
+    return await get_theme_from_db(name)
+
+
+async def delete_theme_from_db(name: str) -> tuple[bool, str | None]:
+    """Delete a theme if not in use by any screens.
+
+    Returns (success, error_message).
+    """
+    async with aiosqlite.connect(DB_PATH) as db:
+        # Check if theme exists
+        async with db.execute(
+            "SELECT is_builtin FROM themes WHERE name = ?", (name,)
+        ) as cursor:
+            row = await cursor.fetchone()
+
+        if not row:
+            return False, "Theme not found"
+
+        # Check if any screens are using this theme
+        async with db.execute(
+            "SELECT COUNT(*) FROM screens WHERE theme = ?", (name,)
+        ) as cursor:
+            usage_count = (await cursor.fetchone())[0]
+
+        if usage_count > 0:
+            return False, f"Theme is in use by {usage_count} screen(s)"
+
+        # Delete the theme
+        await db.execute("DELETE FROM themes WHERE name = ?", (name,))
+        await db.commit()
+
+    return True, None
+
+
+async def get_screens_using_theme(name: str) -> list[str]:
+    """Get list of screen IDs using a specific theme."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT id FROM screens WHERE theme = ?", (name,)
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    return [row[0] for row in rows]
+
+
+async def get_theme_usage_counts() -> dict[str, int]:
+    """Get usage count for all themes."""
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute(
+            "SELECT theme, COUNT(*) FROM screens WHERE theme IS NOT NULL GROUP BY theme"
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    return {row[0]: row[1] for row in rows}
 
 
 async def create_screen(screen_id: str, api_key: str, created_at: str, name: str | None = None) -> None:
