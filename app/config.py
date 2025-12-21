@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     CLERK_SECRET_KEY: str | None = None
     CLERK_PUBLISHABLE_KEY: str | None = None
     CLERK_WEBHOOK_SECRET: str | None = None
+    CLERK_SIGN_IN_URL: str | None = None  # e.g., https://your-app.accounts.dev/sign-in
 
     # Feature flags
     REQUIRE_AUTH_FOR_ADMIN: bool = False  # Auto-set True in SaaS mode
