@@ -546,16 +546,17 @@ class TestRotation:
         assert data["success"] is True
         assert data["settings"]["panel_shadow"] == "0 4px 12px rgba(0,0,0,0.3)"
 
-    def test_panel_shadow_none_by_default(self, client, screen):
-        """Test that panel shadow is null by default."""
-        # Get settings without setting a shadow
+    def test_panel_shadow_has_default_theme_value(self, client, screen):
+        """Test that panel shadow has default theme value for new screens."""
+        # Get settings without modifying shadow
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"gap": "1rem"}
         )
         assert response.status_code == 200
-        assert response.json()["settings"]["panel_shadow"] is None
+        # New screens get the default theme applied
+        assert response.json()["settings"]["panel_shadow"] is not None
 
     def test_reorder_pages(self, client, screen):
         """Test reordering pages."""
@@ -646,8 +647,8 @@ class TestRotation:
         assert data["success"] is True
         assert data["settings"]["font_color"] == "#f1c40f"
 
-    def test_color_settings_null_by_default(self, client, screen):
-        """Test that color/font settings are null by default."""
+    def test_color_settings_have_default_theme_values(self, client, screen):
+        """Test that color/font settings have default theme values for new screens."""
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
@@ -655,7 +656,82 @@ class TestRotation:
         )
         assert response.status_code == 200
         settings = response.json()["settings"]
-        assert settings["background_color"] is None
-        assert settings["panel_color"] is None
-        assert settings["font_family"] is None
-        assert settings["font_color"] is None
+        # New screens get the default theme applied
+        assert settings["background_color"] is not None
+        assert settings["panel_color"] is not None
+        assert settings["font_family"] is not None
+        assert settings["font_color"] is not None
+        assert settings["theme"] == "default"
+
+
+class TestThemes:
+    """Tests for theme functionality."""
+
+    def test_list_themes(self, client):
+        """Test listing available themes."""
+        response = client.get("/api/themes")
+        assert response.status_code == 200
+        data = response.json()
+        assert "themes" in data
+        assert len(data["themes"]) >= 13  # At least 13 themes defined
+        # Check a theme has expected properties
+        theme = data["themes"][0]
+        assert "name" in theme
+        assert "background_color" in theme
+        assert "panel_color" in theme
+        assert "font_family" in theme
+        assert "font_color" in theme
+        assert "gap" in theme
+        assert "border_radius" in theme
+
+    def test_apply_theme(self, client, screen):
+        """Test applying a theme sets all values."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"theme": "catppuccin-mocha"}
+        )
+        assert response.status_code == 200
+        settings = response.json()["settings"]
+        assert settings["theme"] == "catppuccin-mocha"
+        assert settings["background_color"] == "#1e1e2e"
+        assert settings["panel_color"] == "#313244"
+        assert settings["font_color"] == "#cdd6f4"
+
+    def test_apply_theme_with_override(self, client, screen):
+        """Test applying a theme with overrides."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "theme": "catppuccin-mocha",
+                "gap": "0",
+                "border_radius": "0"
+            }
+        )
+        assert response.status_code == 200
+        settings = response.json()["settings"]
+        assert settings["theme"] == "catppuccin-mocha"
+        # Theme values applied
+        assert settings["background_color"] == "#1e1e2e"
+        # Override values used
+        assert settings["gap"] == "0"
+        assert settings["border_radius"] == "0"
+
+    def test_invalid_theme(self, client, screen):
+        """Test applying an unknown theme returns 400."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"theme": "nonexistent-theme"}
+        )
+        assert response.status_code == 400
+        assert "Unknown theme" in response.json()["detail"]
+
+    def test_theme_requires_api_key(self, client, screen):
+        """Test that applying a theme requires API key."""
+        response = client.patch(
+            f"/api/screens/{screen['screen_id']}",
+            json={"theme": "catppuccin-mocha"}
+        )
+        assert response.status_code == 401

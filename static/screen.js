@@ -23,6 +23,7 @@ let screenBackgroundColor = null;  // Screen-level background color
 let screenPanelColor = null;       // Screen-level panel color
 let screenFontFamily = null;       // Screen-level font family
 let screenFontColor = null;        // Screen-level font color
+let screenHeadHtml = null;         // Custom HTML for <head> (e.g., Google Fonts)
 
 // Debug state
 let debugEnabled = false;
@@ -120,6 +121,31 @@ function hideStatus() {
     statusEl.classList.remove('visible');
 }
 
+function updateHeadHtml(newHeadHtml) {
+    // Skip if unchanged
+    if (newHeadHtml === screenHeadHtml) return;
+
+    // Remove any previously injected head elements
+    const existingContainer = document.getElementById('custom-head-html');
+    if (existingContainer) {
+        existingContainer.remove();
+    }
+
+    screenHeadHtml = newHeadHtml;
+
+    // Inject new head HTML if provided
+    if (screenHeadHtml) {
+        const container = document.createElement('div');
+        container.id = 'custom-head-html';
+        container.innerHTML = screenHeadHtml;
+
+        // Move all child elements to head
+        while (container.firstChild) {
+            document.head.appendChild(container.firstChild);
+        }
+    }
+}
+
 function updateDebugDisplay() {
     const debugEl = document.getElementById('debug-info');
     if (debugEnabled) {
@@ -148,6 +174,7 @@ function handlePagesSync(newPages, rotation) {
         screenPanelColor = rotation.panel_color || null;
         screenFontFamily = rotation.font_family || null;
         screenFontColor = rotation.font_color || null;
+        updateHeadHtml(rotation.head_html || null);
     }
 
     // Render current page
@@ -223,6 +250,7 @@ function handleRotationUpdate(rotation) {
     screenPanelColor = rotation.panel_color || null;
     screenFontFamily = rotation.font_family || null;
     screenFontColor = rotation.font_color || null;
+    updateHeadHtml(rotation.head_html || null);
 
     // Re-render to apply new settings
     renderCurrentPage();

@@ -3,6 +3,8 @@ import json
 from pathlib import Path
 from datetime import datetime, timezone
 
+from .themes import get_theme
+
 DB_PATH = Path(__file__).parent.parent / "data" / "screens.db"
 
 
@@ -81,6 +83,10 @@ async def init_db():
             await db.execute("ALTER TABLE screens ADD COLUMN font_family TEXT")
         if 'font_color' not in columns:
             await db.execute("ALTER TABLE screens ADD COLUMN font_color TEXT")
+        if 'theme' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN theme TEXT")
+        if 'head_html' not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN head_html TEXT")
 
         # Migration: Move existing messages to pages table as "default" page
         await _migrate_messages_to_pages(db)
@@ -107,11 +113,26 @@ async def _migrate_messages_to_pages(db):
 
 
 async def create_screen(screen_id: str, api_key: str, created_at: str, name: str | None = None) -> None:
-    """Create a new screen."""
+    """Create a new screen with default theme applied."""
+    default_theme = get_theme("default")
+
     async with aiosqlite.connect(DB_PATH) as db:
         await db.execute(
-            "INSERT INTO screens (id, api_key, created_at, name) VALUES (?, ?, ?, ?)",
-            (screen_id, api_key, created_at, name)
+            """INSERT INTO screens (
+                id, api_key, created_at, name, theme,
+                background_color, panel_color, font_family, font_color,
+                gap, border_radius, panel_shadow
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                screen_id, api_key, created_at, name, "default",
+                default_theme["background_color"],
+                default_theme["panel_color"],
+                default_theme["font_family"],
+                default_theme["font_color"],
+                default_theme["gap"],
+                default_theme["border_radius"],
+                default_theme["panel_shadow"],
+            )
         )
         await db.commit()
 
@@ -379,6 +400,95 @@ async def get_page(screen_id: str, name: str) -> dict | None:
         }
 
 
+async def update_page(
+    screen_id: str,
+    name: str,
+    content: list | None = None,
+    background_color: str | None = None,
+    panel_color: str | None = None,
+    font_family: str | None = None,
+    font_color: str | None = None,
+    gap: str | None = None,
+    border_radius: str | None = None,
+    panel_shadow: str | None = None,
+    duration: int | None = None,
+    expires_at: str | None = None
+) -> dict | None:
+    """Partially update a page. Only provided fields are updated.
+
+    Returns the updated page data, or None if page not found.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        # Get existing page
+        async with db.execute(
+            "SELECT * FROM pages WHERE screen_id = ? AND name = ?",
+            (screen_id, name)
+        ) as cursor:
+            row = await cursor.fetchone()
+
+        if not row:
+            return None
+
+        # Parse existing content
+        existing_data = json.loads(row['content'])
+
+        # Merge updates (only update fields that are explicitly provided)
+        if content is not None:
+            existing_data['content'] = content
+        if background_color is not None:
+            existing_data['background_color'] = background_color
+        if panel_color is not None:
+            existing_data['panel_color'] = panel_color
+        if font_family is not None:
+            existing_data['font_family'] = font_family
+        if font_color is not None:
+            existing_data['font_color'] = font_color
+        if gap is not None:
+            existing_data['gap'] = gap
+        if border_radius is not None:
+            existing_data['border_radius'] = border_radius
+        if panel_shadow is not None:
+            existing_data['panel_shadow'] = panel_shadow
+
+        # Build update query
+        new_duration = duration if duration is not None else row['duration']
+        new_expires_at = expires_at if expires_at is not None else row['expires_at']
+
+        await db.execute("""
+            UPDATE pages
+            SET content = ?, duration = ?, expires_at = ?, updated_at = ?
+            WHERE screen_id = ? AND name = ?
+        """, (json.dumps(existing_data), new_duration, new_expires_at, now, screen_id, name))
+
+        # Update screen's last_updated
+        await db.execute(
+            "UPDATE screens SET last_updated = ? WHERE id = ?",
+            (now, screen_id)
+        )
+
+        await db.commit()
+
+        # Return updated page data
+        return {
+            "name": name,
+            "content": existing_data.get("content", []),
+            "background_color": existing_data.get("background_color"),
+            "panel_color": existing_data.get("panel_color"),
+            "font_family": existing_data.get("font_family"),
+            "font_color": existing_data.get("font_color"),
+            "gap": existing_data.get("gap"),
+            "border_radius": existing_data.get("border_radius"),
+            "panel_shadow": existing_data.get("panel_shadow"),
+            "display_order": row['display_order'],
+            "duration": new_duration,
+            "expires_at": new_expires_at
+        }
+
+
 async def delete_page(screen_id: str, name: str) -> bool:
     """Delete a page. Cannot delete the 'default' page.
 
@@ -425,7 +535,7 @@ async def get_rotation_settings(screen_id: str) -> dict | None:
 
         async with db.execute(
             """SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
-                      background_color, panel_color, font_family, font_color
+                      background_color, panel_color, font_family, font_color, theme, head_html
                FROM screens WHERE id = ?""",
             (screen_id,)
         ) as cursor:
@@ -443,7 +553,9 @@ async def get_rotation_settings(screen_id: str) -> dict | None:
             "background_color": row['background_color'],
             "panel_color": row['panel_color'],
             "font_family": row['font_family'],
-            "font_color": row['font_color']
+            "font_color": row['font_color'],
+            "theme": row['theme'],
+            "head_html": row['head_html']
         }
 
 
@@ -457,7 +569,9 @@ async def update_rotation_settings(
     background_color: str | None = None,
     panel_color: str | None = None,
     font_family: str | None = None,
-    font_color: str | None = None
+    font_color: str | None = None,
+    theme: str | None = None,
+    head_html: str | None = None
 ) -> bool:
     """Update rotation/display settings for a screen.
 
@@ -508,6 +622,14 @@ async def update_rotation_settings(
         if font_color is not None:
             updates.append("font_color = ?")
             params.append(font_color)
+
+        if theme is not None:
+            updates.append("theme = ?")
+            params.append(theme)
+
+        if head_html is not None:
+            updates.append("head_html = ?")
+            params.append(head_html)
 
         if updates:
             params.append(screen_id)

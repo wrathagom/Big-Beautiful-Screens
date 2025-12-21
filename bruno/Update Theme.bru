@@ -1,0 +1,33 @@
+meta {
+  name: Update Theme
+  type: http
+  seq: 10
+}
+
+patch {
+  url: {{url}}api/screens/{{screenID}}?gap=5rem
+  body: none
+  auth: inherit
+}
+
+params:query {
+  gap: 5rem
+}
+
+headers {
+  X-API-Key: sk_txHCGpw8DYBu86U7SLXmNirX9mja4-YS
+}
+
+body:json {
+  {
+    "rotation": {
+      "enabled": true,
+      "interval": 5
+    }
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

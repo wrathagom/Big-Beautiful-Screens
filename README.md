@@ -18,6 +18,7 @@ A MicroSaaS that provides developers with API endpoints to push content to real-
 - **Panel shadows** - optional drop shadows for depth and visual hierarchy
 - **Gradient support** - use CSS gradients for backgrounds and panels
 - **Screen-level defaults** - set default colors/fonts that apply to all pages
+- **Themes** - 13 pre-defined themes including popular dev color schemes (Catppuccin, Solarized, Dracula, Nord, etc.)
 - **Message persistence** - new viewers see the last message immediately
 - **Admin dashboard** - view all screens, active viewers, copy credentials, reload or delete screens
 - **Multi-page support** - screens can have multiple named pages that rotate automatically
@@ -478,6 +479,54 @@ curl -X PATCH "http://localhost:8000/api/screens/{id}" \
 4. System defaults (no color/transparent)
 
 This lets you set a consistent theme once and override only when needed.
+
+### Themes
+
+Apply a pre-defined theme instead of setting each property manually:
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{id}" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: {api_key}" \
+  -d '{"theme": "catppuccin-mocha"}'
+```
+
+**Available Themes:**
+
+| Theme | Description |
+|-------|-------------|
+| `default` | Dark gray, clean defaults |
+| `minimal` | White, lots of whitespace |
+| `elegant` | Gradients, serif fonts, refined shadows |
+| `modern` | Black, sharp corners, bold |
+| `mono` | Monospace font, terminal feel |
+| `catppuccin-mocha` | Popular pastel dark theme |
+| `catppuccin-latte` | Light version of Catppuccin |
+| `solarized-dark` | Classic developer theme |
+| `solarized-light` | Light variant of Solarized |
+| `dracula` | Purple-tinted dark theme |
+| `nord` | Arctic, bluish dark theme |
+| `gruvbox-dark` | Retro groove colors |
+| `tokyo-night` | Popular VS Code theme |
+
+**List all themes with their values:**
+
+```bash
+curl "http://localhost:8000/api/themes"
+```
+
+**Apply theme with overrides:**
+
+```bash
+curl -X PATCH "http://localhost:8000/api/screens/{id}" \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: {api_key}" \
+  -d '{
+    "theme": "catppuccin-mocha",
+    "gap": "0",
+    "border_radius": "0"
+  }'
+```
 
 ## Multi-Page Rotation
 

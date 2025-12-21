@@ -9,16 +9,17 @@ from fastapi.staticfiles import StaticFiles
 
 from .models import (
     MessageRequest, ScreenResponse, MessageResponse,
-    PageRequest, RotationSettings, PageOrderRequest, PageResponse, PagesListResponse,
+    PageRequest, PageUpdateRequest, RotationSettings, PageOrderRequest, PageResponse, PagesListResponse,
     ScreenUpdateRequest
 )
 from .database import (
     init_db, create_screen, get_screen_by_id, get_screen_by_api_key,
     save_message, get_last_message, get_all_screens, delete_screen, update_screen_name,
-    upsert_page, get_all_pages, get_page, delete_page, reorder_pages,
+    upsert_page, get_all_pages, get_page, update_page, delete_page, reorder_pages,
     get_rotation_settings, update_rotation_settings, cleanup_expired_pages
 )
 from .connection_manager import manager
+from .themes import get_theme, list_themes
 
 app = FastAPI(title="Big Beautiful Screens", version="0.1.0")
 
@@ -30,6 +31,12 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 @app.on_event("startup")
 async def startup():
     await init_db()
+
+
+@app.get("/api/themes")
+async def get_available_themes():
+    """List all available themes with their properties."""
+    return {"themes": list_themes()}
 
 
 @app.post("/api/screens", response_model=ScreenResponse)
@@ -160,25 +167,38 @@ async def update_screen(
     """Update a screen's properties via JSON body.
 
     API key is required for rotation/display settings, optional for name-only updates.
+    You can apply a theme and override specific values in the same request.
     """
     screen = await get_screen_by_id(screen_id)
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
 
-    # Extract values from request
+    # Resolve theme if specified
+    theme_values = {}
+    theme_name = None
+    if request.theme:
+        theme_values = get_theme(request.theme)
+        if not theme_values:
+            raise HTTPException(status_code=400, detail=f"Unknown theme: {request.theme}")
+        theme_name = request.theme
+
+    # Extract values from request, with theme as fallback
     name = request.name
     rotation_enabled = request.rotation_enabled
     rotation_interval = request.rotation_interval
-    gap = request.gap
-    border_radius = request.border_radius
-    panel_shadow = request.panel_shadow
-    background_color = request.background_color
-    panel_color = request.panel_color
-    font_family = request.font_family
-    font_color = request.font_color
+    # For visual settings, use explicit value if provided, else theme value if theme specified
+    gap = request.gap if request.gap is not None else theme_values.get("gap")
+    border_radius = request.border_radius if request.border_radius is not None else theme_values.get("border_radius")
+    panel_shadow = request.panel_shadow if request.panel_shadow is not None else theme_values.get("panel_shadow")
+    background_color = request.background_color if request.background_color is not None else theme_values.get("background_color")
+    panel_color = request.panel_color if request.panel_color is not None else theme_values.get("panel_color")
+    font_family = request.font_family if request.font_family is not None else theme_values.get("font_family")
+    font_color = request.font_color if request.font_color is not None else theme_values.get("font_color")
+    head_html = request.head_html
 
-    # Require API key for rotation/display setting changes
+    # Require API key for rotation/display setting changes (including theme)
     has_display_settings = (
+        request.theme is not None or
         rotation_enabled is not None or
         rotation_interval is not None or
         gap is not None or
@@ -187,7 +207,8 @@ async def update_screen(
         background_color is not None or
         panel_color is not None or
         font_family is not None or
-        font_color is not None
+        font_color is not None or
+        head_html is not None
     )
     if has_display_settings:
         if not x_api_key or screen["api_key"] != x_api_key:
@@ -209,7 +230,9 @@ async def update_screen(
             background_color=background_color,
             panel_color=panel_color,
             font_family=font_family,
-            font_color=font_color
+            font_color=font_color,
+            theme=theme_name,
+            head_html=head_html
         )
 
         # Broadcast settings update to viewers
@@ -297,6 +320,55 @@ async def create_or_update_page(
             "type": "message",
             **message_payload
         })
+
+    return {"success": True, "page": page_data, "viewers": viewers}
+
+
+@app.patch("/api/screens/{screen_id}/pages/{page_name}")
+async def patch_page(
+    screen_id: str,
+    page_name: str,
+    request: PageUpdateRequest,
+    x_api_key: str = Header(alias="X-API-Key")
+):
+    """Partially update a page. Only provided fields are updated. Requires API key."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Normalize content if provided
+    normalized_content = None
+    if request.content is not None:
+        normalized_content = normalize_content(request.content)
+
+    # Convert expires_at to ISO string if provided
+    expires_at_str = request.expires_at.isoformat() if request.expires_at else None
+
+    page_data = await update_page(
+        screen_id, page_name,
+        content=normalized_content,
+        background_color=request.background_color,
+        panel_color=request.panel_color,
+        font_family=request.font_family,
+        font_color=request.font_color,
+        gap=request.gap,
+        border_radius=request.border_radius,
+        panel_shadow=request.panel_shadow,
+        duration=request.duration,
+        expires_at=expires_at_str
+    )
+
+    if not page_data:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    # Broadcast page update
+    viewers = await manager.broadcast(screen_id, {
+        "type": "page_update",
+        "page": page_data
+    })
 
     return {"success": True, "page": page_data, "viewers": viewers}
 
@@ -419,6 +491,12 @@ async def admin_screens():
                             <button class="btn-icon" onclick="copyValue(this, BASE_URL + '{api_url}')" title="Copy API URL">📋</button>
                         </div>
                     </div>
+                </div>
+                <div class="detail-section">
+                    <label>Custom Head HTML <span class="hint">(for Google Fonts, etc.)</span></label>
+                    <textarea class="head-html-input" placeholder="<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
+<link href=&quot;https://fonts.googleapis.com/css2?family=...&quot; rel=&quot;stylesheet&quot;>" onclick="event.stopPropagation()">{screen.get('head_html') or ''}</textarea>
+                    <button class="btn-secondary btn-save-head" onclick="saveHeadHtml('{screen['id']}', this); event.stopPropagation();">Save Head HTML</button>
                 </div>
                 <div class="detail-footer">
                     <div class="detail-timestamps">
@@ -620,6 +698,44 @@ print(response.json())`;
                     }}
                 }} catch (error) {{
                     alert('Failed to delete screen: ' + error.message);
+                }}
+            }}
+
+            async function saveHeadHtml(screenId, btn) {{
+                const card = btn.closest('.screen-card');
+                const apiKey = card.dataset.apiKey;
+                const textarea = card.querySelector('.head-html-input');
+                const headHtml = textarea.value;
+
+                try {{
+                    btn.disabled = true;
+                    btn.textContent = 'Saving...';
+
+                    const response = await fetch(`/api/screens/${{screenId}}`, {{
+                        method: 'PATCH',
+                        headers: {{
+                            'Content-Type': 'application/json',
+                            'X-API-Key': apiKey
+                        }},
+                        body: JSON.stringify({{ head_html: headHtml }})
+                    }});
+
+                    if (response.ok) {{
+                        btn.textContent = 'Saved!';
+                        setTimeout(() => {{
+                            btn.textContent = 'Save Head HTML';
+                            btn.disabled = false;
+                        }}, 1500);
+                    }} else {{
+                        const data = await response.json();
+                        alert('Failed to save: ' + (data.detail || 'Unknown error'));
+                        btn.textContent = 'Save Head HTML';
+                        btn.disabled = false;
+                    }}
+                }} catch (error) {{
+                    alert('Failed to save: ' + error.message);
+                    btn.textContent = 'Save Head HTML';
+                    btn.disabled = false;
                 }}
             }}
 

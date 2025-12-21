@@ -42,6 +42,20 @@ class PageRequest(BaseModel):
     expires_at: datetime | None = None  # Expiration time for ephemeral pages
 
 
+class PageUpdateRequest(BaseModel):
+    """Request to partially update a page (all fields optional)."""
+    content: list[Union[str, ContentItem]] | None = None
+    background_color: str | None = None
+    panel_color: str | None = None
+    font_family: str | None = None
+    font_color: str | None = None
+    gap: str | None = None
+    border_radius: str | None = None
+    panel_shadow: str | None = None
+    duration: int | None = None
+    expires_at: datetime | None = None
+
+
 class RotationSettings(BaseModel):
     """Screen rotation settings."""
     enabled: bool
@@ -51,6 +65,7 @@ class RotationSettings(BaseModel):
 class ScreenUpdateRequest(BaseModel):
     """Request to update screen settings."""
     name: str | None = None
+    theme: str | None = None  # Apply a pre-defined theme (values can be overridden below)
     rotation_enabled: bool | None = None
     rotation_interval: int | None = None
     gap: str | None = None
@@ -60,6 +75,7 @@ class ScreenUpdateRequest(BaseModel):
     panel_color: str | None = None
     font_family: str | None = None
     font_color: str | None = None
+    head_html: str | None = None  # Custom HTML for <head> (e.g., Google Fonts links)
 
 
 class PageOrderRequest(BaseModel):
