@@ -6,22 +6,16 @@ Handles Clerk webhooks for user and organization sync.
 import hashlib
 import hmac
 import json
-from datetime import datetime, timezone
 
-from fastapi import APIRouter, Request, HTTPException, Header
+from fastapi import APIRouter, Header, HTTPException, Request
 
-from .config import get_settings, AppMode
+from .config import AppMode, get_settings
 from .db import get_database
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
 
-def _verify_clerk_signature(
-    payload: bytes,
-    signature: str,
-    timestamp: str,
-    secret: str
-) -> bool:
+def _verify_clerk_signature(payload: bytes, signature: str, timestamp: str, secret: str) -> bool:
     """Verify Clerk webhook signature using Svix."""
     # Clerk uses Svix for webhooks
     # Signature format: v1,<signature>
@@ -44,18 +38,14 @@ def _verify_clerk_signature(
 
         # Compute expected signature
         import base64
+
         expected = hmac.new(
-            secret.encode("utf-8"),
-            signed_payload.encode("utf-8"),
-            hashlib.sha256
+            secret.encode("utf-8"), signed_payload.encode("utf-8"), hashlib.sha256
         ).digest()
         expected_b64 = base64.b64encode(expected).decode("utf-8")
 
         # Check if any signature matches
-        return any(
-            hmac.compare_digest(expected_b64, sig)
-            for sig in signatures
-        )
+        return any(hmac.compare_digest(expected_b64, sig) for sig in signatures)
 
     except Exception as e:
         print(f"Signature verification error: {e}")
@@ -103,8 +93,8 @@ async def clerk_webhook(
     # Parse the event
     try:
         event = json.loads(body)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
+    except json.JSONDecodeError as e:
+        raise HTTPException(status_code=400, detail="Invalid JSON") from e
 
     event_type = event.get("type")
     data = event.get("data", {})
@@ -131,7 +121,7 @@ async def clerk_webhook(
                 user_id=user_id,
                 email=email,
                 name=name,
-                plan="free"  # Default plan
+                plan="free",  # Default plan
             )
 
     elif event_type == "user.deleted":
@@ -150,7 +140,7 @@ async def clerk_webhook(
                 org_id=org_id,
                 name=name,
                 slug=slug,
-                plan="free"  # Default plan
+                plan="free",  # Default plan
             )
 
     elif event_type == "organization.deleted":

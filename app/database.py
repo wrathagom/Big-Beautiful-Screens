@@ -38,13 +38,14 @@ __all__ = [
 
 # ============== Screen Functions ==============
 
+
 async def create_screen(
     screen_id: str,
     api_key: str,
     created_at: str,
     name: str | None = None,
     owner_id: str | None = None,
-    org_id: str | None = None
+    org_id: str | None = None,
 ) -> None:
     """Create a new screen with default theme applied."""
     db = get_database()
@@ -67,7 +68,7 @@ async def get_all_screens(
     limit: int | None = None,
     offset: int = 0,
     owner_id: str | None = None,
-    org_id: str | None = None
+    org_id: str | None = None,
 ) -> list[dict]:
     """Get screens with optional pagination and ownership filtering."""
     db = get_database()
@@ -110,24 +111,35 @@ async def update_rotation_settings(
     font_family: str | None = None,
     font_color: str | None = None,
     theme: str | None = None,
-    head_html: str | None = None
+    head_html: str | None = None,
 ) -> bool:
     """Update rotation/display settings. Returns True if updated."""
     db = get_database()
     return await db.update_rotation_settings(
-        screen_id, enabled, interval, gap, border_radius, panel_shadow,
-        background_color, panel_color, font_family, font_color, theme, head_html
+        screen_id,
+        enabled,
+        interval,
+        gap,
+        border_radius,
+        panel_shadow,
+        background_color,
+        panel_color,
+        font_family,
+        font_color,
+        theme,
+        head_html,
     )
 
 
 # ============== Page Functions ==============
+
 
 async def upsert_page(
     screen_id: str,
     name: str,
     payload: dict,
     duration: int | None = None,
-    expires_at: str | None = None
+    expires_at: str | None = None,
 ) -> dict:
     """Create or update a page. Returns the page data."""
     db = get_database()
@@ -158,14 +170,23 @@ async def update_page(
     border_radius: str | None = None,
     panel_shadow: str | None = None,
     duration: int | None = None,
-    expires_at: str | None = None
+    expires_at: str | None = None,
 ) -> dict | None:
     """Partially update a page. Returns updated data or None."""
     db = get_database()
     return await db.update_page(
-        screen_id, name, content, background_color, panel_color,
-        font_family, font_color, gap, border_radius, panel_shadow,
-        duration, expires_at
+        screen_id,
+        name,
+        content,
+        background_color,
+        panel_color,
+        font_family,
+        font_color,
+        gap,
+        border_radius,
+        panel_shadow,
+        duration,
+        expires_at,
     )
 
 
@@ -189,10 +210,9 @@ async def cleanup_expired_pages() -> list[tuple[str, str]]:
 
 # ============== Theme Functions ==============
 
+
 async def get_all_themes(
-    limit: int | None = None,
-    offset: int = 0,
-    owner_id: str | None = None
+    limit: int | None = None, offset: int = 0, owner_id: str | None = None
 ) -> list[dict]:
     """Get themes with optional pagination. Includes global + user's themes."""
     db = get_database()
@@ -221,13 +241,21 @@ async def create_theme_in_db(
     gap: str = "1rem",
     border_radius: str = "1rem",
     panel_shadow: str | None = None,
-    owner_id: str | None = None
+    owner_id: str | None = None,
 ) -> dict:
     """Create a new custom theme."""
     db = get_database()
     return await db.create_theme(
-        name, background_color, panel_color, font_family, font_color,
-        display_name, gap, border_radius, panel_shadow, owner_id
+        name,
+        background_color,
+        panel_color,
+        font_family,
+        font_color,
+        display_name,
+        gap,
+        border_radius,
+        panel_shadow,
+        owner_id,
     )
 
 
@@ -240,13 +268,20 @@ async def update_theme_in_db(
     font_color: str | None = None,
     gap: str | None = None,
     border_radius: str | None = None,
-    panel_shadow: str | None = None
+    panel_shadow: str | None = None,
 ) -> dict | None:
     """Update a theme. Returns None if not found."""
     db = get_database()
     return await db.update_theme(
-        name, display_name, background_color, panel_color,
-        font_family, font_color, gap, border_radius, panel_shadow
+        name,
+        display_name,
+        background_color,
+        panel_color,
+        font_family,
+        font_color,
+        gap,
+        border_radius,
+        panel_shadow,
     )
 
 

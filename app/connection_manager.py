@@ -1,5 +1,6 @@
-from fastapi import WebSocket
 from collections import defaultdict
+
+from fastapi import WebSocket
 
 
 class ConnectionManager:

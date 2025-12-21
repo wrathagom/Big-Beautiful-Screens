@@ -1,6 +1,6 @@
-from pydantic import BaseModel
-from typing import Union
 from datetime import datetime
+
+from pydantic import BaseModel
 
 
 class ContentItem(BaseModel):
@@ -18,19 +18,22 @@ class ContentItem(BaseModel):
 
 
 class MessageRequest(BaseModel):
-    content: list[Union[str, ContentItem]]
+    content: list[str | ContentItem]
     background_color: str | None = None  # Screen background color
     panel_color: str | None = None  # Default panel background color
     font_family: str | None = None  # Default font family
     font_color: str | None = None  # Default text color
     gap: str | None = None  # Gap between panels (CSS value, e.g., "1rem", "10px", "0")
     border_radius: str | None = None  # Panel corner rounding (CSS value, e.g., "1rem", "0")
-    panel_shadow: str | None = None  # CSS box-shadow for panels (e.g., "0 4px 12px rgba(0,0,0,0.3)")
+    panel_shadow: str | None = (
+        None  # CSS box-shadow for panels (e.g., "0 4px 12px rgba(0,0,0,0.3)")
+    )
 
 
 class PageRequest(BaseModel):
     """Request to create/update a specific page."""
-    content: list[Union[str, ContentItem]]
+
+    content: list[str | ContentItem]
     background_color: str | None = None
     panel_color: str | None = None
     font_family: str | None = None
@@ -44,7 +47,8 @@ class PageRequest(BaseModel):
 
 class PageUpdateRequest(BaseModel):
     """Request to partially update a page (all fields optional)."""
-    content: list[Union[str, ContentItem]] | None = None
+
+    content: list[str | ContentItem] | None = None
     background_color: str | None = None
     panel_color: str | None = None
     font_family: str | None = None
@@ -58,12 +62,14 @@ class PageUpdateRequest(BaseModel):
 
 class RotationSettings(BaseModel):
     """Screen rotation settings."""
+
     enabled: bool
     interval: int  # seconds
 
 
 class ScreenUpdateRequest(BaseModel):
     """Request to update screen settings."""
+
     name: str | None = None
     theme: str | None = None  # Apply a pre-defined theme (values can be overridden below)
     rotation_enabled: bool | None = None
@@ -80,6 +86,7 @@ class ScreenUpdateRequest(BaseModel):
 
 class PageOrderRequest(BaseModel):
     """Request to reorder pages."""
+
     page_names: list[str]
 
 
@@ -97,6 +104,7 @@ class MessageResponse(BaseModel):
 
 class PageResponse(BaseModel):
     """Response for page operations."""
+
     success: bool
     page: dict | None = None
     viewers: int = 0
@@ -104,14 +112,17 @@ class PageResponse(BaseModel):
 
 class PagesListResponse(BaseModel):
     """Response for listing all pages."""
+
     pages: list[dict]
     rotation: RotationSettings
 
 
 # ============== Theme Models ==============
 
+
 class ThemeCreate(BaseModel):
     """Request to create a new theme."""
+
     name: str  # URL-safe identifier (e.g., "my-custom-theme")
     display_name: str | None = None  # Human-readable name
     background_color: str
@@ -125,6 +136,7 @@ class ThemeCreate(BaseModel):
 
 class ThemeUpdate(BaseModel):
     """Request to update a theme. All fields optional for partial updates."""
+
     display_name: str | None = None
     background_color: str | None = None
     panel_color: str | None = None
@@ -137,6 +149,7 @@ class ThemeUpdate(BaseModel):
 
 class ThemeResponse(BaseModel):
     """Response for theme operations."""
+
     name: str
     display_name: str | None
     background_color: str

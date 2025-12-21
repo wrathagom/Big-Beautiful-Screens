@@ -3,14 +3,14 @@
 Used in SaaS mode with Neon or other PostgreSQL providers.
 """
 
-import asyncpg
 import json
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
-from .base import DatabaseBackend
+import asyncpg
+
 from ..config import get_settings
-from ..themes import get_theme, get_builtin_themes
+from ..themes import get_builtin_themes, get_theme
+from .base import DatabaseBackend
 
 
 class PostgresBackend(DatabaseBackend):
@@ -149,12 +149,13 @@ class PostgresBackend(DatabaseBackend):
         if count > 0:
             return
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         builtin_themes = get_builtin_themes()
 
         for name, values in builtin_themes.items():
             display_name = name.replace("-", " ").title()
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO themes (name, display_name, background_color, panel_color, font_family,
                                   font_color, gap, border_radius, panel_shadow, is_builtin, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10, $10)
@@ -169,7 +170,7 @@ class PostgresBackend(DatabaseBackend):
                 values.get("gap", "1rem"),
                 values.get("border_radius", "1rem"),
                 values.get("panel_shadow"),
-                now
+                now,
             )
 
     # ============== Screen Methods ==============
@@ -181,21 +182,28 @@ class PostgresBackend(DatabaseBackend):
         created_at: str,
         name: str | None = None,
         owner_id: str | None = None,
-        org_id: str | None = None
+        org_id: str | None = None,
     ) -> None:
         """Create a new screen with default theme applied."""
         default_theme = get_theme("default")
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO screens (
                     id, api_key, created_at, name, owner_id, org_id, theme,
                     background_color, panel_color, font_family, font_color,
                     gap, border_radius, panel_shadow
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             """,
-                screen_id, api_key, created_at, name, owner_id, org_id, "default",
+                screen_id,
+                api_key,
+                created_at,
+                name,
+                owner_id,
+                org_id,
+                "default",
                 default_theme["background_color"],
                 default_theme["panel_color"],
                 default_theme["font_family"],
@@ -224,7 +232,7 @@ class PostgresBackend(DatabaseBackend):
         limit: int | None = None,
         offset: int = 0,
         owner_id: str | None = None,
-        org_id: str | None = None
+        org_id: str | None = None,
     ) -> list[dict]:
         """Get screens with optional pagination and ownership filtering."""
         pool = await self._get_pool()
@@ -248,9 +256,7 @@ class PostgresBackend(DatabaseBackend):
             return [dict(row) for row in rows]
 
     async def get_screens_count(
-        self,
-        owner_id: str | None = None,
-        org_id: str | None = None
+        self, owner_id: str | None = None, org_id: str | None = None
     ) -> int:
         """Get total count of screens."""
         pool = await self._get_pool()
@@ -258,7 +264,8 @@ class PostgresBackend(DatabaseBackend):
             if owner_id is not None:
                 return await conn.fetchval(
                     "SELECT COUNT(*) FROM screens WHERE owner_id = $1 OR org_id = $2",
-                    owner_id, org_id
+                    owner_id,
+                    org_id,
                 )
             else:
                 return await conn.fetchval("SELECT COUNT(*) FROM screens")
@@ -275,8 +282,7 @@ class PostgresBackend(DatabaseBackend):
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             result = await conn.execute(
-                "UPDATE screens SET name = $1 WHERE id = $2",
-                name, screen_id
+                "UPDATE screens SET name = $1 WHERE id = $2", name, screen_id
             )
             return result == "UPDATE 1"
 
@@ -284,27 +290,30 @@ class PostgresBackend(DatabaseBackend):
         """Get rotation/display settings for a screen."""
         pool = await self._get_pool()
         async with pool.acquire() as conn:
-            row = await conn.fetchrow("""
+            row = await conn.fetchrow(
+                """
                 SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
                        background_color, panel_color, font_family, font_color, theme, head_html
                 FROM screens WHERE id = $1
-            """, screen_id)
+            """,
+                screen_id,
+            )
 
             if not row:
                 return None
 
             return {
-                "enabled": row['rotation_enabled'] or False,
-                "interval": row['rotation_interval'] or 30,
-                "gap": row['gap'] or '1rem',
-                "border_radius": row['border_radius'] or '1rem',
-                "panel_shadow": row['panel_shadow'],
-                "background_color": row['background_color'],
-                "panel_color": row['panel_color'],
-                "font_family": row['font_family'],
-                "font_color": row['font_color'],
-                "theme": row['theme'],
-                "head_html": row['head_html']
+                "enabled": row["rotation_enabled"] or False,
+                "interval": row["rotation_interval"] or 30,
+                "gap": row["gap"] or "1rem",
+                "border_radius": row["border_radius"] or "1rem",
+                "panel_shadow": row["panel_shadow"],
+                "background_color": row["background_color"],
+                "panel_color": row["panel_color"],
+                "font_family": row["font_family"],
+                "font_color": row["font_color"],
+                "theme": row["theme"],
+                "head_html": row["head_html"],
             }
 
     async def update_rotation_settings(
@@ -320,7 +329,7 @@ class PostgresBackend(DatabaseBackend):
         font_family: str | None = None,
         font_color: str | None = None,
         theme: str | None = None,
-        head_html: str | None = None
+        head_html: str | None = None,
     ) -> bool:
         """Update rotation/display settings."""
         pool = await self._get_pool()
@@ -382,8 +391,7 @@ class PostgresBackend(DatabaseBackend):
             if updates:
                 params.append(screen_id)
                 await conn.execute(
-                    f"UPDATE screens SET {', '.join(updates)} WHERE id = ${param_idx}",
-                    *params
+                    f"UPDATE screens SET {', '.join(updates)} WHERE id = ${param_idx}", *params
                 )
 
             return True
@@ -396,41 +404,56 @@ class PostgresBackend(DatabaseBackend):
         name: str,
         payload: dict,
         duration: int | None = None,
-        expires_at: str | None = None
+        expires_at: str | None = None,
     ) -> dict:
         """Create or update a page."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
             existing = await conn.fetchrow(
                 "SELECT id, display_order FROM pages WHERE screen_id = $1 AND name = $2",
-                screen_id, name
+                screen_id,
+                name,
             )
 
             if existing:
-                await conn.execute("""
+                await conn.execute(
+                    """
                     UPDATE pages
                     SET content = $1, duration = $2, expires_at = $3, updated_at = $4
                     WHERE screen_id = $5 AND name = $6
-                """, json.dumps(payload), duration, expires_at, now, screen_id, name)
-                display_order = existing['display_order']
+                """,
+                    json.dumps(payload),
+                    duration,
+                    expires_at,
+                    now,
+                    screen_id,
+                    name,
+                )
+                display_order = existing["display_order"]
             else:
                 max_order = await conn.fetchval(
                     "SELECT COALESCE(MAX(display_order), -1) + 1 FROM pages WHERE screen_id = $1",
-                    screen_id
+                    screen_id,
                 )
                 display_order = max_order or 0
 
-                await conn.execute("""
+                await conn.execute(
+                    """
                     INSERT INTO pages (screen_id, name, content, display_order, duration, expires_at, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $7)
-                """, screen_id, name, json.dumps(payload), display_order, duration, expires_at, now)
+                """,
+                    screen_id,
+                    name,
+                    json.dumps(payload),
+                    display_order,
+                    duration,
+                    expires_at,
+                    now,
+                )
 
-            await conn.execute(
-                "UPDATE screens SET last_updated = $1 WHERE id = $2",
-                now, screen_id
-            )
+            await conn.execute("UPDATE screens SET last_updated = $1 WHERE id = $2", now, screen_id)
 
             return {
                 "name": name,
@@ -444,47 +467,52 @@ class PostgresBackend(DatabaseBackend):
                 "panel_shadow": payload.get("panel_shadow"),
                 "display_order": display_order,
                 "duration": duration,
-                "expires_at": expires_at
+                "expires_at": expires_at,
             }
 
-    async def get_all_pages(
-        self,
-        screen_id: str,
-        include_expired: bool = False
-    ) -> list[dict]:
+    async def get_all_pages(self, screen_id: str, include_expired: bool = False) -> list[dict]:
         """Get all pages for a screen."""
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             if include_expired:
                 rows = await conn.fetch(
-                    "SELECT * FROM pages WHERE screen_id = $1 ORDER BY display_order",
-                    screen_id
+                    "SELECT * FROM pages WHERE screen_id = $1 ORDER BY display_order", screen_id
                 )
             else:
-                now = datetime.now(timezone.utc)
-                rows = await conn.fetch("""
+                now = datetime.now(UTC)
+                rows = await conn.fetch(
+                    """
                     SELECT * FROM pages
                     WHERE screen_id = $1 AND (expires_at IS NULL OR expires_at > $2)
                     ORDER BY display_order
-                """, screen_id, now)
+                """,
+                    screen_id,
+                    now,
+                )
 
             pages = []
             for row in rows:
-                content_data = row['content'] if isinstance(row['content'], dict) else json.loads(row['content'])
-                pages.append({
-                    "name": row['name'],
-                    "content": content_data.get("content", []),
-                    "background_color": content_data.get("background_color"),
-                    "panel_color": content_data.get("panel_color"),
-                    "font_family": content_data.get("font_family"),
-                    "font_color": content_data.get("font_color"),
-                    "gap": content_data.get("gap"),
-                    "border_radius": content_data.get("border_radius"),
-                    "panel_shadow": content_data.get("panel_shadow"),
-                    "display_order": row['display_order'],
-                    "duration": row['duration'],
-                    "expires_at": row['expires_at'].isoformat() if row['expires_at'] else None
-                })
+                content_data = (
+                    row["content"]
+                    if isinstance(row["content"], dict)
+                    else json.loads(row["content"])
+                )
+                pages.append(
+                    {
+                        "name": row["name"],
+                        "content": content_data.get("content", []),
+                        "background_color": content_data.get("background_color"),
+                        "panel_color": content_data.get("panel_color"),
+                        "font_family": content_data.get("font_family"),
+                        "font_color": content_data.get("font_color"),
+                        "gap": content_data.get("gap"),
+                        "border_radius": content_data.get("border_radius"),
+                        "panel_shadow": content_data.get("panel_shadow"),
+                        "display_order": row["display_order"],
+                        "duration": row["duration"],
+                        "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
+                    }
+                )
             return pages
 
     async def get_page(self, screen_id: str, name: str) -> dict | None:
@@ -492,16 +520,17 @@ class PostgresBackend(DatabaseBackend):
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT * FROM pages WHERE screen_id = $1 AND name = $2",
-                screen_id, name
+                "SELECT * FROM pages WHERE screen_id = $1 AND name = $2", screen_id, name
             )
 
             if not row:
                 return None
 
-            content_data = row['content'] if isinstance(row['content'], dict) else json.loads(row['content'])
+            content_data = (
+                row["content"] if isinstance(row["content"], dict) else json.loads(row["content"])
+            )
             return {
-                "name": row['name'],
+                "name": row["name"],
                 "content": content_data.get("content", []),
                 "background_color": content_data.get("background_color"),
                 "panel_color": content_data.get("panel_color"),
@@ -510,9 +539,9 @@ class PostgresBackend(DatabaseBackend):
                 "gap": content_data.get("gap"),
                 "border_radius": content_data.get("border_radius"),
                 "panel_shadow": content_data.get("panel_shadow"),
-                "display_order": row['display_order'],
-                "duration": row['duration'],
-                "expires_at": row['expires_at'].isoformat() if row['expires_at'] else None
+                "display_order": row["display_order"],
+                "duration": row["duration"],
+                "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
             }
 
     async def update_page(
@@ -528,52 +557,58 @@ class PostgresBackend(DatabaseBackend):
         border_radius: str | None = None,
         panel_shadow: str | None = None,
         duration: int | None = None,
-        expires_at: str | None = None
+        expires_at: str | None = None,
     ) -> dict | None:
         """Partially update a page."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT * FROM pages WHERE screen_id = $1 AND name = $2",
-                screen_id, name
+                "SELECT * FROM pages WHERE screen_id = $1 AND name = $2", screen_id, name
             )
 
             if not row:
                 return None
 
-            existing_data = row['content'] if isinstance(row['content'], dict) else json.loads(row['content'])
+            existing_data = (
+                row["content"] if isinstance(row["content"], dict) else json.loads(row["content"])
+            )
 
             if content is not None:
-                existing_data['content'] = content
+                existing_data["content"] = content
             if background_color is not None:
-                existing_data['background_color'] = background_color
+                existing_data["background_color"] = background_color
             if panel_color is not None:
-                existing_data['panel_color'] = panel_color
+                existing_data["panel_color"] = panel_color
             if font_family is not None:
-                existing_data['font_family'] = font_family
+                existing_data["font_family"] = font_family
             if font_color is not None:
-                existing_data['font_color'] = font_color
+                existing_data["font_color"] = font_color
             if gap is not None:
-                existing_data['gap'] = gap
+                existing_data["gap"] = gap
             if border_radius is not None:
-                existing_data['border_radius'] = border_radius
+                existing_data["border_radius"] = border_radius
             if panel_shadow is not None:
-                existing_data['panel_shadow'] = panel_shadow
+                existing_data["panel_shadow"] = panel_shadow
 
-            new_duration = duration if duration is not None else row['duration']
-            new_expires_at = expires_at if expires_at is not None else row['expires_at']
-
-            await conn.execute("""
-                UPDATE pages SET content = $1, duration = $2, expires_at = $3, updated_at = $4
-                WHERE screen_id = $5 AND name = $6
-            """, json.dumps(existing_data), new_duration, new_expires_at, now, screen_id, name)
+            new_duration = duration if duration is not None else row["duration"]
+            new_expires_at = expires_at if expires_at is not None else row["expires_at"]
 
             await conn.execute(
-                "UPDATE screens SET last_updated = $1 WHERE id = $2",
-                now, screen_id
+                """
+                UPDATE pages SET content = $1, duration = $2, expires_at = $3, updated_at = $4
+                WHERE screen_id = $5 AND name = $6
+            """,
+                json.dumps(existing_data),
+                new_duration,
+                new_expires_at,
+                now,
+                screen_id,
+                name,
             )
+
+            await conn.execute("UPDATE screens SET last_updated = $1 WHERE id = $2", now, screen_id)
 
             return {
                 "name": name,
@@ -585,9 +620,11 @@ class PostgresBackend(DatabaseBackend):
                 "gap": existing_data.get("gap"),
                 "border_radius": existing_data.get("border_radius"),
                 "panel_shadow": existing_data.get("panel_shadow"),
-                "display_order": row['display_order'],
+                "display_order": row["display_order"],
                 "duration": new_duration,
-                "expires_at": new_expires_at.isoformat() if hasattr(new_expires_at, 'isoformat') else new_expires_at
+                "expires_at": new_expires_at.isoformat()
+                if hasattr(new_expires_at, "isoformat")
+                else new_expires_at,
             }
 
     async def delete_page(self, screen_id: str, name: str) -> bool:
@@ -598,8 +635,7 @@ class PostgresBackend(DatabaseBackend):
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             result = await conn.execute(
-                "DELETE FROM pages WHERE screen_id = $1 AND name = $2",
-                screen_id, name
+                "DELETE FROM pages WHERE screen_id = $1 AND name = $2", screen_id, name
             )
             return result == "DELETE 1"
 
@@ -610,36 +646,35 @@ class PostgresBackend(DatabaseBackend):
             for order, name in enumerate(page_names):
                 await conn.execute(
                     "UPDATE pages SET display_order = $1 WHERE screen_id = $2 AND name = $3",
-                    order, screen_id, name
+                    order,
+                    screen_id,
+                    name,
                 )
             return True
 
     async def cleanup_expired_pages(self) -> list[tuple[str, str]]:
         """Remove expired pages."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
             rows = await conn.fetch(
                 "SELECT screen_id, name FROM pages WHERE expires_at IS NOT NULL AND expires_at <= $1 AND name != 'default'",
-                now
+                now,
             )
 
             if rows:
                 await conn.execute(
                     "DELETE FROM pages WHERE expires_at IS NOT NULL AND expires_at <= $1 AND name != 'default'",
-                    now
+                    now,
                 )
 
-            return [(row['screen_id'], row['name']) for row in rows]
+            return [(row["screen_id"], row["name"]) for row in rows]
 
     # ============== Theme Methods ==============
 
     async def get_all_themes(
-        self,
-        limit: int | None = None,
-        offset: int = 0,
-        owner_id: str | None = None
+        self, limit: int | None = None, offset: int = 0, owner_id: str | None = None
     ) -> list[dict]:
         """Get themes with optional pagination."""
         pool = await self._get_pool()
@@ -678,8 +713,7 @@ class PostgresBackend(DatabaseBackend):
         async with pool.acquire() as conn:
             if owner_id is not None:
                 return await conn.fetchval(
-                    "SELECT COUNT(*) FROM themes WHERE owner_id IS NULL OR owner_id = $1",
-                    owner_id
+                    "SELECT COUNT(*) FROM themes WHERE owner_id IS NULL OR owner_id = $1", owner_id
                 )
             else:
                 return await conn.fetchval("SELECT COUNT(*) FROM themes")
@@ -717,14 +751,15 @@ class PostgresBackend(DatabaseBackend):
         gap: str = "1rem",
         border_radius: str = "1rem",
         panel_shadow: str | None = None,
-        owner_id: str | None = None
+        owner_id: str | None = None,
     ) -> dict:
         """Create a new custom theme."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO themes (name, display_name, owner_id, background_color, panel_color, font_family,
                                   font_color, gap, border_radius, panel_shadow, is_builtin, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, FALSE, $11, $11)
@@ -739,7 +774,7 @@ class PostgresBackend(DatabaseBackend):
                 gap,
                 border_radius,
                 panel_shadow,
-                now
+                now,
             )
 
         return {
@@ -765,7 +800,7 @@ class PostgresBackend(DatabaseBackend):
         font_color: str | None = None,
         gap: str | None = None,
         border_radius: str | None = None,
-        panel_shadow: str | None = None
+        panel_shadow: str | None = None,
     ) -> dict | None:
         """Update a theme."""
         pool = await self._get_pool()
@@ -813,12 +848,11 @@ class PostgresBackend(DatabaseBackend):
 
             if updates:
                 updates.append(f"updated_at = ${param_idx}")
-                params.append(datetime.now(timezone.utc))
+                params.append(datetime.now(UTC))
                 param_idx += 1
                 params.append(name)
                 await conn.execute(
-                    f"UPDATE themes SET {', '.join(updates)} WHERE name = ${param_idx}",
-                    *params
+                    f"UPDATE themes SET {', '.join(updates)} WHERE name = ${param_idx}", *params
                 )
 
         return await self.get_theme(name)
@@ -832,9 +866,7 @@ class PostgresBackend(DatabaseBackend):
             if not row:
                 return False, "Theme not found"
 
-            usage_count = await conn.fetchval(
-                "SELECT COUNT(*) FROM screens WHERE theme = $1", name
-            )
+            usage_count = await conn.fetchval("SELECT COUNT(*) FROM screens WHERE theme = $1", name)
 
             if usage_count > 0:
                 return False, f"Theme is in use by {usage_count} screen(s)"
@@ -850,7 +882,7 @@ class PostgresBackend(DatabaseBackend):
             rows = await conn.fetch(
                 "SELECT theme, COUNT(*) as count FROM screens WHERE theme IS NOT NULL GROUP BY theme"
             )
-        return {row['theme']: row['count'] for row in rows}
+        return {row["theme"]: row["count"] for row in rows}
 
     # ============== User Methods (SaaS only) ==============
 
@@ -862,18 +894,15 @@ class PostgresBackend(DatabaseBackend):
             return dict(row) if row else None
 
     async def create_or_update_user(
-        self,
-        user_id: str,
-        email: str,
-        name: str | None = None,
-        plan: str = "free"
+        self, user_id: str, email: str, name: str | None = None, plan: str = "free"
     ) -> dict:
         """Create or update a user (from Clerk webhook)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO users (id, email, name, plan, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, $5)
                 ON CONFLICT (id) DO UPDATE SET
@@ -881,7 +910,13 @@ class PostgresBackend(DatabaseBackend):
                     name = EXCLUDED.name,
                     plan = EXCLUDED.plan,
                     updated_at = EXCLUDED.updated_at
-            """, user_id, email, name, plan, now)
+            """,
+                user_id,
+                email,
+                name,
+                plan,
+                now,
+            )
 
         return await self.get_user(user_id)
 
@@ -902,18 +937,15 @@ class PostgresBackend(DatabaseBackend):
             return dict(row) if row else None
 
     async def create_or_update_organization(
-        self,
-        org_id: str,
-        name: str,
-        slug: str,
-        plan: str = "free"
+        self, org_id: str, name: str, slug: str, plan: str = "free"
     ) -> dict:
         """Create or update an organization (from Clerk webhook)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
-            await conn.execute("""
+            await conn.execute(
+                """
                 INSERT INTO organizations (id, name, slug, plan, created_at, updated_at)
                 VALUES ($1, $2, $3, $4, $5, $5)
                 ON CONFLICT (id) DO UPDATE SET
@@ -921,7 +953,13 @@ class PostgresBackend(DatabaseBackend):
                     slug = EXCLUDED.slug,
                     plan = EXCLUDED.plan,
                     updated_at = EXCLUDED.updated_at
-            """, org_id, name, slug, plan, now)
+            """,
+                org_id,
+                name,
+                slug,
+                plan,
+                now,
+            )
 
         return await self.get_organization(org_id)
 
@@ -932,23 +970,24 @@ class PostgresBackend(DatabaseBackend):
             result = await conn.execute("DELETE FROM organizations WHERE id = $1", org_id)
             return result == "DELETE 1"
 
-    async def add_org_member(
-        self,
-        user_id: str,
-        org_id: str,
-        role: str = "member"
-    ) -> bool:
+    async def add_org_member(self, user_id: str, org_id: str, role: str = "member") -> bool:
         """Add a user to an organization."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
             try:
-                await conn.execute("""
+                await conn.execute(
+                    """
                     INSERT INTO org_memberships (user_id, org_id, role, created_at)
                     VALUES ($1, $2, $3, $4)
                     ON CONFLICT (user_id, org_id) DO UPDATE SET role = EXCLUDED.role
-                """, user_id, org_id, role, now)
+                """,
+                    user_id,
+                    org_id,
+                    role,
+                    now,
+                )
                 return True
             except Exception:
                 return False
@@ -958,8 +997,7 @@ class PostgresBackend(DatabaseBackend):
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             result = await conn.execute(
-                "DELETE FROM org_memberships WHERE user_id = $1 AND org_id = $2",
-                user_id, org_id
+                "DELETE FROM org_memberships WHERE user_id = $1 AND org_id = $2", user_id, org_id
             )
             return result == "DELETE 1"
 
@@ -967,10 +1005,13 @@ class PostgresBackend(DatabaseBackend):
         """Get organizations for a user."""
         pool = await self._get_pool()
         async with pool.acquire() as conn:
-            rows = await conn.fetch("""
+            rows = await conn.fetch(
+                """
                 SELECT o.*, m.role
                 FROM organizations o
                 JOIN org_memberships m ON o.id = m.org_id
                 WHERE m.user_id = $1
-            """, user_id)
+            """,
+                user_id,
+            )
             return [dict(row) for row in rows]

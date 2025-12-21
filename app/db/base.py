@@ -4,7 +4,6 @@ All database backends must implement this interface.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 
 class DatabaseBackend(ABC):
@@ -25,7 +24,7 @@ class DatabaseBackend(ABC):
         created_at: str,
         name: str | None = None,
         owner_id: str | None = None,
-        org_id: str | None = None
+        org_id: str | None = None,
     ) -> None:
         """Create a new screen."""
         pass
@@ -46,16 +45,14 @@ class DatabaseBackend(ABC):
         limit: int | None = None,
         offset: int = 0,
         owner_id: str | None = None,
-        org_id: str | None = None
+        org_id: str | None = None,
     ) -> list[dict]:
         """Get screens with optional pagination and ownership filtering."""
         pass
 
     @abstractmethod
     async def get_screens_count(
-        self,
-        owner_id: str | None = None,
-        org_id: str | None = None
+        self, owner_id: str | None = None, org_id: str | None = None
     ) -> int:
         """Get total count of screens."""
         pass
@@ -89,7 +86,7 @@ class DatabaseBackend(ABC):
         font_family: str | None = None,
         font_color: str | None = None,
         theme: str | None = None,
-        head_html: str | None = None
+        head_html: str | None = None,
     ) -> bool:
         """Update rotation/display settings. Returns True if updated."""
         pass
@@ -103,17 +100,13 @@ class DatabaseBackend(ABC):
         name: str,
         payload: dict,
         duration: int | None = None,
-        expires_at: str | None = None
+        expires_at: str | None = None,
     ) -> dict:
         """Create or update a page. Returns the page data."""
         pass
 
     @abstractmethod
-    async def get_all_pages(
-        self,
-        screen_id: str,
-        include_expired: bool = False
-    ) -> list[dict]:
+    async def get_all_pages(self, screen_id: str, include_expired: bool = False) -> list[dict]:
         """Get all pages for a screen."""
         pass
 
@@ -136,7 +129,7 @@ class DatabaseBackend(ABC):
         border_radius: str | None = None,
         panel_shadow: str | None = None,
         duration: int | None = None,
-        expires_at: str | None = None
+        expires_at: str | None = None,
     ) -> dict | None:
         """Partially update a page. Returns updated data or None."""
         pass
@@ -160,10 +153,7 @@ class DatabaseBackend(ABC):
 
     @abstractmethod
     async def get_all_themes(
-        self,
-        limit: int | None = None,
-        offset: int = 0,
-        owner_id: str | None = None
+        self, limit: int | None = None, offset: int = 0, owner_id: str | None = None
     ) -> list[dict]:
         """Get themes with optional pagination."""
         pass
@@ -190,7 +180,7 @@ class DatabaseBackend(ABC):
         gap: str = "1rem",
         border_radius: str = "1rem",
         panel_shadow: str | None = None,
-        owner_id: str | None = None
+        owner_id: str | None = None,
     ) -> dict:
         """Create a new theme."""
         pass
@@ -206,7 +196,7 @@ class DatabaseBackend(ABC):
         font_color: str | None = None,
         gap: str | None = None,
         border_radius: str | None = None,
-        panel_shadow: str | None = None
+        panel_shadow: str | None = None,
     ) -> dict | None:
         """Update a theme. Returns None if not found."""
         pass
@@ -228,11 +218,7 @@ class DatabaseBackend(ABC):
         return None
 
     async def create_or_update_user(
-        self,
-        user_id: str,
-        email: str,
-        name: str | None = None,
-        plan: str = "free"
+        self, user_id: str, email: str, name: str | None = None, plan: str = "free"
     ) -> dict:
         """Create or update a user. Only implemented in SaaS backends."""
         raise NotImplementedError("User management not available in this backend")
@@ -248,11 +234,7 @@ class DatabaseBackend(ABC):
         return None
 
     async def create_or_update_organization(
-        self,
-        org_id: str,
-        name: str,
-        slug: str,
-        plan: str = "free"
+        self, org_id: str, name: str, slug: str, plan: str = "free"
     ) -> dict:
         """Create or update an organization. Only implemented in SaaS backends."""
         raise NotImplementedError("Organization management not available in this backend")
@@ -261,12 +243,7 @@ class DatabaseBackend(ABC):
         """Delete an organization. Only implemented in SaaS backends."""
         raise NotImplementedError("Organization management not available in this backend")
 
-    async def add_org_member(
-        self,
-        user_id: str,
-        org_id: str,
-        role: str = "member"
-    ) -> bool:
+    async def add_org_member(self, user_id: str, org_id: str, role: str = "member") -> bool:
         """Add a user to an organization. Only implemented in SaaS backends."""
         raise NotImplementedError("Organization management not available in this backend")
 

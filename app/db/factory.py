@@ -3,10 +3,8 @@
 Returns the appropriate database backend based on configuration.
 """
 
-from functools import lru_cache
-
+from ..config import AppMode, get_settings
 from .base import DatabaseBackend
-from ..config import get_settings, AppMode
 
 # Singleton instance
 _db_instance: DatabaseBackend | None = None
@@ -26,9 +24,11 @@ def get_database() -> DatabaseBackend:
 
     if settings.APP_MODE == AppMode.SAAS:
         from .postgres import PostgresBackend
+
         _db_instance = PostgresBackend()
     else:
         from .sqlite import SQLiteBackend
+
         _db_instance = SQLiteBackend()
 
     return _db_instance

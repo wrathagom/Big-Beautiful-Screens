@@ -3,14 +3,15 @@
 Used in self-hosted mode.
 """
 
-import aiosqlite
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from .base import DatabaseBackend
+import aiosqlite
+
 from ..config import get_settings
-from ..themes import get_theme, get_builtin_themes
+from ..themes import get_builtin_themes, get_theme
+from .base import DatabaseBackend
 
 
 class SQLiteBackend(DatabaseBackend):
@@ -114,28 +115,31 @@ class SQLiteBackend(DatabaseBackend):
         if count > 0:
             return
 
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
         builtin_themes = get_builtin_themes()
 
         for name, values in builtin_themes.items():
             display_name = name.replace("-", " ").title()
-            await db.execute("""
+            await db.execute(
+                """
                 INSERT INTO themes (name, display_name, background_color, panel_color, font_family,
                                   font_color, gap, border_radius, panel_shadow, is_builtin, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-            """, (
-                name,
-                display_name,
-                values["background_color"],
-                values["panel_color"],
-                values["font_family"],
-                values["font_color"],
-                values.get("gap", "1rem"),
-                values.get("border_radius", "1rem"),
-                values.get("panel_shadow"),
-                now,
-                now
-            ))
+            """,
+                (
+                    name,
+                    display_name,
+                    values["background_color"],
+                    values["panel_color"],
+                    values["font_family"],
+                    values["font_color"],
+                    values.get("gap", "1rem"),
+                    values.get("border_radius", "1rem"),
+                    values.get("panel_shadow"),
+                    now,
+                    now,
+                ),
+            )
 
     # ============== Screen Methods ==============
 
@@ -146,37 +150,44 @@ class SQLiteBackend(DatabaseBackend):
         created_at: str,
         name: str | None = None,
         owner_id: str | None = None,
-        org_id: str | None = None
+        org_id: str | None = None,
     ) -> None:
         """Create a new screen with default theme applied."""
         default_theme = get_theme("default")
 
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("""
+            await db.execute(
+                """
                 INSERT INTO screens (
                     id, api_key, created_at, name, owner_id, org_id, theme,
                     background_color, panel_color, font_family, font_color,
                     gap, border_radius, panel_shadow
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                screen_id, api_key, created_at, name, owner_id, org_id, "default",
-                default_theme["background_color"],
-                default_theme["panel_color"],
-                default_theme["font_family"],
-                default_theme["font_color"],
-                default_theme["gap"],
-                default_theme["border_radius"],
-                default_theme["panel_shadow"],
-            ))
+            """,
+                (
+                    screen_id,
+                    api_key,
+                    created_at,
+                    name,
+                    owner_id,
+                    org_id,
+                    "default",
+                    default_theme["background_color"],
+                    default_theme["panel_color"],
+                    default_theme["font_family"],
+                    default_theme["font_color"],
+                    default_theme["gap"],
+                    default_theme["border_radius"],
+                    default_theme["panel_shadow"],
+                ),
+            )
             await db.commit()
 
     async def get_screen_by_id(self, screen_id: str) -> dict | None:
         """Get a screen by its ID."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM screens WHERE id = ?", (screen_id,)
-            ) as cursor:
+            async with db.execute("SELECT * FROM screens WHERE id = ?", (screen_id,)) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
 
@@ -184,9 +195,7 @@ class SQLiteBackend(DatabaseBackend):
         """Get a screen by its API key."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM screens WHERE api_key = ?", (api_key,)
-            ) as cursor:
+            async with db.execute("SELECT * FROM screens WHERE api_key = ?", (api_key,)) as cursor:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
 
@@ -195,7 +204,7 @@ class SQLiteBackend(DatabaseBackend):
         limit: int | None = None,
         offset: int = 0,
         owner_id: str | None = None,
-        org_id: str | None = None
+        org_id: str | None = None,
     ) -> list[dict]:
         """Get screens with optional pagination and ownership filtering."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -219,9 +228,7 @@ class SQLiteBackend(DatabaseBackend):
                 return [dict(row) for row in rows]
 
     async def get_screens_count(
-        self,
-        owner_id: str | None = None,
-        org_id: str | None = None
+        self, owner_id: str | None = None, org_id: str | None = None
     ) -> int:
         """Get total count of screens."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -239,9 +246,7 @@ class SQLiteBackend(DatabaseBackend):
     async def delete_screen(self, screen_id: str) -> bool:
         """Delete a screen and its pages."""
         async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute(
-                "SELECT id FROM screens WHERE id = ?", (screen_id,)
-            ) as cursor:
+            async with db.execute("SELECT id FROM screens WHERE id = ?", (screen_id,)) as cursor:
                 if not await cursor.fetchone():
                     return False
 
@@ -253,16 +258,11 @@ class SQLiteBackend(DatabaseBackend):
     async def update_screen_name(self, screen_id: str, name: str | None) -> bool:
         """Update a screen's name."""
         async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute(
-                "SELECT id FROM screens WHERE id = ?", (screen_id,)
-            ) as cursor:
+            async with db.execute("SELECT id FROM screens WHERE id = ?", (screen_id,)) as cursor:
                 if not await cursor.fetchone():
                     return False
 
-            await db.execute(
-                "UPDATE screens SET name = ? WHERE id = ?",
-                (name, screen_id)
-            )
+            await db.execute("UPDATE screens SET name = ? WHERE id = ?", (name, screen_id))
             await db.commit()
             return True
 
@@ -270,28 +270,31 @@ class SQLiteBackend(DatabaseBackend):
         """Get rotation/display settings for a screen."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute("""
+            async with db.execute(
+                """
                 SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
                        background_color, panel_color, font_family, font_color, theme, head_html
                 FROM screens WHERE id = ?
-            """, (screen_id,)) as cursor:
+            """,
+                (screen_id,),
+            ) as cursor:
                 row = await cursor.fetchone()
 
             if not row:
                 return None
 
             return {
-                "enabled": bool(row['rotation_enabled']),
-                "interval": row['rotation_interval'] or 30,
-                "gap": row['gap'] or '1rem',
-                "border_radius": row['border_radius'] or '1rem',
-                "panel_shadow": row['panel_shadow'],
-                "background_color": row['background_color'],
-                "panel_color": row['panel_color'],
-                "font_family": row['font_family'],
-                "font_color": row['font_color'],
-                "theme": row['theme'],
-                "head_html": row['head_html']
+                "enabled": bool(row["rotation_enabled"]),
+                "interval": row["rotation_interval"] or 30,
+                "gap": row["gap"] or "1rem",
+                "border_radius": row["border_radius"] or "1rem",
+                "panel_shadow": row["panel_shadow"],
+                "background_color": row["background_color"],
+                "panel_color": row["panel_color"],
+                "font_family": row["font_family"],
+                "font_color": row["font_color"],
+                "theme": row["theme"],
+                "head_html": row["head_html"],
             }
 
     async def update_rotation_settings(
@@ -307,13 +310,11 @@ class SQLiteBackend(DatabaseBackend):
         font_family: str | None = None,
         font_color: str | None = None,
         theme: str | None = None,
-        head_html: str | None = None
+        head_html: str | None = None,
     ) -> bool:
         """Update rotation/display settings."""
         async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute(
-                "SELECT id FROM screens WHERE id = ?", (screen_id,)
-            ) as cursor:
+            async with db.execute("SELECT id FROM screens WHERE id = ?", (screen_id,)) as cursor:
                 if not await cursor.fetchone():
                     return False
 
@@ -356,10 +357,7 @@ class SQLiteBackend(DatabaseBackend):
 
             if updates:
                 params.append(screen_id)
-                await db.execute(
-                    f"UPDATE screens SET {', '.join(updates)} WHERE id = ?",
-                    params
-                )
+                await db.execute(f"UPDATE screens SET {', '.join(updates)} WHERE id = ?", params)
                 await db.commit()
 
             return True
@@ -372,44 +370,56 @@ class SQLiteBackend(DatabaseBackend):
         name: str,
         payload: dict,
         duration: int | None = None,
-        expires_at: str | None = None
+        expires_at: str | None = None,
     ) -> dict:
         """Create or update a page."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
 
             async with db.execute(
                 "SELECT id, display_order FROM pages WHERE screen_id = ? AND name = ?",
-                (screen_id, name)
+                (screen_id, name),
             ) as cursor:
                 existing = await cursor.fetchone()
 
             if existing:
-                await db.execute("""
+                await db.execute(
+                    """
                     UPDATE pages
                     SET content = ?, duration = ?, expires_at = ?, updated_at = ?
                     WHERE screen_id = ? AND name = ?
-                """, (json.dumps(payload), duration, expires_at, now, screen_id, name))
-                display_order = existing['display_order']
+                """,
+                    (json.dumps(payload), duration, expires_at, now, screen_id, name),
+                )
+                display_order = existing["display_order"]
             else:
                 async with db.execute(
                     "SELECT COALESCE(MAX(display_order), -1) + 1 FROM pages WHERE screen_id = ?",
-                    (screen_id,)
+                    (screen_id,),
                 ) as cursor:
                     row = await cursor.fetchone()
                     display_order = row[0] if row else 0
 
-                await db.execute("""
+                await db.execute(
+                    """
                     INSERT INTO pages (screen_id, name, content, display_order, duration, expires_at, created_at, updated_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (screen_id, name, json.dumps(payload), display_order, duration, expires_at, now, now))
+                """,
+                    (
+                        screen_id,
+                        name,
+                        json.dumps(payload),
+                        display_order,
+                        duration,
+                        expires_at,
+                        now,
+                        now,
+                    ),
+                )
 
-            await db.execute(
-                "UPDATE screens SET last_updated = ? WHERE id = ?",
-                (now, screen_id)
-            )
+            await db.execute("UPDATE screens SET last_updated = ? WHERE id = ?", (now, screen_id))
             await db.commit()
 
             return {
@@ -424,14 +434,10 @@ class SQLiteBackend(DatabaseBackend):
                 "panel_shadow": payload.get("panel_shadow"),
                 "display_order": display_order,
                 "duration": duration,
-                "expires_at": expires_at
+                "expires_at": expires_at,
             }
 
-    async def get_all_pages(
-        self,
-        screen_id: str,
-        include_expired: bool = False
-    ) -> list[dict]:
+    async def get_all_pages(self, screen_id: str, include_expired: bool = False) -> list[dict]:
         """Get all pages for a screen."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
@@ -440,7 +446,7 @@ class SQLiteBackend(DatabaseBackend):
                 query = "SELECT * FROM pages WHERE screen_id = ? ORDER BY display_order"
                 params = (screen_id,)
             else:
-                now = datetime.now(timezone.utc).isoformat()
+                now = datetime.now(UTC).isoformat()
                 query = """
                     SELECT * FROM pages
                     WHERE screen_id = ? AND (expires_at IS NULL OR expires_at > ?)
@@ -453,21 +459,23 @@ class SQLiteBackend(DatabaseBackend):
 
             pages = []
             for row in rows:
-                content_data = json.loads(row['content'])
-                pages.append({
-                    "name": row['name'],
-                    "content": content_data.get("content", []),
-                    "background_color": content_data.get("background_color"),
-                    "panel_color": content_data.get("panel_color"),
-                    "font_family": content_data.get("font_family"),
-                    "font_color": content_data.get("font_color"),
-                    "gap": content_data.get("gap"),
-                    "border_radius": content_data.get("border_radius"),
-                    "panel_shadow": content_data.get("panel_shadow"),
-                    "display_order": row['display_order'],
-                    "duration": row['duration'],
-                    "expires_at": row['expires_at']
-                })
+                content_data = json.loads(row["content"])
+                pages.append(
+                    {
+                        "name": row["name"],
+                        "content": content_data.get("content", []),
+                        "background_color": content_data.get("background_color"),
+                        "panel_color": content_data.get("panel_color"),
+                        "font_family": content_data.get("font_family"),
+                        "font_color": content_data.get("font_color"),
+                        "gap": content_data.get("gap"),
+                        "border_radius": content_data.get("border_radius"),
+                        "panel_shadow": content_data.get("panel_shadow"),
+                        "display_order": row["display_order"],
+                        "duration": row["duration"],
+                        "expires_at": row["expires_at"],
+                    }
+                )
             return pages
 
     async def get_page(self, screen_id: str, name: str) -> dict | None:
@@ -475,17 +483,16 @@ class SQLiteBackend(DatabaseBackend):
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                "SELECT * FROM pages WHERE screen_id = ? AND name = ?",
-                (screen_id, name)
+                "SELECT * FROM pages WHERE screen_id = ? AND name = ?", (screen_id, name)
             ) as cursor:
                 row = await cursor.fetchone()
 
             if not row:
                 return None
 
-            content_data = json.loads(row['content'])
+            content_data = json.loads(row["content"])
             return {
-                "name": row['name'],
+                "name": row["name"],
                 "content": content_data.get("content", []),
                 "background_color": content_data.get("background_color"),
                 "panel_color": content_data.get("panel_color"),
@@ -494,9 +501,9 @@ class SQLiteBackend(DatabaseBackend):
                 "gap": content_data.get("gap"),
                 "border_radius": content_data.get("border_radius"),
                 "panel_shadow": content_data.get("panel_shadow"),
-                "display_order": row['display_order'],
-                "duration": row['duration'],
-                "expires_at": row['expires_at']
+                "display_order": row["display_order"],
+                "duration": row["duration"],
+                "expires_at": row["expires_at"],
             }
 
     async def update_page(
@@ -512,53 +519,52 @@ class SQLiteBackend(DatabaseBackend):
         border_radius: str | None = None,
         panel_shadow: str | None = None,
         duration: int | None = None,
-        expires_at: str | None = None
+        expires_at: str | None = None,
     ) -> dict | None:
         """Partially update a page."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
             async with db.execute(
-                "SELECT * FROM pages WHERE screen_id = ? AND name = ?",
-                (screen_id, name)
+                "SELECT * FROM pages WHERE screen_id = ? AND name = ?", (screen_id, name)
             ) as cursor:
                 row = await cursor.fetchone()
 
             if not row:
                 return None
 
-            existing_data = json.loads(row['content'])
+            existing_data = json.loads(row["content"])
 
             if content is not None:
-                existing_data['content'] = content
+                existing_data["content"] = content
             if background_color is not None:
-                existing_data['background_color'] = background_color
+                existing_data["background_color"] = background_color
             if panel_color is not None:
-                existing_data['panel_color'] = panel_color
+                existing_data["panel_color"] = panel_color
             if font_family is not None:
-                existing_data['font_family'] = font_family
+                existing_data["font_family"] = font_family
             if font_color is not None:
-                existing_data['font_color'] = font_color
+                existing_data["font_color"] = font_color
             if gap is not None:
-                existing_data['gap'] = gap
+                existing_data["gap"] = gap
             if border_radius is not None:
-                existing_data['border_radius'] = border_radius
+                existing_data["border_radius"] = border_radius
             if panel_shadow is not None:
-                existing_data['panel_shadow'] = panel_shadow
+                existing_data["panel_shadow"] = panel_shadow
 
-            new_duration = duration if duration is not None else row['duration']
-            new_expires_at = expires_at if expires_at is not None else row['expires_at']
-
-            await db.execute("""
-                UPDATE pages SET content = ?, duration = ?, expires_at = ?, updated_at = ?
-                WHERE screen_id = ? AND name = ?
-            """, (json.dumps(existing_data), new_duration, new_expires_at, now, screen_id, name))
+            new_duration = duration if duration is not None else row["duration"]
+            new_expires_at = expires_at if expires_at is not None else row["expires_at"]
 
             await db.execute(
-                "UPDATE screens SET last_updated = ? WHERE id = ?",
-                (now, screen_id)
+                """
+                UPDATE pages SET content = ?, duration = ?, expires_at = ?, updated_at = ?
+                WHERE screen_id = ? AND name = ?
+            """,
+                (json.dumps(existing_data), new_duration, new_expires_at, now, screen_id, name),
             )
+
+            await db.execute("UPDATE screens SET last_updated = ? WHERE id = ?", (now, screen_id))
             await db.commit()
 
             return {
@@ -571,9 +577,9 @@ class SQLiteBackend(DatabaseBackend):
                 "gap": existing_data.get("gap"),
                 "border_radius": existing_data.get("border_radius"),
                 "panel_shadow": existing_data.get("panel_shadow"),
-                "display_order": row['display_order'],
+                "display_order": row["display_order"],
                 "duration": new_duration,
-                "expires_at": new_expires_at
+                "expires_at": new_expires_at,
             }
 
     async def delete_page(self, screen_id: str, name: str) -> bool:
@@ -583,15 +589,13 @@ class SQLiteBackend(DatabaseBackend):
 
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
-                "SELECT id FROM pages WHERE screen_id = ? AND name = ?",
-                (screen_id, name)
+                "SELECT id FROM pages WHERE screen_id = ? AND name = ?", (screen_id, name)
             ) as cursor:
                 if not await cursor.fetchone():
                     return False
 
             await db.execute(
-                "DELETE FROM pages WHERE screen_id = ? AND name = ?",
-                (screen_id, name)
+                "DELETE FROM pages WHERE screen_id = ? AND name = ?", (screen_id, name)
             )
             await db.commit()
             return True
@@ -602,26 +606,26 @@ class SQLiteBackend(DatabaseBackend):
             for order, name in enumerate(page_names):
                 await db.execute(
                     "UPDATE pages SET display_order = ? WHERE screen_id = ? AND name = ?",
-                    (order, screen_id, name)
+                    (order, screen_id, name),
                 )
             await db.commit()
             return True
 
     async def cleanup_expired_pages(self) -> list[tuple[str, str]]:
         """Remove expired pages."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(
                 "SELECT screen_id, name FROM pages WHERE expires_at IS NOT NULL AND expires_at <= ? AND name != 'default'",
-                (now,)
+                (now,),
             ) as cursor:
                 expired = await cursor.fetchall()
 
             if expired:
                 await db.execute(
                     "DELETE FROM pages WHERE expires_at IS NOT NULL AND expires_at <= ? AND name != 'default'",
-                    (now,)
+                    (now,),
                 )
                 await db.commit()
 
@@ -630,10 +634,7 @@ class SQLiteBackend(DatabaseBackend):
     # ============== Theme Methods ==============
 
     async def get_all_themes(
-        self,
-        limit: int | None = None,
-        offset: int = 0,
-        owner_id: str | None = None
+        self, limit: int | None = None, offset: int = 0, owner_id: str | None = None
     ) -> list[dict]:
         """Get themes with optional pagination."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -686,9 +687,7 @@ class SQLiteBackend(DatabaseBackend):
         """Get a theme by name."""
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute(
-                "SELECT * FROM themes WHERE name = ?", (name,)
-            ) as cursor:
+            async with db.execute("SELECT * FROM themes WHERE name = ?", (name,)) as cursor:
                 row = await cursor.fetchone()
 
             if not row:
@@ -718,30 +717,33 @@ class SQLiteBackend(DatabaseBackend):
         gap: str = "1rem",
         border_radius: str = "1rem",
         panel_shadow: str | None = None,
-        owner_id: str | None = None
+        owner_id: str | None = None,
     ) -> dict:
         """Create a new custom theme."""
-        now = datetime.now(timezone.utc).isoformat()
+        now = datetime.now(UTC).isoformat()
 
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute("""
+            await db.execute(
+                """
                 INSERT INTO themes (name, display_name, owner_id, background_color, panel_color, font_family,
                                   font_color, gap, border_radius, panel_shadow, is_builtin, created_at, updated_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-            """, (
-                name,
-                display_name or name.replace("-", " ").title(),
-                owner_id,
-                background_color,
-                panel_color,
-                font_family,
-                font_color,
-                gap,
-                border_radius,
-                panel_shadow,
-                now,
-                now
-            ))
+            """,
+                (
+                    name,
+                    display_name or name.replace("-", " ").title(),
+                    owner_id,
+                    background_color,
+                    panel_color,
+                    font_family,
+                    font_color,
+                    gap,
+                    border_radius,
+                    panel_shadow,
+                    now,
+                    now,
+                ),
+            )
             await db.commit()
 
         return {
@@ -767,13 +769,11 @@ class SQLiteBackend(DatabaseBackend):
         font_color: str | None = None,
         gap: str | None = None,
         border_radius: str | None = None,
-        panel_shadow: str | None = None
+        panel_shadow: str | None = None,
     ) -> dict | None:
         """Update a theme."""
         async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute(
-                "SELECT * FROM themes WHERE name = ?", (name,)
-            ) as cursor:
+            async with db.execute("SELECT * FROM themes WHERE name = ?", (name,)) as cursor:
                 if not await cursor.fetchone():
                     return None
 
@@ -807,12 +807,9 @@ class SQLiteBackend(DatabaseBackend):
 
             if updates:
                 updates.append("updated_at = ?")
-                params.append(datetime.now(timezone.utc).isoformat())
+                params.append(datetime.now(UTC).isoformat())
                 params.append(name)
-                await db.execute(
-                    f"UPDATE themes SET {', '.join(updates)} WHERE name = ?",
-                    params
-                )
+                await db.execute(f"UPDATE themes SET {', '.join(updates)} WHERE name = ?", params)
                 await db.commit()
 
         return await self.get_theme(name)
@@ -843,9 +840,11 @@ class SQLiteBackend(DatabaseBackend):
 
     async def get_theme_usage_counts(self) -> dict[str, int]:
         """Get usage count for all themes."""
-        async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute(
+        async with (
+            aiosqlite.connect(self.db_path) as db,
+            db.execute(
                 "SELECT theme, COUNT(*) FROM screens WHERE theme IS NOT NULL GROUP BY theme"
-            ) as cursor:
-                rows = await cursor.fetchall()
+            ) as cursor,
+        ):
+            rows = await cursor.fetchall()
         return {row[0]: row[1] for row in rows}

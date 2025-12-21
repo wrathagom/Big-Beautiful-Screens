@@ -4,20 +4,21 @@ Handles Clerk JWT verification in SaaS mode.
 In self-hosted mode, authentication is bypassed.
 """
 
-import httpx
 import json
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, Request, Header
+import httpx
+from fastapi import Depends, Header, HTTPException, Request
 
-from .config import get_settings, AppMode
+from .config import AppMode, get_settings
 
 
 @dataclass
 class AuthUser:
     """Authenticated user information."""
+
     user_id: str
     email: str | None = None
     name: str | None = None
@@ -35,7 +36,7 @@ async def _get_clerk_jwks() -> dict:
     """Fetch Clerk's JWKS (JSON Web Key Set) for JWT verification."""
     global _jwks_cache, _jwks_cache_time
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Return cached JWKS if still valid
     if _jwks_cache and _jwks_cache_time:
@@ -54,6 +55,7 @@ async def _get_clerk_jwks() -> dict:
         parts = settings.CLERK_PUBLISHABLE_KEY.split("_")
         if len(parts) >= 3:
             import base64
+
             encoded = parts[2]
             # Add padding if needed
             padding = 4 - len(encoded) % 4
@@ -84,9 +86,6 @@ async def _verify_clerk_jwt(token: str) -> dict | None:
     try:
         # Import jwt library for verification
         import jwt
-        from jwt import PyJWKClient
-
-        settings = get_settings()
 
         # Get JWKS
         jwks = await _get_clerk_jwks()
@@ -110,7 +109,7 @@ async def _verify_clerk_jwt(token: str) -> dict | None:
             token,
             signing_key,
             algorithms=["RS256"],
-            options={"verify_aud": False}  # Clerk doesn't always set aud
+            options={"verify_aud": False},  # Clerk doesn't always set aud
         )
 
         return claims
@@ -170,7 +169,7 @@ async def get_current_user(request: Request) -> AuthUser | None:
         email=claims.get("email"),
         name=claims.get("name"),
         org_id=org_id,
-        org_role=org_role
+        org_role=org_role,
     )
 
 
@@ -184,26 +183,21 @@ async def require_auth(request: Request) -> AuthUser:
     # In self-hosted mode, authentication is not required
     # Return a dummy user for compatibility
     if settings.APP_MODE == AppMode.SELF_HOSTED:
-        return AuthUser(
-            user_id="self-hosted",
-            email=None,
-            name="Self-Hosted User"
-        )
+        return AuthUser(user_id="self-hosted", email=None, name="Self-Hosted User")
 
     user = await get_current_user(request)
     if not user:
         raise HTTPException(
             status_code=401,
             detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
     return user
 
 
 async def require_auth_or_api_key(
-    request: Request,
-    x_api_key: str | None = Header(default=None, alias="X-API-Key")
+    request: Request, x_api_key: str | None = Header(default=None, alias="X-API-Key")
 ) -> AuthUser | str:
     """Require either Clerk authentication or API key.
 
@@ -219,9 +213,7 @@ async def require_auth_or_api_key(
     # In self-hosted mode, API key is the only auth method
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         raise HTTPException(
-            status_code=401,
-            detail="API key required",
-            headers={"X-API-Key": "Required"}
+            status_code=401, detail="API key required", headers={"X-API-Key": "Required"}
         )
 
     # In SaaS mode, try Clerk auth
@@ -230,9 +222,7 @@ async def require_auth_or_api_key(
         return user
 
     raise HTTPException(
-        status_code=401,
-        detail="Authentication required",
-        headers={"WWW-Authenticate": "Bearer"}
+        status_code=401, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"}
     )
 
 
@@ -243,6 +233,7 @@ AuthOrApiKey = Annotated[AuthUser | str, Depends(require_auth_or_api_key)]
 
 
 # ============== Access Control Helpers ==============
+
 
 def can_access_screen(user: AuthUser | None, screen: dict) -> bool:
     """Check if a user can access (view) a screen.
@@ -272,10 +263,7 @@ def can_access_screen(user: AuthUser | None, screen: dict) -> bool:
         return True
 
     # User is in the org that owns the screen
-    if screen.get("org_id") and screen.get("org_id") == user.org_id:
-        return True
-
-    return False
+    return bool(screen.get("org_id") and screen.get("org_id") == user.org_id)
 
 
 def can_modify_screen(user: AuthUser | None, screen: dict, api_key: str | None = None) -> bool:
@@ -305,11 +293,11 @@ def can_modify_screen(user: AuthUser | None, screen: dict, api_key: str | None =
         return True
 
     # User is admin/owner of the org that owns the screen
-    if screen.get("org_id") and screen.get("org_id") == user.org_id:
-        if user.org_role in ("admin", "owner"):
-            return True
-
-    return False
+    return bool(
+        screen.get("org_id")
+        and screen.get("org_id") == user.org_id
+        and user.org_role in ("admin", "owner")
+    )
 
 
 def can_access_theme(user: AuthUser | None, theme: dict) -> bool:
@@ -335,10 +323,7 @@ def can_access_theme(user: AuthUser | None, theme: dict) -> bool:
         return False
 
     # User owns the theme
-    if theme.get("owner_id") == user.user_id:
-        return True
-
-    return False
+    return theme.get("owner_id") == user.user_id
 
 
 def can_modify_theme(user: AuthUser | None, theme: dict) -> bool:
@@ -364,7 +349,4 @@ def can_modify_theme(user: AuthUser | None, theme: dict) -> bool:
         return False
 
     # User owns the theme
-    if theme.get("owner_id") == user.user_id:
-        return True
-
-    return False
+    return theme.get("owner_id") == user.user_id

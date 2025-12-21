@@ -1,9 +1,13 @@
 """Tests for Big Beautiful Screens API."""
+
+import os
+import tempfile
+from datetime import UTC
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
-from pathlib import Path
-import tempfile
-import os
+
 
 # Use a temporary database for tests
 @pytest.fixture(scope="module", autouse=True)
@@ -16,17 +20,20 @@ def setup_test_db():
 
         # Clear the cached settings so it picks up the new env var
         from app.config import get_settings
+
         get_settings.cache_clear()
 
         # Reset the database singleton
         from app.db.factory import reset_database
-        reset_database()
 
-        from app.main import app
-        import app.database as db_module
+        reset_database()
 
         # Initialize the database
         import asyncio
+
+        import app.database as db_module
+        from app.main import app
+
         asyncio.get_event_loop().run_until_complete(db_module.init_db())
 
         yield app
@@ -86,7 +93,7 @@ class TestMessages:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Hello, World!"]}
+            json={"content": ["Hello, World!"]},
         )
         assert response.status_code == 200
         data = response.json()
@@ -98,7 +105,7 @@ class TestMessages:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Panel 1", "Panel 2", "Panel 3"]}
+            json={"content": ["Panel 1", "Panel 2", "Panel 3"]},
         )
         assert response.status_code == 200
 
@@ -110,8 +117,8 @@ class TestMessages:
             json={
                 "content": ["Colored panel"],
                 "background_color": "#1a1a2e",
-                "panel_color": "#16213e"
-            }
+                "panel_color": "#16213e",
+            },
         )
         assert response.status_code == 200
 
@@ -123,8 +130,8 @@ class TestMessages:
             json={
                 "content": ["Custom font"],
                 "font_family": "Georgia, serif",
-                "font_color": "#f1c40f"
-            }
+                "font_color": "#f1c40f",
+            },
         )
         assert response.status_code == 200
 
@@ -137,9 +144,9 @@ class TestMessages:
                 "content": [
                     {"type": "text", "value": "Plain text"},
                     {"type": "markdown", "value": "# Heading"},
-                    {"type": "text", "value": "Colored", "panel_color": "#c0392b"}
+                    {"type": "text", "value": "Colored", "panel_color": "#c0392b"},
                 ]
-            }
+            },
         )
         assert response.status_code == 200
 
@@ -151,9 +158,9 @@ class TestMessages:
             json={
                 "content": [
                     {"type": "text", "value": "Wrapped text", "wrap": True},
-                    {"type": "text", "value": "No wrap", "wrap": False}
+                    {"type": "text", "value": "No wrap", "wrap": False},
                 ]
-            }
+            },
         )
         assert response.status_code == 200
 
@@ -166,7 +173,7 @@ class TestMessages:
                 "content": [
                     {"type": "image", "url": "https://example.com/image.jpg", "image_mode": "cover"}
                 ]
-            }
+            },
         )
         assert response.status_code == 200
 
@@ -182,10 +189,10 @@ class TestMessages:
                         "url": "https://example.com/video.mp4",
                         "autoplay": True,
                         "loop": True,
-                        "muted": False
+                        "muted": False,
                     }
                 ]
-            }
+            },
         )
         assert response.status_code == 200
 
@@ -194,15 +201,14 @@ class TestMessages:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": "wrong_key"},
-            json={"content": ["Should fail"]}
+            json={"content": ["Should fail"]},
         )
         assert response.status_code == 401
 
     def test_missing_api_key(self, client, screen):
         """Test that missing API key is rejected."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
-            json={"content": ["Should fail"]}
+            f"/api/screens/{screen['screen_id']}/message", json={"content": ["Should fail"]}
         )
         assert response.status_code == 422  # Validation error
 
@@ -211,7 +217,7 @@ class TestMessages:
         response = client.post(
             "/api/screens/nonexistent123/message",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Should fail"]}
+            json={"content": ["Should fail"]},
         )
         assert response.status_code == 404
 
@@ -234,7 +240,7 @@ class TestScreenManagement:
         message_response = client.post(
             f"/api/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Should fail"]}
+            json={"content": ["Should fail"]},
         )
         assert message_response.status_code == 404
 
@@ -246,8 +252,7 @@ class TestScreenManagement:
     def test_update_screen_name(self, client, screen):
         """Test updating a screen's name."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
-            json={"name": "My Test Screen"}
+            f"/api/screens/{screen['screen_id']}", json={"name": "My Test Screen"}
         )
         assert response.status_code == 200
         assert response.json()["success"] is True
@@ -256,24 +261,15 @@ class TestScreenManagement:
     def test_update_screen_name_empty(self, client, screen):
         """Test clearing a screen's name."""
         # First set a name
-        client.patch(
-            f"/api/screens/{screen['screen_id']}",
-            json={"name": "Test"}
-        )
+        client.patch(f"/api/screens/{screen['screen_id']}", json={"name": "Test"})
 
         # Then clear it
-        response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
-            json={"name": ""}
-        )
+        response = client.patch(f"/api/screens/{screen['screen_id']}", json={"name": ""})
         assert response.status_code == 200
 
     def test_update_nonexistent_screen_name(self, client):
         """Test updating name of nonexistent screen."""
-        response = client.patch(
-            "/api/screens/nonexistent123",
-            json={"name": "Test"}
-        )
+        response = client.patch("/api/screens/nonexistent123", json={"name": "Test"})
         assert response.status_code == 404
 
     def test_reload_screen(self, client, screen):
@@ -329,7 +325,7 @@ class TestContentAutoDetection:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Just plain text"]}
+            json={"content": ["Just plain text"]},
         )
         assert response.status_code == 200
 
@@ -338,7 +334,7 @@ class TestContentAutoDetection:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["# This is a heading\n\nWith **bold** text"]}
+            json={"content": ["# This is a heading\n\nWith **bold** text"]},
         )
         assert response.status_code == 200
 
@@ -347,7 +343,7 @@ class TestContentAutoDetection:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["https://example.com/image.png"]}
+            json={"content": ["https://example.com/image.png"]},
         )
         assert response.status_code == 200
 
@@ -356,7 +352,7 @@ class TestContentAutoDetection:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["https://example.com/video.mp4"]}
+            json={"content": ["https://example.com/video.mp4"]},
         )
         assert response.status_code == 200
 
@@ -377,7 +373,7 @@ class TestPages:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/pages/alerts",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Alert message!"]}
+            json={"content": ["Alert message!"]},
         )
         assert response.status_code == 200
         data = response.json()
@@ -390,14 +386,14 @@ class TestPages:
         client.post(
             f"/api/screens/{screen['screen_id']}/pages/weather",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Sunny"]}
+            json={"content": ["Sunny"]},
         )
 
         # Update page
         response = client.post(
             f"/api/screens/{screen['screen_id']}/pages/weather",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Rainy"]}
+            json={"content": ["Rainy"]},
         )
         assert response.status_code == 200
         assert response.json()["page"]["content"][0]["value"] == "Rainy"
@@ -407,20 +403,21 @@ class TestPages:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/pages/promo",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Special offer!"], "duration": 10}
+            json={"content": ["Special offer!"], "duration": 10},
         )
         assert response.status_code == 200
         assert response.json()["page"]["duration"] == 10
 
     def test_create_ephemeral_page(self, client, screen):
         """Test creating an ephemeral page with expiry."""
-        from datetime import datetime, timedelta, timezone
-        expires = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
+        from datetime import datetime, timedelta
+
+        expires = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
 
         response = client.post(
             f"/api/screens/{screen['screen_id']}/pages/flash",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Flash sale!"], "expires_at": expires}
+            json={"content": ["Flash sale!"], "expires_at": expires},
         )
         assert response.status_code == 200
         assert response.json()["page"]["expires_at"] is not None
@@ -431,13 +428,13 @@ class TestPages:
         client.post(
             f"/api/screens/{screen['screen_id']}/pages/temp",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Temporary"]}
+            json={"content": ["Temporary"]},
         )
 
         # Delete page
         response = client.delete(
             f"/api/screens/{screen['screen_id']}/pages/temp",
-            headers={"X-API-Key": screen["api_key"]}
+            headers={"X-API-Key": screen["api_key"]},
         )
         assert response.status_code == 200
         assert response.json()["success"] is True
@@ -446,7 +443,7 @@ class TestPages:
         """Test that the default page cannot be deleted."""
         response = client.delete(
             f"/api/screens/{screen['screen_id']}/pages/default",
-            headers={"X-API-Key": screen["api_key"]}
+            headers={"X-API-Key": screen["api_key"]},
         )
         assert response.status_code == 400
 
@@ -454,7 +451,7 @@ class TestPages:
         """Test deleting a page that doesn't exist."""
         response = client.delete(
             f"/api/screens/{screen['screen_id']}/pages/nonexistent",
-            headers={"X-API-Key": screen["api_key"]}
+            headers={"X-API-Key": screen["api_key"]},
         )
         assert response.status_code == 404
 
@@ -463,7 +460,7 @@ class TestPages:
         response = client.post(
             f"/api/screens/{screen['screen_id']}/pages/test",
             headers={"X-API-Key": "wrong_key"},
-            json={"content": ["Should fail"]}
+            json={"content": ["Should fail"]},
         )
         assert response.status_code == 401
 
@@ -476,7 +473,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"rotation_enabled": True, "rotation_interval": 15}
+            json={"rotation_enabled": True, "rotation_interval": 15},
         )
         assert response.status_code == 200
         data = response.json()
@@ -489,7 +486,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"rotation_enabled": False}
+            json={"rotation_enabled": False},
         )
         assert response.status_code == 200
         assert response.json()["settings"]["enabled"] is False
@@ -499,7 +496,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": "wrong_key"},
-            json={"rotation_enabled": True}
+            json={"rotation_enabled": True},
         )
         assert response.status_code == 401
 
@@ -508,7 +505,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"gap": "0.5rem"}
+            json={"gap": "0.5rem"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -520,7 +517,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"gap": "0"}
+            json={"gap": "0"},
         )
         assert response.status_code == 200
         assert response.json()["settings"]["gap"] == "0"
@@ -530,7 +527,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"border_radius": "0.5rem"}
+            json={"border_radius": "0.5rem"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -542,7 +539,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"border_radius": "0"}
+            json={"border_radius": "0"},
         )
         assert response.status_code == 200
         assert response.json()["settings"]["border_radius"] == "0"
@@ -552,7 +549,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"panel_shadow": "0 4px 12px rgba(0,0,0,0.3)"}
+            json={"panel_shadow": "0 4px 12px rgba(0,0,0,0.3)"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -565,7 +562,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"gap": "1rem"}
+            json={"gap": "1rem"},
         )
         assert response.status_code == 200
         # New screens get the default theme applied
@@ -577,24 +574,24 @@ class TestRotation:
         client.post(
             f"/api/screens/{screen['screen_id']}/pages/default",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Default"]}
+            json={"content": ["Default"]},
         )
         client.post(
             f"/api/screens/{screen['screen_id']}/pages/page1",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Page 1"]}
+            json={"content": ["Page 1"]},
         )
         client.post(
             f"/api/screens/{screen['screen_id']}/pages/page2",
             headers={"X-API-Key": screen["api_key"]},
-            json={"content": ["Page 2"]}
+            json={"content": ["Page 2"]},
         )
 
         # Reorder
         response = client.put(
             f"/api/screens/{screen['screen_id']}/pages/order",
             headers={"X-API-Key": screen["api_key"]},
-            json={"page_names": ["page2", "page1", "default"]}
+            json={"page_names": ["page2", "page1", "default"]},
         )
         assert response.status_code == 200
         assert response.json()["success"] is True
@@ -604,7 +601,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"background_color": "#1a1a2e"}
+            json={"background_color": "#1a1a2e"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -617,7 +614,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"background_color": gradient}
+            json={"background_color": gradient},
         )
         assert response.status_code == 200
         data = response.json()
@@ -629,7 +626,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"panel_color": "#16213e"}
+            json={"panel_color": "#16213e"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -641,7 +638,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"font_family": "Georgia, serif"}
+            json={"font_family": "Georgia, serif"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -653,7 +650,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"font_color": "#f1c40f"}
+            json={"font_color": "#f1c40f"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -665,7 +662,7 @@ class TestRotation:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"gap": "1rem"}
+            json={"gap": "1rem"},
         )
         assert response.status_code == 200
         settings = response.json()["settings"]
@@ -702,7 +699,7 @@ class TestThemes:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"theme": "catppuccin-mocha"}
+            json={"theme": "catppuccin-mocha"},
         )
         assert response.status_code == 200
         settings = response.json()["settings"]
@@ -716,11 +713,7 @@ class TestThemes:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={
-                "theme": "catppuccin-mocha",
-                "gap": "0",
-                "border_radius": "0"
-            }
+            json={"theme": "catppuccin-mocha", "gap": "0", "border_radius": "0"},
         )
         assert response.status_code == 200
         settings = response.json()["settings"]
@@ -736,7 +729,7 @@ class TestThemes:
         response = client.patch(
             f"/api/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
-            json={"theme": "nonexistent-theme"}
+            json={"theme": "nonexistent-theme"},
         )
         assert response.status_code == 400
         assert "Unknown theme" in response.json()["detail"]
@@ -744,7 +737,6 @@ class TestThemes:
     def test_theme_requires_api_key(self, client, screen):
         """Test that applying a theme requires API key."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
-            json={"theme": "catppuccin-mocha"}
+            f"/api/screens/{screen['screen_id']}", json={"theme": "catppuccin-mocha"}
         )
         assert response.status_code == 401

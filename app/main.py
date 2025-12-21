@@ -1,31 +1,52 @@
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header, Request
+from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .models import (
-    MessageRequest, ScreenResponse, MessageResponse,
-    PageRequest, PageUpdateRequest, RotationSettings, PageOrderRequest, PageResponse, PagesListResponse,
-    ScreenUpdateRequest, ThemeCreate, ThemeUpdate
-)
-from .database import (
-    init_db, create_screen, get_screen_by_id, get_screen_by_api_key,
-    get_all_screens, get_screens_count, delete_screen, update_screen_name,
-    upsert_page, get_all_pages, get_page, update_page, delete_page, reorder_pages,
-    get_rotation_settings, update_rotation_settings, cleanup_expired_pages,
-    get_all_themes, get_themes_count, get_theme_from_db, create_theme_in_db, update_theme_in_db,
-    delete_theme_from_db, get_theme_usage_counts
-)
-from .connection_manager import manager
-from .themes import get_theme, list_themes, get_theme_async
-from .webhooks import router as webhooks_router
-from .routes_me import router as me_router
-from .config import get_settings, AppMode
 from .auth import OptionalUser, get_current_user
+from .config import AppMode, get_settings
+from .connection_manager import manager
+from .database import (
+    create_screen,
+    create_theme_in_db,
+    delete_page,
+    delete_screen,
+    delete_theme_from_db,
+    get_all_pages,
+    get_all_screens,
+    get_all_themes,
+    get_rotation_settings,
+    get_screen_by_id,
+    get_screens_count,
+    get_theme_from_db,
+    get_theme_usage_counts,
+    get_themes_count,
+    init_db,
+    reorder_pages,
+    update_page,
+    update_rotation_settings,
+    update_screen_name,
+    update_theme_in_db,
+    upsert_page,
+)
+from .models import (
+    MessageRequest,
+    MessageResponse,
+    PageOrderRequest,
+    PageRequest,
+    PageUpdateRequest,
+    ScreenResponse,
+    ScreenUpdateRequest,
+    ThemeCreate,
+    ThemeUpdate,
+)
+from .routes_me import router as me_router
+from .themes import get_theme
+from .webhooks import router as webhooks_router
 
 app = FastAPI(title="Big Beautiful Screens", version="0.1.0")
 
@@ -87,7 +108,7 @@ async def create_theme(request: ThemeCreate, user: OptionalUser = None):
         if custom_count >= limit:
             raise HTTPException(
                 status_code=402,
-                detail=f"Theme limit reached ({limit}). Upgrade your plan for more themes."
+                detail=f"Theme limit reached ({limit}). Upgrade your plan for more themes.",
             )
 
     # Check if theme name already exists
@@ -97,7 +118,9 @@ async def create_theme(request: ThemeCreate, user: OptionalUser = None):
 
     # Validate theme name (URL-safe)
     if not request.name.replace("-", "").replace("_", "").isalnum():
-        raise HTTPException(status_code=400, detail="Theme name must be alphanumeric with hyphens/underscores only")
+        raise HTTPException(
+            status_code=400, detail="Theme name must be alphanumeric with hyphens/underscores only"
+        )
 
     # Set owner in SaaS mode
     owner_id = user.user_id if settings.APP_MODE == AppMode.SAAS and user else None
@@ -112,7 +135,7 @@ async def create_theme(request: ThemeCreate, user: OptionalUser = None):
         gap=request.gap,
         border_radius=request.border_radius,
         panel_shadow=request.panel_shadow,
-        owner_id=owner_id
+        owner_id=owner_id,
     )
     return {"success": True, "theme": theme}
 
@@ -129,7 +152,7 @@ async def update_theme(theme_name: str, request: ThemeUpdate):
         font_color=request.font_color,
         gap=request.gap,
         border_radius=request.border_radius,
-        panel_shadow=request.panel_shadow
+        panel_shadow=request.panel_shadow,
     )
     if not theme:
         raise HTTPException(status_code=404, detail="Theme not found")
@@ -155,7 +178,7 @@ async def create_new_screen(user: OptionalUser = None):
     """
     screen_id = uuid.uuid4().hex[:12]
     api_key = f"sk_{secrets.token_urlsafe(24)}"
-    created_at = datetime.now(timezone.utc).isoformat()
+    created_at = datetime.now(UTC).isoformat()
 
     # Set ownership if user is authenticated in SaaS mode
     settings = get_settings()
@@ -171,15 +194,13 @@ async def create_new_screen(user: OptionalUser = None):
         screen_id=screen_id,
         api_key=api_key,
         screen_url=f"/screen/{screen_id}",
-        api_url=f"/api/screens/{screen_id}/message"
+        api_url=f"/api/screens/{screen_id}/message",
     )
 
 
 @app.post("/api/screens/{screen_id}/message", response_model=MessageResponse)
 async def send_message(
-    screen_id: str,
-    request: MessageRequest,
-    x_api_key: str = Header(alias="X-API-Key")
+    screen_id: str, request: MessageRequest, x_api_key: str = Header(alias="X-API-Key")
 ):
     """Send a message to a screen (updates the 'default' page). Requires API key authentication."""
     # Validate screen exists
@@ -203,17 +224,14 @@ async def send_message(
         "font_color": request.font_color,
         "gap": request.gap,
         "border_radius": request.border_radius,
-        "panel_shadow": request.panel_shadow
+        "panel_shadow": request.panel_shadow,
     }
 
     # Save to pages table as "default" page
     page_data = await upsert_page(screen_id, "default", message_payload)
 
     # Broadcast page update to all connected viewers
-    viewers = await manager.broadcast(screen_id, {
-        "type": "page_update",
-        "page": page_data
-    })
+    viewers = await manager.broadcast(screen_id, {"type": "page_update", "page": page_data})
 
     return MessageResponse(success=True, viewers=viewers)
 
@@ -232,7 +250,7 @@ async def get_screen(screen_id: str):
         "name": screen.get("name"),
         "created_at": screen.get("created_at"),
         "last_updated": screen.get("last_updated"),
-        "settings": settings
+        "settings": settings,
     }
 
 
@@ -271,7 +289,7 @@ async def toggle_debug(screen_id: str, enabled: bool = True):
 async def update_screen(
     screen_id: str,
     request: ScreenUpdateRequest,
-    x_api_key: str | None = Header(default=None, alias="X-API-Key")
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
 ):
     """Update a screen's properties via JSON body.
 
@@ -297,31 +315,48 @@ async def update_screen(
     rotation_interval = request.rotation_interval
     # For visual settings, use explicit value if provided, else theme value if theme specified
     gap = request.gap if request.gap is not None else theme_values.get("gap")
-    border_radius = request.border_radius if request.border_radius is not None else theme_values.get("border_radius")
-    panel_shadow = request.panel_shadow if request.panel_shadow is not None else theme_values.get("panel_shadow")
-    background_color = request.background_color if request.background_color is not None else theme_values.get("background_color")
-    panel_color = request.panel_color if request.panel_color is not None else theme_values.get("panel_color")
-    font_family = request.font_family if request.font_family is not None else theme_values.get("font_family")
-    font_color = request.font_color if request.font_color is not None else theme_values.get("font_color")
+    border_radius = (
+        request.border_radius
+        if request.border_radius is not None
+        else theme_values.get("border_radius")
+    )
+    panel_shadow = (
+        request.panel_shadow
+        if request.panel_shadow is not None
+        else theme_values.get("panel_shadow")
+    )
+    background_color = (
+        request.background_color
+        if request.background_color is not None
+        else theme_values.get("background_color")
+    )
+    panel_color = (
+        request.panel_color if request.panel_color is not None else theme_values.get("panel_color")
+    )
+    font_family = (
+        request.font_family if request.font_family is not None else theme_values.get("font_family")
+    )
+    font_color = (
+        request.font_color if request.font_color is not None else theme_values.get("font_color")
+    )
     head_html = request.head_html
 
     # Require API key for rotation/display setting changes (including theme)
     has_display_settings = (
-        request.theme is not None or
-        rotation_enabled is not None or
-        rotation_interval is not None or
-        gap is not None or
-        border_radius is not None or
-        panel_shadow is not None or
-        background_color is not None or
-        panel_color is not None or
-        font_family is not None or
-        font_color is not None or
-        head_html is not None
+        request.theme is not None
+        or rotation_enabled is not None
+        or rotation_interval is not None
+        or gap is not None
+        or border_radius is not None
+        or panel_shadow is not None
+        or background_color is not None
+        or panel_color is not None
+        or font_family is not None
+        or font_color is not None
+        or head_html is not None
     )
-    if has_display_settings:
-        if not x_api_key or screen["api_key"] != x_api_key:
-            raise HTTPException(status_code=401, detail="Invalid API key")
+    if has_display_settings and (not x_api_key or screen["api_key"] != x_api_key):
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
     # Update name if provided
     if name is not None:
@@ -341,16 +376,15 @@ async def update_screen(
             font_family=font_family,
             font_color=font_color,
             theme=theme_name,
-            head_html=head_html
+            head_html=head_html,
         )
 
         # Broadcast settings update to viewers (with theme values resolved)
         rotation = await get_rotation_settings(screen_id)
         resolved_rotation = await resolve_theme_settings(rotation)
-        await manager.broadcast(screen_id, {
-            "type": "rotation_update",
-            "rotation": resolved_rotation
-        })
+        await manager.broadcast(
+            screen_id, {"type": "rotation_update", "rotation": resolved_rotation}
+        )
 
     # Build response
     response = {"success": True}
@@ -365,6 +399,7 @@ async def update_screen(
 
 # ============== Page Endpoints ==============
 
+
 @app.get("/api/screens/{screen_id}/pages")
 async def list_pages(screen_id: str):
     """List all pages for a screen with rotation settings."""
@@ -376,18 +411,12 @@ async def list_pages(screen_id: str):
     rotation = await get_rotation_settings(screen_id)
     resolved_rotation = await resolve_theme_settings(rotation)
 
-    return {
-        "pages": pages,
-        "rotation": resolved_rotation
-    }
+    return {"pages": pages, "rotation": resolved_rotation}
 
 
 @app.post("/api/screens/{screen_id}/pages/{page_name}")
 async def create_or_update_page(
-    screen_id: str,
-    page_name: str,
-    request: PageRequest,
-    x_api_key: str = Header(alias="X-API-Key")
+    screen_id: str, page_name: str, request: PageRequest, x_api_key: str = Header(alias="X-API-Key")
 ):
     """Create or update a specific page. Requires API key authentication."""
     screen = await get_screen_by_id(screen_id)
@@ -408,23 +437,18 @@ async def create_or_update_page(
         "font_color": request.font_color,
         "gap": request.gap,
         "border_radius": request.border_radius,
-        "panel_shadow": request.panel_shadow
+        "panel_shadow": request.panel_shadow,
     }
 
     # Convert expires_at to ISO string if provided
     expires_at_str = request.expires_at.isoformat() if request.expires_at else None
 
     page_data = await upsert_page(
-        screen_id, page_name, message_payload,
-        duration=request.duration,
-        expires_at=expires_at_str
+        screen_id, page_name, message_payload, duration=request.duration, expires_at=expires_at_str
     )
 
     # Broadcast page update
-    viewers = await manager.broadcast(screen_id, {
-        "type": "page_update",
-        "page": page_data
-    })
+    viewers = await manager.broadcast(screen_id, {"type": "page_update", "page": page_data})
 
     return {"success": True, "page": page_data, "viewers": viewers}
 
@@ -434,7 +458,7 @@ async def patch_page(
     screen_id: str,
     page_name: str,
     request: PageUpdateRequest,
-    x_api_key: str = Header(alias="X-API-Key")
+    x_api_key: str = Header(alias="X-API-Key"),
 ):
     """Partially update a page. Only provided fields are updated. Requires API key."""
     screen = await get_screen_by_id(screen_id)
@@ -453,7 +477,8 @@ async def patch_page(
     expires_at_str = request.expires_at.isoformat() if request.expires_at else None
 
     page_data = await update_page(
-        screen_id, page_name,
+        screen_id,
+        page_name,
         content=normalized_content,
         background_color=request.background_color,
         panel_color=request.panel_color,
@@ -463,26 +488,21 @@ async def patch_page(
         border_radius=request.border_radius,
         panel_shadow=request.panel_shadow,
         duration=request.duration,
-        expires_at=expires_at_str
+        expires_at=expires_at_str,
     )
 
     if not page_data:
         raise HTTPException(status_code=404, detail="Page not found")
 
     # Broadcast page update
-    viewers = await manager.broadcast(screen_id, {
-        "type": "page_update",
-        "page": page_data
-    })
+    viewers = await manager.broadcast(screen_id, {"type": "page_update", "page": page_data})
 
     return {"success": True, "page": page_data, "viewers": viewers}
 
 
 @app.delete("/api/screens/{screen_id}/pages/{page_name}")
 async def delete_page_endpoint(
-    screen_id: str,
-    page_name: str,
-    x_api_key: str = Header(alias="X-API-Key")
+    screen_id: str, page_name: str, x_api_key: str = Header(alias="X-API-Key")
 ):
     """Delete a page. Cannot delete the 'default' page. Requires API key authentication."""
     screen = await get_screen_by_id(screen_id)
@@ -500,19 +520,14 @@ async def delete_page_endpoint(
         raise HTTPException(status_code=404, detail="Page not found")
 
     # Broadcast page deletion
-    viewers = await manager.broadcast(screen_id, {
-        "type": "page_delete",
-        "page_name": page_name
-    })
+    viewers = await manager.broadcast(screen_id, {"type": "page_delete", "page_name": page_name})
 
     return {"success": True, "viewers": viewers}
 
 
 @app.put("/api/screens/{screen_id}/pages/order")
 async def reorder_pages_endpoint(
-    screen_id: str,
-    request: PageOrderRequest,
-    x_api_key: str = Header(alias="X-API-Key")
+    screen_id: str, request: PageOrderRequest, x_api_key: str = Header(alias="X-API-Key")
 ):
     """Reorder pages by providing an ordered list of page names. Requires API key authentication."""
     screen = await get_screen_by_id(screen_id)
@@ -529,11 +544,9 @@ async def reorder_pages_endpoint(
     rotation = await get_rotation_settings(screen_id)
     resolved_rotation = await resolve_theme_settings(rotation)
 
-    await manager.broadcast(screen_id, {
-        "type": "pages_sync",
-        "pages": pages,
-        "rotation": resolved_rotation
-    })
+    await manager.broadcast(
+        screen_id, {"type": "pages_sync", "pages": pages, "rotation": resolved_rotation}
+    )
 
     return {"success": True}
 
@@ -575,7 +588,9 @@ async def admin_screens(request: Request, page: int = 1):
         total_count = await get_screens_count(owner_id=user.user_id, org_id=user.org_id)
         total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
         page = max(1, min(page, total_pages))
-        screens = await get_all_screens(limit=per_page, offset=offset, owner_id=user.user_id, org_id=user.org_id)
+        screens = await get_all_screens(
+            limit=per_page, offset=offset, owner_id=user.user_id, org_id=user.org_id
+        )
     else:
         total_count = await get_screens_count()
         total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
@@ -587,20 +602,20 @@ async def admin_screens(request: Request, page: int = 1):
     for screen in screens:
         screen_url = f"/screen/{screen['id']}"
         api_url = f"/api/screens/{screen['id']}/message"
-        viewer_count = manager.get_viewer_count(screen['id'])
-        created = screen['created_at'][:19].replace('T', ' ')
-        last_updated = screen.get('last_updated')
-        last_updated_display = last_updated[:19].replace('T', ' ') if last_updated else 'Never'
-        name = screen.get('name') or ''
-        name_display = name if name else 'Unnamed Screen'
-        name_class = '' if name else 'unnamed'
+        viewer_count = manager.get_viewer_count(screen["id"])
+        created = screen["created_at"][:19].replace("T", " ")
+        last_updated = screen.get("last_updated")
+        last_updated_display = last_updated[:19].replace("T", " ") if last_updated else "Never"
+        name = screen.get("name") or ""
+        name_display = name if name else "Unnamed Screen"
+        name_class = "" if name else "unnamed"
 
         cards += f"""
-        <div class="screen-card" data-screen-id="{screen['id']}" data-api-key="{screen['api_key']}" data-screen-url="{screen_url}" data-api-url="{api_url}">
+        <div class="screen-card" data-screen-id="{screen["id"]}" data-api-key="{screen["api_key"]}" data-screen-url="{screen_url}" data-api-url="{api_url}">
             <div class="card-header" onclick="toggleExpand(this.parentElement)">
                 <div class="card-summary">
                     <span class="screen-name {name_class}" onclick="editName(this, event)" title="Click to edit name">{name_display}</span>
-                    <code class="screen-id">{screen['id']}</code>
+                    <code class="screen-id">{screen["id"]}</code>
                     <a href="{screen_url}" target="_blank" class="screen-link" onclick="event.stopPropagation()">
                         <span class="link-icon">↗</span> {screen_url}
                     </a>
@@ -613,8 +628,8 @@ async def admin_screens(request: Request, page: int = 1):
                     <div class="detail-item">
                         <label>API Key</label>
                         <div class="detail-value">
-                            <code class="api-key">{screen['api_key']}</code>
-                            <button class="btn-icon" onclick="copyValue(this, '{screen['api_key']}')" title="Copy API Key">📋</button>
+                            <code class="api-key">{screen["api_key"]}</code>
+                            <button class="btn-icon" onclick="copyValue(this, '{screen["api_key"]}')" title="Copy API Key">📋</button>
                         </div>
                     </div>
                     <div class="detail-item">
@@ -628,8 +643,8 @@ async def admin_screens(request: Request, page: int = 1):
                 <div class="detail-section">
                     <label>Custom Head HTML <span class="hint">(for Google Fonts, etc.)</span></label>
                     <textarea class="head-html-input" placeholder="<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
-<link href=&quot;https://fonts.googleapis.com/css2?family=...&quot; rel=&quot;stylesheet&quot;>" onclick="event.stopPropagation()">{screen.get('head_html') or ''}</textarea>
-                    <button class="btn-secondary btn-save-head" onclick="saveHeadHtml('{screen['id']}', this); event.stopPropagation();">Save Head HTML</button>
+<link href=&quot;https://fonts.googleapis.com/css2?family=...&quot; rel=&quot;stylesheet&quot;>" onclick="event.stopPropagation()">{screen.get("head_html") or ""}</textarea>
+                    <button class="btn-secondary btn-save-head" onclick="saveHeadHtml('{screen["id"]}', this); event.stopPropagation();">Save Head HTML</button>
                 </div>
                 <div class="detail-footer">
                     <div class="detail-timestamps">
@@ -644,9 +659,9 @@ async def admin_screens(request: Request, page: int = 1):
                                 <button onclick="copyExample(this, 'python')">Python</button>
                             </div>
                         </div>
-                        <button class="btn-debug" onclick="toggleDebug('{screen['id']}'); event.stopPropagation();">Toggle Debug</button>
-                        <button class="btn-reload" onclick="reloadScreen('{screen['id']}'); event.stopPropagation();">Reload Viewers</button>
-                        <button class="btn-delete" onclick="deleteScreen('{screen['id']}'); event.stopPropagation();">Delete Screen</button>
+                        <button class="btn-debug" onclick="toggleDebug('{screen["id"]}'); event.stopPropagation();">Toggle Debug</button>
+                        <button class="btn-reload" onclick="reloadScreen('{screen["id"]}'); event.stopPropagation();">Reload Viewers</button>
+                        <button class="btn-delete" onclick="deleteScreen('{screen["id"]}'); event.stopPropagation();">Delete Screen</button>
                     </div>
                 </div>
             </div>
@@ -677,16 +692,24 @@ async def admin_screens(request: Request, page: int = 1):
             </div>
 
             <div class="screen-list">
-                {cards if cards else '<div class="empty">No screens yet. Create one to get started!</div>'}
+                {
+        cards if cards else '<div class="empty">No screens yet. Create one to get started!</div>'
+    }
             </div>
 
-            {'<div class="pagination">' + f'''
+            {
+        '<div class="pagination">'
+        + f'''
                 <span class="page-info">Page {page} of {total_pages} ({total_count} screens)</span>
                 <div class="page-controls">
                     <a href="?page={page - 1}" class="btn-secondary{' disabled' if page <= 1 else ''}">← Previous</a>
                     <a href="?page={page + 1}" class="btn-secondary{' disabled' if page >= total_pages else ''}">Next →</a>
                 </div>
-            ''' + '</div>' if total_pages > 1 else ''}
+            '''
+        + "</div>"
+        if total_pages > 1
+        else ""
+    }
         </div>
 
         <script>
@@ -973,7 +996,7 @@ async def admin_themes(request: Request, page: int = 1):
     cards = ""
     for theme in themes:
         usage_count = usage_counts.get(theme["name"], 0)
-        builtin_badge = '<span class="builtin-badge">Built-in</span>' if theme["is_builtin"] else ''
+        builtin_badge = '<span class="builtin-badge">Built-in</span>' if theme["is_builtin"] else ""
         usage_badge = f'<span class="usage-badge">{usage_count} screen{"s" if usage_count != 1 else ""}</span>'
 
         # Escape values for HTML attributes
@@ -986,11 +1009,11 @@ async def admin_themes(request: Request, page: int = 1):
         panel_shadow = theme["panel_shadow"] or ""
 
         cards += f"""
-        <div class="theme-card" data-theme-name="{theme['name']}">
+        <div class="theme-card" data-theme-name="{theme["name"]}">
             <div class="card-header" onclick="toggleExpand(this.parentElement)">
                 <div class="card-summary">
-                    <span class="theme-name">{theme['display_name'] or theme['name']}</span>
-                    <code class="theme-id">{theme['name']}</code>
+                    <span class="theme-name">{theme["display_name"] or theme["name"]}</span>
+                    <code class="theme-id">{theme["name"]}</code>
                     <div class="theme-swatches">
                         <span class="color-swatch" style="background: {bg_color};" title="Background"></span>
                         <span class="color-swatch" style="background: {panel_color};" title="Panel"></span>
@@ -1007,7 +1030,7 @@ async def admin_themes(request: Request, page: int = 1):
                         <div class="editor-field">
                             <label>Display Name</label>
                             <input type="text" class="theme-input" data-field="display_name"
-                                   value="{theme['display_name'] or ''}" placeholder="Theme display name">
+                                   value="{theme["display_name"] or ""}" placeholder="Theme display name">
                         </div>
                         <div class="editor-field">
                             <label>Background Color</label>
@@ -1045,7 +1068,7 @@ async def admin_themes(request: Request, page: int = 1):
                                    value="{panel_shadow}" placeholder="0 4px 12px rgba(0,0,0,0.3)">
                         </div>
                     </div>
-                    <div class="theme-preview" id="preview-{theme['name']}">
+                    <div class="theme-preview" id="preview-{theme["name"]}">
                         <div class="preview-container" style="background: {bg_color}; padding: {gap}; border-radius: 8px;">
                             <div class="preview-panel" style="background: {panel_color}; color: {font_color}; font-family: {font_family}; padding: 1rem; border-radius: {border_radius}; box-shadow: {panel_shadow};">
                                 Preview Text
@@ -1055,9 +1078,9 @@ async def admin_themes(request: Request, page: int = 1):
                 </div>
                 <div class="detail-footer">
                     <div class="detail-actions">
-                        <button class="btn-primary" onclick="saveTheme('{theme['name']}', this); event.stopPropagation();">Save Changes</button>
-                        <button class="btn-secondary" onclick="duplicateTheme('{theme['name']}'); event.stopPropagation();">Duplicate</button>
-                        <button class="btn-delete" onclick="deleteTheme('{theme['name']}', {usage_count}); event.stopPropagation();" {'disabled title="In use by screens"' if usage_count > 0 else ''}>Delete</button>
+                        <button class="btn-primary" onclick="saveTheme('{theme["name"]}', this); event.stopPropagation();">Save Changes</button>
+                        <button class="btn-secondary" onclick="duplicateTheme('{theme["name"]}'); event.stopPropagation();">Duplicate</button>
+                        <button class="btn-delete" onclick="deleteTheme('{theme["name"]}', {usage_count}); event.stopPropagation();" {'disabled title="In use by screens"' if usage_count > 0 else ""}>Delete</button>
                     </div>
                 </div>
             </div>
@@ -1088,16 +1111,24 @@ async def admin_themes(request: Request, page: int = 1):
             </div>
 
             <div class="theme-list">
-                {cards if cards else '<div class="empty">No themes found. Create one to get started!</div>'}
+                {
+        cards if cards else '<div class="empty">No themes found. Create one to get started!</div>'
+    }
             </div>
 
-            {'<div class="pagination">' + f'''
+            {
+        '<div class="pagination">'
+        + f'''
                 <span class="page-info">Page {page} of {total_pages} ({total_count} themes)</span>
                 <div class="page-controls">
                     <a href="?page={page - 1}" class="btn-secondary{' disabled' if page <= 1 else ''}">← Previous</a>
                     <a href="?page={page + 1}" class="btn-secondary{' disabled' if page >= total_pages else ''}">Next →</a>
                 </div>
-            ''' + '</div>' if total_pages > 1 else ''}
+            '''
+        + "</div>"
+        if total_pages > 1
+        else ""
+    }
         </div>
 
         <!-- Create Theme Modal -->
@@ -1391,11 +1422,9 @@ async def websocket_endpoint(websocket: WebSocket, screen_id: str):
         rotation = await get_rotation_settings(screen_id)
         resolved_rotation = await resolve_theme_settings(rotation)
 
-        await websocket.send_json({
-            "type": "pages_sync",
-            "pages": pages,
-            "rotation": resolved_rotation
-        })
+        await websocket.send_json(
+            {"type": "pages_sync", "pages": pages, "rotation": resolved_rotation}
+        )
 
         # Keep connection alive and handle incoming messages
         while True:
@@ -1424,8 +1453,15 @@ async def resolve_theme_settings(rotation: dict) -> dict:
 
     # Merge: screen values override theme values
     resolved = rotation.copy()
-    for key in ["background_color", "panel_color", "font_family", "font_color",
-                "gap", "border_radius", "panel_shadow"]:
+    for key in [
+        "background_color",
+        "panel_color",
+        "font_family",
+        "font_color",
+        "gap",
+        "border_radius",
+        "panel_shadow",
+    ]:
         # Use screen value if set, otherwise use theme value
         if resolved.get(key) is None:
             resolved[key] = theme.get(key)
@@ -1450,7 +1486,7 @@ def normalize_content(content: list) -> list:
                     "url": item.url or item.value,
                     "autoplay": item.autoplay if item.autoplay is not None else True,
                     "loop": item.loop if item.loop is not None else True,
-                    "muted": item.muted if item.muted is not None else True
+                    "muted": item.muted if item.muted is not None else True,
                 }
             else:
                 entry = {"type": item.type, "value": item.value}
@@ -1477,17 +1513,17 @@ def detect_content_type(text: str) -> dict:
     text_lower = text.lower()
 
     # Check if it's a video URL
-    video_extensions = ('.mp4', '.webm', '.ogg', '.mov')
-    if text_lower.startswith('http') and any(text_lower.endswith(ext) for ext in video_extensions):
+    video_extensions = (".mp4", ".webm", ".ogg", ".mov")
+    if text_lower.startswith("http") and any(text_lower.endswith(ext) for ext in video_extensions):
         return {"type": "video", "url": text, "autoplay": True, "loop": True, "muted": True}
 
     # Check if it's an image URL
-    image_extensions = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp')
-    if text_lower.startswith('http') and any(text_lower.endswith(ext) for ext in image_extensions):
+    image_extensions = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp")
+    if text_lower.startswith("http") and any(text_lower.endswith(ext) for ext in image_extensions):
         return {"type": "image", "url": text}
 
     # Check if it contains markdown syntax
-    markdown_indicators = ['# ', '## ', '### ', '**', '__', '```', '- ', '* ', '1. ', '> ']
+    markdown_indicators = ["# ", "## ", "### ", "**", "__", "```", "- ", "* ", "1. ", "> "]
     if any(indicator in text for indicator in markdown_indicators):
         return {"type": "markdown", "value": text}
 
@@ -1497,4 +1533,5 @@ def detect_content_type(text: str) -> dict:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

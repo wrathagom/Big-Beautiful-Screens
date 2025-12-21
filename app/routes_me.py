@@ -5,15 +5,20 @@ These endpoints are under /api/me/* and require authentication.
 
 import secrets
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, HTTPException, Header
+from fastapi import APIRouter, HTTPException
 
-from .auth import RequiredUser, OptionalUser, can_access_screen, can_modify_screen
-from .config import get_settings, AppMode, PLAN_LIMITS
+from .auth import RequiredUser, can_access_screen, can_modify_screen
+from .config import PLAN_LIMITS, AppMode, get_settings
 from .database import (
-    create_screen, get_screen_by_id, get_all_screens, get_screens_count,
-    delete_screen, get_all_themes, get_themes_count
+    create_screen,
+    delete_screen,
+    get_all_screens,
+    get_all_themes,
+    get_screen_by_id,
+    get_screens_count,
+    get_themes_count,
 )
 from .db import get_database
 from .models import ScreenResponse
@@ -22,11 +27,7 @@ router = APIRouter(prefix="/api/me", tags=["me"])
 
 
 @router.get("/screens")
-async def list_my_screens(
-    user: RequiredUser,
-    page: int = 1,
-    per_page: int = 20
-):
+async def list_my_screens(user: RequiredUser, page: int = 1, per_page: int = 20):
     """List screens owned by the current user or their organization.
 
     In SaaS mode, returns only screens the user has access to.
@@ -38,10 +39,7 @@ async def list_my_screens(
     if settings.APP_MODE == AppMode.SAAS:
         # Filter by ownership
         screens = await get_all_screens(
-            limit=per_page,
-            offset=offset,
-            owner_id=user.user_id,
-            org_id=user.org_id
+            limit=per_page, offset=offset, owner_id=user.user_id, org_id=user.org_id
         )
         total = await get_screens_count(owner_id=user.user_id, org_id=user.org_id)
     else:
@@ -54,7 +52,7 @@ async def list_my_screens(
         "total": total,
         "page": page,
         "per_page": per_page,
-        "total_pages": (total + per_page - 1) // per_page if total > 0 else 1
+        "total_pages": (total + per_page - 1) // per_page if total > 0 else 1,
     }
 
 
@@ -78,12 +76,12 @@ async def create_my_screen(user: RequiredUser):
         if current_count >= limit:
             raise HTTPException(
                 status_code=402,
-                detail=f"Screen limit reached ({limit}). Upgrade your plan for more screens."
+                detail=f"Screen limit reached ({limit}). Upgrade your plan for more screens.",
             )
 
     screen_id = uuid.uuid4().hex[:12]
     api_key = f"sk_{secrets.token_urlsafe(24)}"
-    created_at = datetime.now(timezone.utc).isoformat()
+    created_at = datetime.now(UTC).isoformat()
 
     # Set ownership in SaaS mode
     owner_id = user.user_id if settings.APP_MODE == AppMode.SAAS else None
@@ -95,7 +93,7 @@ async def create_my_screen(user: RequiredUser):
         screen_id=screen_id,
         api_key=api_key,
         screen_url=f"/screen/{screen_id}",
-        api_url=f"/api/screens/{screen_id}/message"
+        api_url=f"/api/screens/{screen_id}/message",
     )
 
 
@@ -116,7 +114,7 @@ async def get_my_screen(screen_id: str, user: RequiredUser):
         "created_at": screen.get("created_at"),
         "last_updated": screen.get("last_updated"),
         "owner_id": screen.get("owner_id"),
-        "org_id": screen.get("org_id")
+        "org_id": screen.get("org_id"),
     }
 
 
@@ -135,11 +133,7 @@ async def delete_my_screen(screen_id: str, user: RequiredUser):
 
 
 @router.post("/screens/{screen_id}/transfer")
-async def transfer_screen(
-    screen_id: str,
-    user: RequiredUser,
-    to_org: bool = False
-):
+async def transfer_screen(screen_id: str, user: RequiredUser, to_org: bool = False):
     """Transfer a screen to/from the user's organization.
 
     - to_org=True: Transfer personal screen to current org
@@ -165,30 +159,29 @@ async def transfer_screen(
             raise HTTPException(status_code=400, detail="You are not in an organization")
 
         # Update screen ownership
-        async with db._get_pool() as pool:
-            async with pool.acquire() as conn:
-                await conn.execute(
-                    "UPDATE screens SET org_id = $1, owner_id = NULL WHERE id = $2",
-                    user.org_id, screen_id
-                )
+        async with db._get_pool() as pool, pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE screens SET org_id = $1, owner_id = NULL WHERE id = $2",
+                user.org_id,
+                screen_id,
+            )
     else:
         # Transfer to personal
-        async with db._get_pool() as pool:
-            async with pool.acquire() as conn:
-                await conn.execute(
-                    "UPDATE screens SET owner_id = $1, org_id = NULL WHERE id = $2",
-                    user.user_id, screen_id
-                )
+        async with db._get_pool() as pool, pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE screens SET owner_id = $1, org_id = NULL WHERE id = $2",
+                user.user_id,
+                screen_id,
+            )
 
-    return {"success": True, "message": f"Screen transferred {'to organization' if to_org else 'to personal'}"}
+    return {
+        "success": True,
+        "message": f"Screen transferred {'to organization' if to_org else 'to personal'}",
+    }
 
 
 @router.get("/themes")
-async def list_my_themes(
-    user: RequiredUser,
-    page: int = 1,
-    per_page: int = 20
-):
+async def list_my_themes(user: RequiredUser, page: int = 1, per_page: int = 20):
     """List themes accessible to the current user.
 
     Returns built-in themes + user's custom themes.
@@ -208,7 +201,7 @@ async def list_my_themes(
         "total": total,
         "page": page,
         "per_page": per_page,
-        "total_pages": (total + per_page - 1) // per_page if total > 0 else 1
+        "total_pages": (total + per_page - 1) // per_page if total > 0 else 1,
     }
 
 
@@ -218,11 +211,7 @@ async def get_my_usage(user: RequiredUser):
     settings = get_settings()
 
     if settings.APP_MODE != AppMode.SAAS:
-        return {
-            "plan": "unlimited",
-            "limits": None,
-            "usage": None
-        }
+        return {"plan": "unlimited", "limits": None, "usage": None}
 
     db = get_database()
     user_data = await db.get_user(user.user_id)
@@ -231,7 +220,6 @@ async def get_my_usage(user: RequiredUser):
 
     # Count usage
     screen_count = await get_screens_count(owner_id=user.user_id)
-    theme_count = await get_themes_count(owner_id=user.user_id)
     # Subtract built-in themes from count
     all_themes = await get_all_themes(owner_id=user.user_id)
     custom_theme_count = sum(1 for t in all_themes if not t.get("is_builtin"))
@@ -241,12 +229,9 @@ async def get_my_usage(user: RequiredUser):
         "limits": {
             "screens": limits["screens"],
             "themes": limits["themes"],
-            "pages_per_screen": limits["pages_per_screen"]
+            "pages_per_screen": limits["pages_per_screen"],
         },
-        "usage": {
-            "screens": screen_count,
-            "themes": custom_theme_count
-        }
+        "usage": {"screens": screen_count, "themes": custom_theme_count},
     }
 
 
@@ -261,7 +246,7 @@ async def get_my_profile(user: RequiredUser):
             "email": None,
             "name": "Self-Hosted User",
             "plan": "unlimited",
-            "organization": None
+            "organization": None,
         }
 
     db = get_database()
@@ -275,7 +260,7 @@ async def get_my_profile(user: RequiredUser):
                 "id": org_data["id"],
                 "name": org_data["name"],
                 "slug": org_data["slug"],
-                "role": user.org_role
+                "role": user.org_role,
             }
 
     return {
@@ -283,5 +268,5 @@ async def get_my_profile(user: RequiredUser):
         "email": user.email or (user_data.get("email") if user_data else None),
         "name": user.name or (user_data.get("name") if user_data else None),
         "plan": user_data.get("plan", "free") if user_data else "free",
-        "organization": org_data
+        "organization": org_data,
     }

@@ -47,7 +47,6 @@ THEMES = {
         "border_radius": "0.5rem",
         "panel_shadow": None,
     },
-
     # ============== Catppuccin ==============
     # https://github.com/catppuccin/catppuccin
     "catppuccin-mocha": {
@@ -68,7 +67,6 @@ THEMES = {
         "border_radius": "0.75rem",
         "panel_shadow": "0 4px 12px rgba(0, 0, 0, 0.1)",
     },
-
     # ============== Solarized ==============
     # https://ethanschoonover.com/solarized/
     "solarized-dark": {
@@ -89,7 +87,6 @@ THEMES = {
         "border_radius": "0.5rem",
         "panel_shadow": None,
     },
-
     # ============== Dracula ==============
     # https://draculatheme.com/
     "dracula": {
@@ -101,7 +98,6 @@ THEMES = {
         "border_radius": "0.75rem",
         "panel_shadow": "0 4px 16px rgba(0, 0, 0, 0.4)",
     },
-
     # ============== Nord ==============
     # https://www.nordtheme.com/
     "nord": {
@@ -113,7 +109,6 @@ THEMES = {
         "border_radius": "0.5rem",
         "panel_shadow": "0 2px 8px rgba(0, 0, 0, 0.3)",
     },
-
     # ============== Gruvbox ==============
     # https://github.com/morhetz/gruvbox
     "gruvbox-dark": {
@@ -125,7 +120,6 @@ THEMES = {
         "border_radius": "0.5rem",
         "panel_shadow": None,
     },
-
     # ============== Tokyo Night ==============
     # https://github.com/enkia/tokyo-night-vscode-theme
     "tokyo-night": {
@@ -168,10 +162,12 @@ def get_builtin_themes() -> dict:
 
 # ============== Async Database-Backed Functions ==============
 
+
 async def get_theme_async(name: str) -> dict | None:
     """Get a theme by name from database. Returns None if not found."""
     # Import here to avoid circular import
     from .database import get_theme_from_db
+
     return await get_theme_from_db(name)
 
 
@@ -179,4 +175,5 @@ async def list_themes_async() -> list[dict]:
     """List all available themes from database."""
     # Import here to avoid circular import
     from .database import get_all_themes
+
     return await get_all_themes()
