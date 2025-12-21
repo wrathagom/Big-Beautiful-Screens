@@ -44,8 +44,13 @@
         const redirectUrl = '{{ redirect_url }}';
 
         async function init() {
-            const clerk = new window.Clerk(publishableKey);
-            await clerk.load();
+            // Wait for Clerk to be available
+            while (!window.Clerk) {
+                await new Promise(r => setTimeout(r, 100));
+            }
+
+            const clerk = window.Clerk;
+            await clerk.load({ publishableKey });
 
             // Handle the redirect callback from Clerk's Account Portal
             if (clerk.handleRedirectCallback) {
