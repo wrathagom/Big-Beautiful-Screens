@@ -27,19 +27,27 @@ A MicroSaaS that provides developers with API endpoints to push content to real-
 
 ## Quick Start
 
-### Installation
+### Docker (Recommended)
+
+```bash
+docker-compose up -d
+```
+
+Access at http://localhost:8000
+
+Or without Docker Compose:
+
+```bash
+docker run -d -p 8000:8000 -v screens_data:/app/data ghcr.io/wrathagom/big-beautiful-screens
+```
+
+### Manual Installation
 
 ```bash
 cd big-beautiful-screens
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-```
-
-### Running the Server
-
-```bash
-source venv/bin/activate
 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
@@ -823,4 +831,6 @@ big-beautiful-screens/
 
 ## License
 
-MIT
+[PolyForm Noncommercial 1.0.0](LICENSE)
+
+You are free to use, modify, and distribute this software for any **noncommercial purpose**. Commercial use (including running a competing SaaS) requires a separate commercial license - contact the author for details.

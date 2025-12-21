@@ -4,8 +4,8 @@ meta {
   seq: 11
 }
 
-patch {
-  url: {{url}}api/screens/{{screenID}}
+post {
+  url: {{url}}api/screens/{{screenID}}/pages/default
   body: json
   auth: inherit
 }
@@ -16,7 +16,7 @@ headers {
 
 body:json {
   {
-    "background_color": "linear-gradient(90deg,rgba(42, 123, 155, 1) 0%, rgba(87, 199, 133, 1) 71%, rgba(237, 221, 83, 1) 100%)"
+    "font_family": "Mountains of Christmas"
   }
 }
 

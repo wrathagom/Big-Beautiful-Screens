@@ -3,8 +3,8 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Header, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from .models import (
@@ -14,7 +14,7 @@ from .models import (
 )
 from .database import (
     init_db, create_screen, get_screen_by_id, get_screen_by_api_key,
-    save_message, get_last_message, get_all_screens, get_screens_count, delete_screen, update_screen_name,
+    get_all_screens, get_screens_count, delete_screen, update_screen_name,
     upsert_page, get_all_pages, get_page, update_page, delete_page, reorder_pages,
     get_rotation_settings, update_rotation_settings, cleanup_expired_pages,
     get_all_themes, get_themes_count, get_theme_from_db, create_theme_in_db, update_theme_in_db,
@@ -22,8 +22,16 @@ from .database import (
 )
 from .connection_manager import manager
 from .themes import get_theme, list_themes, get_theme_async
+from .webhooks import router as webhooks_router
+from .routes_me import router as me_router
+from .config import get_settings, AppMode
+from .auth import OptionalUser, get_current_user
 
 app = FastAPI(title="Big Beautiful Screens", version="0.1.0")
+
+# Include routers
+app.include_router(webhooks_router)  # Clerk webhooks
+app.include_router(me_router)  # User-specific endpoints (/api/me/*)
 
 # Mount static files
 static_path = Path(__file__).parent.parent / "static"
@@ -56,8 +64,32 @@ async def get_theme_by_name(theme_name: str):
 
 
 @app.post("/api/themes")
-async def create_theme(request: ThemeCreate):
-    """Create a new custom theme."""
+async def create_theme(request: ThemeCreate, user: OptionalUser = None):
+    """Create a new custom theme.
+
+    In SaaS mode with authentication, enforces plan limits and sets ownership.
+    """
+    from .config import PLAN_LIMITS
+    from .db import get_database
+
+    settings = get_settings()
+
+    # Check plan limits in SaaS mode
+    if settings.APP_MODE == AppMode.SAAS and user:
+        db = get_database()
+        user_data = await db.get_user(user.user_id)
+        plan = user_data.get("plan", "free") if user_data else "free"
+        limit = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["themes"]
+
+        # Count user's custom themes (excluding built-in)
+        all_themes = await get_all_themes(owner_id=user.user_id)
+        custom_count = sum(1 for t in all_themes if not t.get("is_builtin"))
+        if custom_count >= limit:
+            raise HTTPException(
+                status_code=402,
+                detail=f"Theme limit reached ({limit}). Upgrade your plan for more themes."
+            )
+
     # Check if theme name already exists
     existing = await get_theme_from_db(request.name)
     if existing:
@@ -66,6 +98,9 @@ async def create_theme(request: ThemeCreate):
     # Validate theme name (URL-safe)
     if not request.name.replace("-", "").replace("_", "").isalnum():
         raise HTTPException(status_code=400, detail="Theme name must be alphanumeric with hyphens/underscores only")
+
+    # Set owner in SaaS mode
+    owner_id = user.user_id if settings.APP_MODE == AppMode.SAAS and user else None
 
     theme = await create_theme_in_db(
         name=request.name,
@@ -76,7 +111,8 @@ async def create_theme(request: ThemeCreate):
         font_color=request.font_color,
         gap=request.gap,
         border_radius=request.border_radius,
-        panel_shadow=request.panel_shadow
+        panel_shadow=request.panel_shadow,
+        owner_id=owner_id
     )
     return {"success": True, "theme": theme}
 
@@ -111,13 +147,25 @@ async def delete_theme(theme_name: str):
 
 
 @app.post("/api/screens", response_model=ScreenResponse)
-async def create_new_screen():
-    """Create a new screen and return its ID and API key."""
+async def create_new_screen(user: OptionalUser = None):
+    """Create a new screen and return its ID and API key.
+
+    In SaaS mode with authentication, sets the current user as owner.
+    Otherwise creates an anonymous screen.
+    """
     screen_id = uuid.uuid4().hex[:12]
     api_key = f"sk_{secrets.token_urlsafe(24)}"
     created_at = datetime.now(timezone.utc).isoformat()
 
-    await create_screen(screen_id, api_key, created_at)
+    # Set ownership if user is authenticated in SaaS mode
+    settings = get_settings()
+    owner_id = None
+    org_id = None
+    if settings.APP_MODE == AppMode.SAAS and user:
+        owner_id = user.user_id
+        org_id = user.org_id
+
+    await create_screen(screen_id, api_key, created_at, owner_id=owner_id, org_id=org_id)
 
     return ScreenResponse(
         screen_id=screen_id,
@@ -158,23 +206,13 @@ async def send_message(
         "panel_shadow": request.panel_shadow
     }
 
-    # Save to pages table as "default" page (backward compatible)
+    # Save to pages table as "default" page
     page_data = await upsert_page(screen_id, "default", message_payload)
-
-    # Also save to messages table for legacy compatibility
-    created_at = datetime.now(timezone.utc).isoformat()
-    await save_message(screen_id, message_payload, created_at)
 
     # Broadcast page update to all connected viewers
     viewers = await manager.broadcast(screen_id, {
         "type": "page_update",
         "page": page_data
-    })
-
-    # Also broadcast legacy message format for backward compatibility
-    await manager.broadcast(screen_id, {
-        "type": "message",
-        **message_payload
     })
 
     return MessageResponse(success=True, viewers=viewers)
@@ -388,13 +426,6 @@ async def create_or_update_page(
         "page": page_data
     })
 
-    # If updating default page, also broadcast legacy message
-    if page_name == "default":
-        await manager.broadcast(screen_id, {
-            "type": "message",
-            **message_payload
-        })
-
     return {"success": True, "page": page_data, "viewers": viewers}
 
 
@@ -520,16 +551,36 @@ async def view_screen(screen_id: str):
 
 
 @app.get("/admin/screens", response_class=HTMLResponse)
-async def admin_screens(page: int = 1):
-    """Admin page listing all screens with pagination."""
+async def admin_screens(request: Request, page: int = 1):
+    """Admin page listing all screens with pagination.
+
+    In SaaS mode, requires authentication and shows only user's screens.
+    In self-hosted mode, shows all screens without authentication.
+    """
+    settings = get_settings()
+    user = None
+
+    # In SaaS mode, require authentication
+    if settings.APP_MODE == AppMode.SAAS:
+        user = await get_current_user(request)
+        if not user:
+            # Redirect to sign-in page (Clerk will handle this)
+            return RedirectResponse(url="/sign-in?redirect_url=/admin/screens", status_code=302)
+
     per_page = 10
     offset = (page - 1) * per_page
 
-    total_count = await get_screens_count()
-    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
-    page = max(1, min(page, total_pages))  # Clamp to valid range
-
-    screens = await get_all_screens(limit=per_page, offset=offset)
+    # Filter by ownership in SaaS mode
+    if settings.APP_MODE == AppMode.SAAS and user:
+        total_count = await get_screens_count(owner_id=user.user_id, org_id=user.org_id)
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        screens = await get_all_screens(limit=per_page, offset=offset, owner_id=user.user_id, org_id=user.org_id)
+    else:
+        total_count = await get_screens_count()
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        screens = await get_all_screens(limit=per_page, offset=offset)
 
     # Build screen cards
     cards = ""
@@ -886,16 +937,36 @@ print(response.json())`;
 
 
 @app.get("/admin/themes", response_class=HTMLResponse)
-async def admin_themes(page: int = 1):
-    """Admin page for managing themes with pagination."""
+async def admin_themes(request: Request, page: int = 1):
+    """Admin page for managing themes with pagination.
+
+    In SaaS mode, requires authentication and shows only accessible themes.
+    In self-hosted mode, shows all themes without authentication.
+    """
+    settings = get_settings()
+    user = None
+
+    # In SaaS mode, require authentication
+    if settings.APP_MODE == AppMode.SAAS:
+        user = await get_current_user(request)
+        if not user:
+            return RedirectResponse(url="/sign-in?redirect_url=/admin/themes", status_code=302)
+
     per_page = 10
     offset = (page - 1) * per_page
 
-    total_count = await get_themes_count()
-    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
-    page = max(1, min(page, total_pages))  # Clamp to valid range
+    # Filter by owner in SaaS mode (shows built-in + user's themes)
+    if settings.APP_MODE == AppMode.SAAS and user:
+        total_count = await get_themes_count(owner_id=user.user_id)
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        themes = await get_all_themes(limit=per_page, offset=offset, owner_id=user.user_id)
+    else:
+        total_count = await get_themes_count()
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        themes = await get_all_themes(limit=per_page, offset=offset)
 
-    themes = await get_all_themes(limit=per_page, offset=offset)
     usage_counts = await get_theme_usage_counts()
 
     # Build theme cards
@@ -1325,14 +1396,6 @@ async def websocket_endpoint(websocket: WebSocket, screen_id: str):
             "pages": pages,
             "rotation": resolved_rotation
         })
-
-        # Also send legacy message format for backward compatibility
-        last_message = await get_last_message(screen_id)
-        if last_message:
-            await websocket.send_json({
-                "type": "message",
-                **last_message
-            })
 
         # Keep connection alive and handle incoming messages
         while True:

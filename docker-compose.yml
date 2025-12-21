@@ -1,0 +1,21 @@
+# Docker Compose for Big Beautiful Screens
+#
+# Self-hosted mode (default):
+#   docker-compose up -d
+#
+# Access at http://localhost:8000
+
+version: '3.8'
+
+services:
+  big-beautiful-screens:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist SQLite database
+      - screens_data:/app/data
+    restart: unless-stopped
+
+volumes:
+  screens_data:

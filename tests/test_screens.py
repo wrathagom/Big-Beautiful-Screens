@@ -10,17 +10,30 @@ import os
 def setup_test_db():
     """Set up a temporary database for testing."""
     with tempfile.TemporaryDirectory() as tmpdir:
-        # Override the database path before importing the app
-        import app.database as db_module
-        db_module.DB_PATH = Path(tmpdir) / "test_screens.db"
+        # Set the database path via environment variable before importing
+        test_db_path = str(Path(tmpdir) / "test_screens.db")
+        os.environ["SQLITE_PATH"] = test_db_path
+
+        # Clear the cached settings so it picks up the new env var
+        from app.config import get_settings
+        get_settings.cache_clear()
+
+        # Reset the database singleton
+        from app.db.factory import reset_database
+        reset_database()
 
         from app.main import app
+        import app.database as db_module
 
         # Initialize the database
         import asyncio
         asyncio.get_event_loop().run_until_complete(db_module.init_db())
 
         yield app
+
+        # Clean up
+        reset_database()
+        get_settings.cache_clear()
 
 
 @pytest.fixture

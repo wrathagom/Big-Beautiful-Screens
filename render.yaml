@@ -1,0 +1,32 @@
+# Render Blueprint for Big Beautiful Screens
+# https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: big-beautiful-screens
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/themes
+    autoDeploy: true
+    envVars:
+      # Application mode (self-hosted or saas)
+      - key: APP_MODE
+        value: saas
+      # Database (Neon PostgreSQL)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: big-beautiful-screens-db
+          property: connectionString
+      # Clerk Authentication
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: CLERK_PUBLISHABLE_KEY
+        sync: false
+      - key: CLERK_WEBHOOK_SECRET
+        sync: false
+
+databases:
+  - name: big-beautiful-screens-db
+    databaseName: bigbeautifulscreens
+    plan: starter
