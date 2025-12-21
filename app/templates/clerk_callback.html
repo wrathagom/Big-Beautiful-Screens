@@ -47,12 +47,33 @@
             const clerk = new window.Clerk(publishableKey);
             await clerk.load();
 
+            // Handle the redirect callback from Clerk's Account Portal
+            if (clerk.handleRedirectCallback) {
+                try {
+                    await clerk.handleRedirectCallback();
+                } catch (e) {
+                    console.log('handleRedirectCallback:', e);
+                }
+            }
+
+            // Wait a moment for session to be established
+            await new Promise(r => setTimeout(r, 500));
+
             if (clerk.user) {
                 // User is signed in, redirect to the app
                 window.location.href = redirectUrl || '/admin/screens';
+            } else if (clerk.session) {
+                // Session exists
+                window.location.href = redirectUrl || '/admin/screens';
             } else {
-                // Not signed in, redirect to sign-in
-                window.location.href = '{{ sign_in_url }}';
+                // Check if we have a session after a brief wait
+                await new Promise(r => setTimeout(r, 1000));
+                if (clerk.user || clerk.session) {
+                    window.location.href = redirectUrl || '/admin/screens';
+                } else {
+                    // Still no session, redirect to sign-in
+                    window.location.href = '{{ sign_in_url }}';
+                }
             }
         }
 
@@ -60,7 +81,7 @@
             console.error('Clerk init failed:', err);
             document.querySelector('.loading p').textContent = 'Sign in failed. Redirecting...';
             setTimeout(() => {
-                window.location.href = '/admin/screens';
+                window.location.href = '{{ sign_in_url }}';
             }, 2000);
         });
     </script>
