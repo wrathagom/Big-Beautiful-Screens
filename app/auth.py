@@ -61,33 +61,11 @@ async def _get_clerk_jwks() -> dict:
             return _jwks_cache
 
     settings = get_settings()
-    if not settings.CLERK_PUBLISHABLE_KEY:
-        raise ValueError("CLERK_PUBLISHABLE_KEY not configured")
-
-    # Extract frontend API from publishable key (pk_live_xxx or pk_test_xxx)
-    # The key contains the frontend API domain encoded in base64
-    try:
-        # Clerk publishable keys are formatted as pk_[env]_[base64_encoded_frontend_api]
-        parts = settings.CLERK_PUBLISHABLE_KEY.split("_")
-        if len(parts) >= 3:
-            import base64
-
-            encoded = parts[2]
-            # Add padding if needed
-            padding = 4 - len(encoded) % 4
-            if padding != 4:
-                encoded += "=" * padding
-            frontend_api = base64.b64decode(encoded).decode("utf-8")
-        else:
-            raise ValueError("Invalid publishable key format")
-    except Exception:
-        # Fallback: Use standard Clerk API
-        frontend_api = "clerk.accounts.dev"
-
-    jwks_url = f"https://{frontend_api}/.well-known/jwks.json"
+    if not settings.CLERK_JWKS_URL:
+        raise ValueError("CLERK_JWKS_URL not configured")
 
     async with httpx.AsyncClient() as client:
-        response = await client.get(jwks_url)
+        response = await client.get(settings.CLERK_JWKS_URL)
         response.raise_for_status()
         _jwks_cache = response.json()
         _jwks_cache_time = now
