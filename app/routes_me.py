@@ -23,7 +23,7 @@ from .database import (
 from .db import get_database
 from .models import ScreenResponse
 
-router = APIRouter(prefix="/api/me", tags=["me"])
+router = APIRouter(prefix="/api/v1/me", tags=["me"])
 
 
 @router.get("/screens")
@@ -93,7 +93,7 @@ async def create_my_screen(user: RequiredUser):
         screen_id=screen_id,
         api_key=api_key,
         screen_url=f"/screen/{screen_id}",
-        api_url=f"/api/screens/{screen_id}/message",
+        api_url=f"/api/v1/screens/{screen_id}/message",
     )
 
 

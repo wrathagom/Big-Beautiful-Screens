@@ -4,23 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Theme Management - Big Beautiful Screens</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
     <link rel="stylesheet" href="/static/admin.css">
 </head>
 <body>
     <div class="container">
         <div class="admin-header">
-            <div>
-                <h1>Theme Management</h1>
-                <p class="subtitle">Create and customize themes</p>
-            </div>
-            <div class="nav-links">
-                <a href="/docs" class="nav-link" target="_blank">API Docs ↗</a>
-                <a href="/admin/screens" class="nav-link">← Back to Screens</a>
+            <div class="header-title">
+                <img src="/static/logo.png" alt="BBS Logo" class="header-logo">
+                <div>
+                    <h1>Theme Management</h1>
+                    <p class="subtitle">Create and customize themes</p>
+                </div>
             </div>
         </div>
 
         <div class="actions">
             <button id="create-theme" class="btn-primary">+ Create New Theme</button>
+            <div class="nav-links">
+                <a href="/docs" class="nav-link" target="_blank">API Docs ↗</a>
+                <a href="/admin/screens" class="nav-link">← Back to Screens</a>
+            </div>
         </div>
 
         <div class="theme-list">
@@ -209,7 +213,7 @@
             }
 
             try {
-                const response = await fetch('/api/themes', {
+                const response = await fetch('/api/v1/themes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -250,7 +254,7 @@
                 btn.disabled = true;
                 btn.textContent = 'Saving...';
 
-                const response = await fetch(`/api/themes/${themeName}`, {
+                const response = await fetch(`/api/v1/themes/${themeName}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updates)
@@ -287,7 +291,7 @@
             }
 
             try {
-                const response = await fetch(`/api/themes/${themeName}`, {
+                const response = await fetch(`/api/v1/themes/${themeName}`, {
                     method: 'DELETE'
                 });
 
@@ -308,7 +312,7 @@
 
             try {
                 // First get the theme data
-                const getResponse = await fetch(`/api/themes/${themeName}`);
+                const getResponse = await fetch(`/api/v1/themes/${themeName}`);
                 if (!getResponse.ok) {
                     alert('Failed to get theme data');
                     return;
@@ -316,7 +320,7 @@
                 const theme = await getResponse.json();
 
                 // Create new theme with same values
-                const response = await fetch('/api/themes', {
+                const response = await fetch('/api/v1/themes', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

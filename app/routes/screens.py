@@ -16,8 +16,10 @@ from ..database import (
     delete_page,
     delete_screen,
     get_all_pages,
+    get_all_screens,
     get_rotation_settings,
     get_screen_by_id,
+    get_screens_count,
     reorder_pages,
     update_page,
     update_rotation_settings,
@@ -44,7 +46,7 @@ static_path = Path(__file__).parent.parent.parent / "static"
 # ============== Screen Endpoints ==============
 
 
-@router.post("/api/screens", response_model=ScreenResponse)
+@router.post("/api/v1/screens", response_model=ScreenResponse)
 async def create_new_screen(user: OptionalUser = None):
     """Create a new screen and return its ID and API key.
 
@@ -69,11 +71,46 @@ async def create_new_screen(user: OptionalUser = None):
         screen_id=screen_id,
         api_key=api_key,
         screen_url=f"/screen/{screen_id}",
-        api_url=f"/api/screens/{screen_id}/message",
+        api_url=f"/api/v1/screens/{screen_id}/message",
     )
 
 
-@router.post("/api/screens/{screen_id}/message", response_model=MessageResponse)
+@router.get("/api/v1/screens")
+async def list_screens(page: int = 1, per_page: int = 20):
+    """List all screens with pagination.
+
+    Returns screen metadata (not API keys for security).
+    """
+    per_page = min(per_page, 100)  # Cap at 100
+    offset = (page - 1) * per_page
+
+    total_count = await get_screens_count()
+    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+    page = max(1, min(page, total_pages))
+
+    screens = await get_all_screens(limit=per_page, offset=offset)
+
+    # Return screen info without exposing API keys
+    return {
+        "screens": [
+            {
+                "screen_id": s["id"],
+                "name": s.get("name"),
+                "created_at": s.get("created_at"),
+                "last_updated": s.get("last_updated"),
+                "screen_url": f"/screen/{s['id']}",
+                "viewer_count": manager.get_viewer_count(s["id"]),
+            }
+            for s in screens
+        ],
+        "page": page,
+        "per_page": per_page,
+        "total_count": total_count,
+        "total_pages": total_pages,
+    }
+
+
+@router.post("/api/v1/screens/{screen_id}/message", response_model=MessageResponse)
 async def send_message(
     screen_id: str, request: MessageRequest, x_api_key: str = Header(alias="X-API-Key")
 ):
@@ -111,7 +148,7 @@ async def send_message(
     return MessageResponse(success=True, viewers=viewers)
 
 
-@router.get("/api/screens/{screen_id}")
+@router.get("/api/v1/screens/{screen_id}")
 async def get_screen(screen_id: str):
     """Get screen details including display settings."""
     screen = await get_screen_by_id(screen_id)
@@ -129,38 +166,51 @@ async def get_screen(screen_id: str):
     }
 
 
-@router.delete("/api/screens/{screen_id}")
-async def delete_screen_endpoint(screen_id: str):
-    """Delete a screen and its messages."""
-    deleted = await delete_screen(screen_id)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Screen not found")
-    return {"success": True, "message": "Screen deleted"}
-
-
-@router.post("/api/screens/{screen_id}/reload")
-async def reload_screen(screen_id: str):
-    """Send reload command to all viewers of a screen."""
+@router.delete("/api/v1/screens/{screen_id}")
+async def delete_screen_endpoint(screen_id: str, x_api_key: str = Header(alias="X-API-Key")):
+    """Delete a screen and its messages. Requires API key authentication."""
     screen = await get_screen_by_id(screen_id)
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
+
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    await delete_screen(screen_id)
+    return {"success": True, "message": "Screen deleted"}
+
+
+@router.post("/api/v1/screens/{screen_id}/reload")
+async def reload_screen(screen_id: str, x_api_key: str = Header(alias="X-API-Key")):
+    """Send reload command to all viewers of a screen. Requires API key authentication."""
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
     viewers = await manager.broadcast(screen_id, {"type": "reload"})
     return {"success": True, "viewers_reloaded": viewers}
 
 
-@router.post("/api/screens/{screen_id}/debug")
-async def toggle_debug(screen_id: str, enabled: bool = True):
-    """Toggle debug mode on all viewers of a screen."""
+@router.post("/api/v1/screens/{screen_id}/debug")
+async def toggle_debug(
+    screen_id: str, enabled: bool = True, x_api_key: str = Header(alias="X-API-Key")
+):
+    """Toggle debug mode on all viewers of a screen. Requires API key authentication."""
     screen = await get_screen_by_id(screen_id)
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
+
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
 
     viewers = await manager.broadcast(screen_id, {"type": "debug", "enabled": enabled})
     return {"success": True, "debug_enabled": enabled, "viewers": viewers}
 
 
-@router.patch("/api/screens/{screen_id}")
+@router.patch("/api/v1/screens/{screen_id}")
 async def update_screen(
     screen_id: str,
     request: ScreenUpdateRequest,
@@ -275,7 +325,7 @@ async def update_screen(
 # ============== Page Endpoints ==============
 
 
-@router.get("/api/screens/{screen_id}/pages", tags=["Pages"])
+@router.get("/api/v1/screens/{screen_id}/pages", tags=["Pages"])
 async def list_pages(screen_id: str):
     """List all pages for a screen with rotation settings."""
     screen = await get_screen_by_id(screen_id)
@@ -289,7 +339,7 @@ async def list_pages(screen_id: str):
     return {"pages": pages, "rotation": resolved_rotation}
 
 
-@router.post("/api/screens/{screen_id}/pages/{page_name}", tags=["Pages"])
+@router.post("/api/v1/screens/{screen_id}/pages/{page_name}", tags=["Pages"])
 async def create_or_update_page(
     screen_id: str, page_name: str, request: PageRequest, x_api_key: str = Header(alias="X-API-Key")
 ):
@@ -328,7 +378,7 @@ async def create_or_update_page(
     return {"success": True, "page": page_data, "viewers": viewers}
 
 
-@router.patch("/api/screens/{screen_id}/pages/{page_name}", tags=["Pages"])
+@router.patch("/api/v1/screens/{screen_id}/pages/{page_name}", tags=["Pages"])
 async def patch_page(
     screen_id: str,
     page_name: str,
@@ -375,7 +425,7 @@ async def patch_page(
     return {"success": True, "page": page_data, "viewers": viewers}
 
 
-@router.delete("/api/screens/{screen_id}/pages/{page_name}", tags=["Pages"])
+@router.delete("/api/v1/screens/{screen_id}/pages/{page_name}", tags=["Pages"])
 async def delete_page_endpoint(
     screen_id: str, page_name: str, x_api_key: str = Header(alias="X-API-Key")
 ):
@@ -400,7 +450,7 @@ async def delete_page_endpoint(
     return {"success": True, "viewers": viewers}
 
 
-@router.put("/api/screens/{screen_id}/pages/order", tags=["Pages"])
+@router.put("/api/v1/screens/{screen_id}/pages/order", tags=["Pages"])
 async def reorder_pages_endpoint(
     screen_id: str, request: PageOrderRequest, x_api_key: str = Header(alias="X-API-Key")
 ):

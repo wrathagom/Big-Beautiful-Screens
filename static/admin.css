@@ -26,10 +26,15 @@ h1 {
 .subtitle {
     color: #666;
     font-size: 1.1rem;
-    margin-bottom: 2rem;
+    margin-bottom: 0;
 }
 
 .actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
     margin-bottom: 1.5rem;
 }
 
@@ -461,7 +466,29 @@ h1 {
 
     .subtitle {
         font-size: 1rem;
-        margin-bottom: 1.5rem;
+    }
+
+    .header-title {
+        gap: 0.75rem;
+    }
+
+    .header-logo {
+        width: 56px;
+        height: 56px;
+    }
+
+    .actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .actions .nav-links {
+        justify-content: center;
+    }
+
+    .nav-link {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
     }
 
     .card-summary {
@@ -513,16 +540,24 @@ h1 {
 
 /* ============== Admin Header & Navigation ============== */
 .admin-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 0.25rem;
-    flex-wrap: wrap;
-    gap: 1rem;
+    margin-bottom: 1.5rem;
 }
 
 .admin-header h1 {
     margin-bottom: 0;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.header-logo {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    align-self: center;
 }
 
 .nav-link {
@@ -848,11 +883,6 @@ h1 {
 
 /* Responsive for Theme Management */
 @media (max-width: 768px) {
-    .admin-header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
     .theme-summary {
         gap: 0.5rem;
     }

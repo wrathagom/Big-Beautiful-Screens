@@ -52,7 +52,7 @@ def client(setup_test_db):
 @pytest.fixture
 def screen(client):
     """Create a test screen and return its data."""
-    response = client.post("/api/screens")
+    response = client.post("/api/v1/screens")
     assert response.status_code == 200
     return response.json()
 
@@ -62,7 +62,7 @@ class TestScreenCreation:
 
     def test_create_screen(self, client):
         """Test creating a new screen."""
-        response = client.post("/api/screens")
+        response = client.post("/api/v1/screens")
         assert response.status_code == 200
 
         data = response.json()
@@ -75,8 +75,8 @@ class TestScreenCreation:
 
     def test_create_multiple_screens(self, client):
         """Test that each screen gets a unique ID and API key."""
-        response1 = client.post("/api/screens")
-        response2 = client.post("/api/screens")
+        response1 = client.post("/api/v1/screens")
+        response2 = client.post("/api/v1/screens")
 
         screen1 = response1.json()
         screen2 = response2.json()
@@ -91,7 +91,7 @@ class TestMessages:
     def test_send_simple_message(self, client, screen):
         """Test sending a simple text message."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Hello, World!"]},
         )
@@ -103,7 +103,7 @@ class TestMessages:
     def test_send_multiple_panels(self, client, screen):
         """Test sending multiple content panels."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Panel 1", "Panel 2", "Panel 3"]},
         )
@@ -112,7 +112,7 @@ class TestMessages:
     def test_send_with_colors(self, client, screen):
         """Test sending a message with custom colors."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={
                 "content": ["Colored panel"],
@@ -125,7 +125,7 @@ class TestMessages:
     def test_send_with_fonts(self, client, screen):
         """Test sending a message with custom fonts."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={
                 "content": ["Custom font"],
@@ -138,7 +138,7 @@ class TestMessages:
     def test_send_structured_content(self, client, screen):
         """Test sending structured content items."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={
                 "content": [
@@ -153,7 +153,7 @@ class TestMessages:
     def test_send_with_wrap_option(self, client, screen):
         """Test sending text with wrap option."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={
                 "content": [
@@ -167,7 +167,7 @@ class TestMessages:
     def test_send_image_with_mode(self, client, screen):
         """Test sending an image with display mode."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={
                 "content": [
@@ -180,7 +180,7 @@ class TestMessages:
     def test_send_video(self, client, screen):
         """Test sending a video."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={
                 "content": [
@@ -199,7 +199,7 @@ class TestMessages:
     def test_wrong_api_key(self, client, screen):
         """Test that wrong API key is rejected."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": "wrong_key"},
             json={"content": ["Should fail"]},
         )
@@ -208,14 +208,14 @@ class TestMessages:
     def test_missing_api_key(self, client, screen):
         """Test that missing API key is rejected."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message", json={"content": ["Should fail"]}
+            f"/api/v1/screens/{screen['screen_id']}/message", json={"content": ["Should fail"]}
         )
         assert response.status_code == 422  # Validation error
 
     def test_nonexistent_screen(self, client, screen):
         """Test sending to a nonexistent screen."""
         response = client.post(
-            "/api/screens/nonexistent123/message",
+            "/api/v1/screens/nonexistent123/message",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Should fail"]},
         )
@@ -228,17 +228,20 @@ class TestScreenManagement:
     def test_delete_screen(self, client):
         """Test deleting a screen."""
         # Create a screen
-        create_response = client.post("/api/screens")
+        create_response = client.post("/api/v1/screens")
         screen = create_response.json()
 
-        # Delete it
-        delete_response = client.delete(f"/api/screens/{screen['screen_id']}")
+        # Delete it (requires API key)
+        delete_response = client.delete(
+            f"/api/v1/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+        )
         assert delete_response.status_code == 200
         assert delete_response.json()["success"] is True
 
         # Verify it's gone
         message_response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Should fail"]},
         )
@@ -246,13 +249,16 @@ class TestScreenManagement:
 
     def test_delete_nonexistent_screen(self, client):
         """Test deleting a nonexistent screen."""
-        response = client.delete("/api/screens/nonexistent123")
+        response = client.delete(
+            "/api/v1/screens/nonexistent123",
+            headers={"X-API-Key": "sk_fake_key"},
+        )
         assert response.status_code == 404
 
     def test_update_screen_name(self, client, screen):
         """Test updating a screen's name."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}", json={"name": "My Test Screen"}
+            f"/api/v1/screens/{screen['screen_id']}", json={"name": "My Test Screen"}
         )
         assert response.status_code == 200
         assert response.json()["success"] is True
@@ -261,27 +267,33 @@ class TestScreenManagement:
     def test_update_screen_name_empty(self, client, screen):
         """Test clearing a screen's name."""
         # First set a name
-        client.patch(f"/api/screens/{screen['screen_id']}", json={"name": "Test"})
+        client.patch(f"/api/v1/screens/{screen['screen_id']}", json={"name": "Test"})
 
         # Then clear it
-        response = client.patch(f"/api/screens/{screen['screen_id']}", json={"name": ""})
+        response = client.patch(f"/api/v1/screens/{screen['screen_id']}", json={"name": ""})
         assert response.status_code == 200
 
     def test_update_nonexistent_screen_name(self, client):
         """Test updating name of nonexistent screen."""
-        response = client.patch("/api/screens/nonexistent123", json={"name": "Test"})
+        response = client.patch("/api/v1/screens/nonexistent123", json={"name": "Test"})
         assert response.status_code == 404
 
     def test_reload_screen(self, client, screen):
         """Test the reload endpoint."""
-        response = client.post(f"/api/screens/{screen['screen_id']}/reload")
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/reload",
+            headers={"X-API-Key": screen["api_key"]},
+        )
         assert response.status_code == 200
         assert response.json()["success"] is True
         assert "viewers_reloaded" in response.json()
 
     def test_reload_nonexistent_screen(self, client):
         """Test reloading a nonexistent screen."""
-        response = client.post("/api/screens/nonexistent123/reload")
+        response = client.post(
+            "/api/v1/screens/nonexistent123/reload",
+            headers={"X-API-Key": "sk_fake_key"},
+        )
         assert response.status_code == 404
 
 
@@ -323,7 +335,7 @@ class TestContentAutoDetection:
     def test_detect_plain_text(self, client, screen):
         """Test that plain text is detected correctly."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Just plain text"]},
         )
@@ -332,7 +344,7 @@ class TestContentAutoDetection:
     def test_detect_markdown(self, client, screen):
         """Test that markdown is detected correctly."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["# This is a heading\n\nWith **bold** text"]},
         )
@@ -341,7 +353,7 @@ class TestContentAutoDetection:
     def test_detect_image_url(self, client, screen):
         """Test that image URLs are detected correctly."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["https://example.com/image.png"]},
         )
@@ -350,7 +362,7 @@ class TestContentAutoDetection:
     def test_detect_video_url(self, client, screen):
         """Test that video URLs are detected correctly."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/message",
+            f"/api/v1/screens/{screen['screen_id']}/message",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["https://example.com/video.mp4"]},
         )
@@ -362,7 +374,7 @@ class TestPages:
 
     def test_list_pages_empty(self, client, screen):
         """Test listing pages for a new screen."""
-        response = client.get(f"/api/screens/{screen['screen_id']}/pages")
+        response = client.get(f"/api/v1/screens/{screen['screen_id']}/pages")
         assert response.status_code == 200
         data = response.json()
         assert "pages" in data
@@ -371,7 +383,7 @@ class TestPages:
     def test_create_page(self, client, screen):
         """Test creating a new page."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/pages/alerts",
+            f"/api/v1/screens/{screen['screen_id']}/pages/alerts",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Alert message!"]},
         )
@@ -384,14 +396,14 @@ class TestPages:
         """Test updating an existing page."""
         # Create page
         client.post(
-            f"/api/screens/{screen['screen_id']}/pages/weather",
+            f"/api/v1/screens/{screen['screen_id']}/pages/weather",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Sunny"]},
         )
 
         # Update page
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/pages/weather",
+            f"/api/v1/screens/{screen['screen_id']}/pages/weather",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Rainy"]},
         )
@@ -401,7 +413,7 @@ class TestPages:
     def test_create_page_with_duration(self, client, screen):
         """Test creating a page with custom duration."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/pages/promo",
+            f"/api/v1/screens/{screen['screen_id']}/pages/promo",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Special offer!"], "duration": 10},
         )
@@ -415,7 +427,7 @@ class TestPages:
         expires = (datetime.now(UTC) + timedelta(hours=1)).isoformat()
 
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/pages/flash",
+            f"/api/v1/screens/{screen['screen_id']}/pages/flash",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Flash sale!"], "expires_at": expires},
         )
@@ -426,14 +438,14 @@ class TestPages:
         """Test deleting a page."""
         # Create page
         client.post(
-            f"/api/screens/{screen['screen_id']}/pages/temp",
+            f"/api/v1/screens/{screen['screen_id']}/pages/temp",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Temporary"]},
         )
 
         # Delete page
         response = client.delete(
-            f"/api/screens/{screen['screen_id']}/pages/temp",
+            f"/api/v1/screens/{screen['screen_id']}/pages/temp",
             headers={"X-API-Key": screen["api_key"]},
         )
         assert response.status_code == 200
@@ -442,7 +454,7 @@ class TestPages:
     def test_cannot_delete_default_page(self, client, screen):
         """Test that the default page cannot be deleted."""
         response = client.delete(
-            f"/api/screens/{screen['screen_id']}/pages/default",
+            f"/api/v1/screens/{screen['screen_id']}/pages/default",
             headers={"X-API-Key": screen["api_key"]},
         )
         assert response.status_code == 400
@@ -450,7 +462,7 @@ class TestPages:
     def test_delete_nonexistent_page(self, client, screen):
         """Test deleting a page that doesn't exist."""
         response = client.delete(
-            f"/api/screens/{screen['screen_id']}/pages/nonexistent",
+            f"/api/v1/screens/{screen['screen_id']}/pages/nonexistent",
             headers={"X-API-Key": screen["api_key"]},
         )
         assert response.status_code == 404
@@ -458,7 +470,7 @@ class TestPages:
     def test_page_wrong_api_key(self, client, screen):
         """Test that wrong API key is rejected for page operations."""
         response = client.post(
-            f"/api/screens/{screen['screen_id']}/pages/test",
+            f"/api/v1/screens/{screen['screen_id']}/pages/test",
             headers={"X-API-Key": "wrong_key"},
             json={"content": ["Should fail"]},
         )
@@ -471,7 +483,7 @@ class TestRotation:
     def test_update_rotation_settings(self, client, screen):
         """Test updating rotation settings."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"rotation_enabled": True, "rotation_interval": 15},
         )
@@ -484,7 +496,7 @@ class TestRotation:
     def test_disable_rotation(self, client, screen):
         """Test disabling rotation."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"rotation_enabled": False},
         )
@@ -494,7 +506,7 @@ class TestRotation:
     def test_rotation_wrong_api_key(self, client, screen):
         """Test that wrong API key is rejected for rotation settings."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": "wrong_key"},
             json={"rotation_enabled": True},
         )
@@ -503,7 +515,7 @@ class TestRotation:
     def test_update_gap_setting(self, client, screen):
         """Test updating gap setting."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"gap": "0.5rem"},
         )
@@ -515,7 +527,7 @@ class TestRotation:
     def test_update_gap_zero(self, client, screen):
         """Test setting gap to zero for edge-to-edge panels."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"gap": "0"},
         )
@@ -525,7 +537,7 @@ class TestRotation:
     def test_update_border_radius(self, client, screen):
         """Test updating border radius setting."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"border_radius": "0.5rem"},
         )
@@ -537,7 +549,7 @@ class TestRotation:
     def test_update_border_radius_zero(self, client, screen):
         """Test setting border radius to zero for sharp corners."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"border_radius": "0"},
         )
@@ -547,7 +559,7 @@ class TestRotation:
     def test_update_panel_shadow(self, client, screen):
         """Test updating panel shadow setting."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"panel_shadow": "0 4px 12px rgba(0,0,0,0.3)"},
         )
@@ -560,7 +572,7 @@ class TestRotation:
         """Test that panel shadow has default theme value for new screens."""
         # Get settings without modifying shadow
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"gap": "1rem"},
         )
@@ -572,24 +584,24 @@ class TestRotation:
         """Test reordering pages."""
         # Create some pages
         client.post(
-            f"/api/screens/{screen['screen_id']}/pages/default",
+            f"/api/v1/screens/{screen['screen_id']}/pages/default",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Default"]},
         )
         client.post(
-            f"/api/screens/{screen['screen_id']}/pages/page1",
+            f"/api/v1/screens/{screen['screen_id']}/pages/page1",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Page 1"]},
         )
         client.post(
-            f"/api/screens/{screen['screen_id']}/pages/page2",
+            f"/api/v1/screens/{screen['screen_id']}/pages/page2",
             headers={"X-API-Key": screen["api_key"]},
             json={"content": ["Page 2"]},
         )
 
         # Reorder
         response = client.put(
-            f"/api/screens/{screen['screen_id']}/pages/order",
+            f"/api/v1/screens/{screen['screen_id']}/pages/order",
             headers={"X-API-Key": screen["api_key"]},
             json={"page_names": ["page2", "page1", "default"]},
         )
@@ -599,7 +611,7 @@ class TestRotation:
     def test_update_background_color(self, client, screen):
         """Test updating screen-level background color."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"background_color": "#1a1a2e"},
         )
@@ -612,7 +624,7 @@ class TestRotation:
         """Test updating screen-level background color with a gradient."""
         gradient = "linear-gradient(90deg, rgba(42,123,155,1) 0%, rgba(87,199,133,1) 100%)"
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"background_color": gradient},
         )
@@ -624,7 +636,7 @@ class TestRotation:
     def test_update_panel_color(self, client, screen):
         """Test updating screen-level panel color."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"panel_color": "#16213e"},
         )
@@ -636,7 +648,7 @@ class TestRotation:
     def test_update_font_family(self, client, screen):
         """Test updating screen-level font family."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"font_family": "Georgia, serif"},
         )
@@ -648,7 +660,7 @@ class TestRotation:
     def test_update_font_color(self, client, screen):
         """Test updating screen-level font color."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"font_color": "#f1c40f"},
         )
@@ -660,7 +672,7 @@ class TestRotation:
     def test_color_settings_have_default_theme_values(self, client, screen):
         """Test that color/font settings have default theme values for new screens."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"gap": "1rem"},
         )
@@ -679,7 +691,7 @@ class TestThemes:
 
     def test_list_themes(self, client):
         """Test listing available themes."""
-        response = client.get("/api/themes")
+        response = client.get("/api/v1/themes")
         assert response.status_code == 200
         data = response.json()
         assert "themes" in data
@@ -697,7 +709,7 @@ class TestThemes:
     def test_apply_theme(self, client, screen):
         """Test applying a theme sets all values."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"theme": "catppuccin-mocha"},
         )
@@ -711,7 +723,7 @@ class TestThemes:
     def test_apply_theme_with_override(self, client, screen):
         """Test applying a theme with overrides."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"theme": "catppuccin-mocha", "gap": "0", "border_radius": "0"},
         )
@@ -727,7 +739,7 @@ class TestThemes:
     def test_invalid_theme(self, client, screen):
         """Test applying an unknown theme returns 400."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}",
+            f"/api/v1/screens/{screen['screen_id']}",
             headers={"X-API-Key": screen["api_key"]},
             json={"theme": "nonexistent-theme"},
         )
@@ -737,6 +749,6 @@ class TestThemes:
     def test_theme_requires_api_key(self, client, screen):
         """Test that applying a theme requires API key."""
         response = client.patch(
-            f"/api/screens/{screen['screen_id']}", json={"theme": "catppuccin-mocha"}
+            f"/api/v1/screens/{screen['screen_id']}", json={"theme": "catppuccin-mocha"}
         )
         assert response.status_code == 401
