@@ -54,6 +54,42 @@ async def root(request: Request):
     return RedirectResponse(url="/admin/screens", status_code=302)
 
 
+@router.get("/auth/logout", response_class=HTMLResponse)
+async def logout():
+    """Sign out - clear cookies and show logged out page."""
+    # Create response with a simple logged-out page
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Signed Out</title>
+        <style>
+            body { font-family: sans-serif; background: #0f0f23; color: #ccc;
+                   display: flex; align-items: center; justify-content: center;
+                   min-height: 100vh; margin: 0; }
+            .container { text-align: center; }
+            a { color: #4a69bd; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Signed Out</h1>
+            <p>You have been signed out successfully.</p>
+            <p><a href="/admin/screens">Sign in again</a></p>
+        </div>
+    </body>
+    </html>
+    """
+    response = HTMLResponse(content=html)
+
+    # Clear all Clerk cookies
+    response.delete_cookie("__session")
+    response.delete_cookie("__client_uat")
+    response.delete_cookie("__clerk_db_jwt")
+
+    return response
+
+
 @router.get("/auth/callback")
 async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
     """Handle Clerk auth callback - parse handshake JWT and set cookies server-side."""

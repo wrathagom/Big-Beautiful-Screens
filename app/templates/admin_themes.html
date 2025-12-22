@@ -184,23 +184,8 @@
     </div>
 
     <script>
-        async function signOut() {
-            let attempts = 0;
-            while (!window.Clerk && attempts < 50) {
-                await new Promise(r => setTimeout(r, 100));
-                attempts++;
-            }
-            if (window.Clerk) {
-                try {
-                    if (!window.Clerk.loaded) await window.Clerk.load();
-                    await window.Clerk.signOut();
-                } catch (e) {
-                    console.error('Clerk signOut error:', e);
-                }
-            }
-            document.cookie = '__session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
-            document.cookie = '__client_uat=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
-            window.location.href = '/admin/screens';
+        function signOut() {
+            window.location.href = '/auth/logout';
         }
 
         function toggleExpand(card) {

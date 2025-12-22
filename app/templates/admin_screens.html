@@ -116,31 +116,8 @@
     <script>
         const BASE_URL = window.location.origin;
 
-        async function signOut() {
-            // Wait for Clerk to be ready
-            let attempts = 0;
-            while (!window.Clerk && attempts < 50) {
-                await new Promise(r => setTimeout(r, 100));
-                attempts++;
-            }
-
-            if (window.Clerk) {
-                try {
-                    // Ensure Clerk is loaded
-                    if (!window.Clerk.loaded) {
-                        await window.Clerk.load();
-                    }
-                    // Sign out and redirect
-                    await window.Clerk.signOut();
-                } catch (e) {
-                    console.error('Clerk signOut error:', e);
-                }
-            }
-
-            // Clear cookies and redirect
-            document.cookie = '__session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
-            document.cookie = '__client_uat=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
-            window.location.href = '/admin/screens';
+        function signOut() {
+            window.location.href = '/auth/logout';
         }
 
         document.getElementById('create-screen').addEventListener('click', async () => {
