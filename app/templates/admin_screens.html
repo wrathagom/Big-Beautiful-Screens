@@ -119,11 +119,30 @@
         // Helper to get Clerk session token for API calls (SaaS mode)
         // Returns empty headers in self-hosted mode where Clerk isn't loaded
         async function getAuthHeaders() {
-            if (typeof Clerk !== 'undefined' && Clerk.session) {
+            if (typeof Clerk === 'undefined') {
+                console.log('[Auth] Clerk not loaded');
+                return {};
+            }
+
+            // Wait for Clerk to be ready if needed
+            if (!Clerk.loaded) {
+                console.log('[Auth] Waiting for Clerk to load...');
+                await Clerk.load();
+            }
+
+            if (!Clerk.session) {
+                console.log('[Auth] No Clerk session');
+                return {};
+            }
+
+            try {
                 const token = await Clerk.session.getToken();
+                console.log('[Auth] Got token:', token ? 'yes' : 'no');
                 if (token) {
                     return { 'Authorization': `Bearer ${token}` };
                 }
+            } catch (e) {
+                console.error('[Auth] Error getting token:', e);
             }
             return {};
         }
