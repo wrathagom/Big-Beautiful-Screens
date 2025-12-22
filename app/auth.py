@@ -86,8 +86,45 @@ async def get_current_user(request: Request) -> AuthUser | None:
     try:
         clerk = _get_clerk()
 
-        # Use Clerk SDK to authenticate the request
-        # The SDK handles both __clerk_db_jwt and __session cookie
+        # In dev mode, Clerk uses __clerk_db_jwt query param instead of cookies
+        # We need to verify this token via the Clerk API
+        db_jwt = request.query_params.get("__clerk_db_jwt")
+        if db_jwt:
+            # Verify the dev browser token via Clerk API
+            try:
+                client = clerk.clients.verify(request={"token": db_jwt})
+                if client and client.sessions:
+                    # Get the most recent active session
+                    for session in client.sessions:
+                        if session.status == "active" and session.user_id:
+                            # Fetch user details
+                            user = clerk.users.get(user_id=session.user_id)
+                            if user:
+                                email = None
+                                if user.email_addresses:
+                                    primary = next(
+                                        (
+                                            e
+                                            for e in user.email_addresses
+                                            if e.id == user.primary_email_address_id
+                                        ),
+                                        user.email_addresses[0] if user.email_addresses else None,
+                                    )
+                                    if primary:
+                                        email = primary.email_address
+
+                                return AuthUser(
+                                    user_id=user.id,
+                                    email=email,
+                                    name=f"{user.first_name or ''} {user.last_name or ''}".strip()
+                                    or None,
+                                    org_id=None,
+                                    org_role=None,
+                                )
+            except Exception as e:
+                print(f"Clerk dev token verification failed: {e}")
+
+        # Standard flow: use authenticate_request for cookies/headers
         request_state = clerk.authenticate_request(
             request,
             AuthenticateRequestOptions(
