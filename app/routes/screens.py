@@ -52,15 +52,20 @@ static_path = Path(__file__).parent.parent.parent / "static"
 async def create_new_screen(user: OptionalUser = None):
     """Create a new screen and return its ID and API key.
 
-    In SaaS mode with authentication, sets the current user as owner.
-    Otherwise creates an anonymous screen.
+    In SaaS mode, requires authentication and sets the current user as owner.
+    In self-hosted mode, creates anonymous screens.
     """
+    settings = get_settings()
+
+    # In SaaS mode, require authentication to prevent orphan screens
+    if settings.APP_MODE == AppMode.SAAS and not user:
+        raise HTTPException(status_code=401, detail="Authentication required to create screens")
+
     screen_id = uuid.uuid4().hex[:12]
     api_key = f"sk_{secrets.token_urlsafe(24)}"
     created_at = datetime.now(UTC).isoformat()
 
     # Set ownership if user is authenticated in SaaS mode
-    settings = get_settings()
     owner_id = None
     org_id = None
     if settings.APP_MODE == AppMode.SAAS and user:
@@ -87,19 +92,32 @@ async def create_new_screen(user: OptionalUser = None):
 
 
 @router.get("/api/v1/screens")
-async def list_screens(page: int = 1, per_page: int = 20):
-    """List all screens with pagination.
+async def list_screens(user: OptionalUser, page: int = 1, per_page: int = 20):
+    """List screens with pagination.
 
-    Returns screen metadata (not API keys for security).
+    In SaaS mode, requires authentication and returns only user's screens.
+    In self-hosted mode, returns all screens.
     """
+    settings = get_settings()
+
+    # In SaaS mode, require authentication
+    if settings.APP_MODE == AppMode.SAAS:
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required")
+        owner_id = user.user_id
+        org_id = user.org_id
+    else:
+        owner_id = None
+        org_id = None
+
     per_page = min(per_page, 100)  # Cap at 100
     offset = (page - 1) * per_page
 
-    total_count = await get_screens_count()
+    total_count = await get_screens_count(owner_id=owner_id, org_id=org_id)
     total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
     page = max(1, min(page, total_pages))
 
-    screens = await get_all_screens(limit=per_page, offset=offset)
+    screens = await get_all_screens(limit=per_page, offset=offset, owner_id=owner_id, org_id=org_id)
 
     # Return screen info without exposing API keys
     return {
@@ -233,11 +251,10 @@ async def toggle_debug(
 async def update_screen(
     screen_id: str,
     request: ScreenUpdateRequest,
-    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    x_api_key: str = Header(alias="X-API-Key"),
 ):
-    """Update a screen's properties via JSON body.
+    """Update a screen's properties via JSON body. Requires API key authentication.
 
-    API key is required for rotation/display settings, optional for name-only updates.
     You can apply a theme and override specific values in the same request.
     """
     screen = await get_screen_by_id(screen_id)
@@ -285,7 +302,10 @@ async def update_screen(
     )
     head_html = request.head_html
 
-    # Require API key for rotation/display setting changes (including theme)
+    # Validate API key
+    if screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
     has_display_settings = (
         request.theme is not None
         or rotation_enabled is not None
@@ -299,8 +319,6 @@ async def update_screen(
         or font_color is not None
         or head_html is not None
     )
-    if has_display_settings and (not x_api_key or screen["api_key"] != x_api_key):
-        raise HTTPException(status_code=401, detail="Invalid API key")
 
     # Update name if provided
     if name is not None:

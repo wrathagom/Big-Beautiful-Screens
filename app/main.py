@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 
 from .config import AppMode, get_settings
@@ -28,6 +29,7 @@ if settings.APP_MODE == AppMode.SAAS:
     openapi_tags.extend(
         [
             {"name": "me", "description": "User-specific endpoints (SaaS mode)"},
+            {"name": "billing", "description": "Subscription and billing management"},
             {"name": "webhooks", "description": "Clerk authentication webhooks"},
         ]
     )
@@ -38,6 +40,43 @@ app = FastAPI(
     description="Real-time display screens for dashboards, status boards, and signage",
     openapi_tags=openapi_tags,
 )
+
+
+def custom_openapi():
+    """Generate custom OpenAPI schema with security schemes."""
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+        tags=openapi_tags,
+    )
+
+    # Add security schemes
+    openapi_schema["components"] = openapi_schema.get("components", {})
+    openapi_schema["components"]["securitySchemes"] = {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "in": "header",
+            "name": "X-API-Key",
+            "description": "Screen API key (sk_xxx) for screen-specific operations",
+        },
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Clerk JWT token from __session cookie (SaaS mode)",
+        },
+    }
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+
+app.openapi = custom_openapi
 
 # Include API routers
 app.include_router(themes_router)

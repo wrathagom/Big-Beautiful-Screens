@@ -58,9 +58,13 @@ async def get_theme_by_name(theme_name: str):
 async def create_theme(request: ThemeCreate, user: OptionalUser = None):
     """Create a new custom theme.
 
-    In SaaS mode with authentication, enforces plan limits and sets ownership.
+    In SaaS mode, requires authentication, enforces plan limits, and sets ownership.
     """
     settings = get_settings()
+
+    # In SaaS mode, require authentication to prevent orphan themes
+    if settings.APP_MODE == AppMode.SAAS and not user:
+        raise HTTPException(status_code=401, detail="Authentication required to create themes")
 
     # Check plan limits in SaaS mode
     if settings.APP_MODE == AppMode.SAAS and user:
