@@ -116,11 +116,31 @@
     <script>
         const BASE_URL = window.location.origin;
 
-        function signOut() {
-            // Redirect to Clerk's sign-out URL - properly ends the Clerk session
-            // After sign-out, Clerk redirects back to our site, which will show the sign-in page
-            const returnUrl = encodeURIComponent(window.location.origin + '/admin/screens');
-            window.location.href = 'https://wise-mastodon-83.accounts.dev/sign-out?redirect_url=' + returnUrl;
+        async function signOut() {
+            // Wait for Clerk to be ready
+            let attempts = 0;
+            while (!window.Clerk && attempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+
+            if (window.Clerk) {
+                try {
+                    // Ensure Clerk is loaded
+                    if (!window.Clerk.loaded) {
+                        await window.Clerk.load();
+                    }
+                    // Sign out and redirect
+                    await window.Clerk.signOut();
+                } catch (e) {
+                    console.error('Clerk signOut error:', e);
+                }
+            }
+
+            // Clear cookies and redirect
+            document.cookie = '__session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
+            document.cookie = '__client_uat=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
+            window.location.href = '/admin/screens';
         }
 
         document.getElementById('create-screen').addEventListener('click', async () => {

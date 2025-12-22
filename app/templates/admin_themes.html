@@ -184,10 +184,23 @@
     </div>
 
     <script>
-        function signOut() {
-            // Redirect to Clerk's sign-out URL - properly ends the Clerk session
-            const returnUrl = encodeURIComponent(window.location.origin + '/admin/screens');
-            window.location.href = 'https://wise-mastodon-83.accounts.dev/sign-out?redirect_url=' + returnUrl;
+        async function signOut() {
+            let attempts = 0;
+            while (!window.Clerk && attempts < 50) {
+                await new Promise(r => setTimeout(r, 100));
+                attempts++;
+            }
+            if (window.Clerk) {
+                try {
+                    if (!window.Clerk.loaded) await window.Clerk.load();
+                    await window.Clerk.signOut();
+                } catch (e) {
+                    console.error('Clerk signOut error:', e);
+                }
+            }
+            document.cookie = '__session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
+            document.cookie = '__client_uat=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=None; Secure';
+            window.location.href = '/admin/screens';
         }
 
         function toggleExpand(card) {
