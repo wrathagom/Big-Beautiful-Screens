@@ -491,18 +491,10 @@
     </div>
 
     <script>
-        async function signOut() {
-            try {
-                if (window.Clerk && window.Clerk.signOut) {
-                    await window.Clerk.signOut();
-                }
-            } catch (e) {
-                console.error('Sign out error:', e);
-            }
-            // Clear cookies manually as fallback
-            document.cookie = '__session=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
-            document.cookie = '__client_uat=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
-            window.location.href = '/';
+        function signOut() {
+            // Redirect to Clerk's sign-out URL - properly ends the Clerk session
+            const returnUrl = encodeURIComponent(window.location.origin + '/admin/screens');
+            window.location.href = 'https://wise-mastodon-83.accounts.dev/sign-out?redirect_url=' + returnUrl;
         }
 
         // Countdown to midnight UTC
