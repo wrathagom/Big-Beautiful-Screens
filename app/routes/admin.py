@@ -1,5 +1,8 @@
 """Admin dashboard routes with Jinja2 template rendering."""
 
+import base64
+import contextlib
+import json
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -49,6 +52,93 @@ async def root(request: Request):
 
     # Default: redirect to admin screens
     return RedirectResponse(url="/admin/screens", status_code=302)
+
+
+@router.get("/auth/callback")
+async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
+    """Handle Clerk auth callback - parse handshake JWT and set cookies server-side."""
+    settings = get_settings()
+
+    if settings.APP_MODE != AppMode.SAAS:
+        return RedirectResponse(url=redirect_url, status_code=302)
+
+    # Get the handshake JWT from query params
+    handshake_jwt = request.query_params.get("__clerk_handshake")
+
+    if handshake_jwt:
+        try:
+            # Decode JWT payload (we don't need to verify, just extract cookies)
+            # JWT format: header.payload.signature
+            parts = handshake_jwt.split(".")
+            if len(parts) >= 2:
+                # Add padding if needed for base64 decoding
+                payload_b64 = parts[1]
+                padding = 4 - len(payload_b64) % 4
+                if padding != 4:
+                    payload_b64 += "=" * padding
+
+                payload_json = base64.urlsafe_b64decode(payload_b64)
+                payload = json.loads(payload_json)
+
+                # Extract cookie strings from handshake array
+                cookie_strings = payload.get("handshake", [])
+
+                # Create redirect response and set cookies
+                response = RedirectResponse(url=redirect_url, status_code=302)
+
+                for cookie_str in cookie_strings:
+                    # Parse cookie string: "name=value; Path=/; ..."
+                    parts = cookie_str.split(";")
+                    if not parts:
+                        continue
+
+                    # First part is name=value
+                    name_value = parts[0].strip()
+                    if "=" not in name_value:
+                        continue
+
+                    name, value = name_value.split("=", 1)
+
+                    # Parse attributes
+                    path = "/"
+                    max_age = None
+                    secure = False
+                    httponly = False
+                    samesite = "lax"
+
+                    for attr in parts[1:]:
+                        attr = attr.strip().lower()
+                        if attr.startswith("path="):
+                            path = attr.split("=", 1)[1]
+                        elif attr.startswith("max-age="):
+                            with contextlib.suppress(ValueError):
+                                max_age = int(attr.split("=", 1)[1])
+                        elif attr == "secure":
+                            secure = True
+                        elif attr == "httponly":
+                            httponly = True
+                        elif attr.startswith("samesite="):
+                            samesite = attr.split("=", 1)[1]
+
+                    # Set the cookie on response
+                    response.set_cookie(
+                        key=name,
+                        value=value,
+                        path=path,
+                        max_age=max_age,
+                        secure=secure,
+                        httponly=httponly,
+                        samesite=samesite,
+                    )
+
+                return response
+
+        except Exception as e:
+            # Log error and fall through to redirect without cookies
+            print(f"Failed to parse Clerk handshake: {e}")
+
+    # Fallback: just redirect (user may need to sign in again)
+    return RedirectResponse(url=redirect_url, status_code=302)
 
 
 @router.get("/admin/screens", response_class=HTMLResponse)
