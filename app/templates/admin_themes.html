@@ -184,7 +184,10 @@
     </div>
 
     <script>
-        function signOut() {
+        async function signOut() {
+            if (typeof Clerk !== 'undefined' && Clerk.loaded) {
+                await Clerk.signOut();
+            }
             window.location.href = '/auth/logout';
         }
 
