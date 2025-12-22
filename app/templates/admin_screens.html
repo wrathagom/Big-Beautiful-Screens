@@ -116,13 +116,27 @@
     <script>
         const BASE_URL = window.location.origin;
 
+        // Helper to get Clerk session token for API calls (SaaS mode)
+        // Returns empty headers in self-hosted mode where Clerk isn't loaded
+        async function getAuthHeaders() {
+            if (typeof Clerk !== 'undefined' && Clerk.session) {
+                const token = await Clerk.session.getToken();
+                if (token) {
+                    return { 'Authorization': `Bearer ${token}` };
+                }
+            }
+            return {};
+        }
+
         function signOut() {
             window.location.href = '/auth/logout';
         }
 
         document.getElementById('create-screen').addEventListener('click', async () => {
+            const authHeaders = await getAuthHeaders();
             const response = await fetch('/api/v1/screens', {
                 method: 'POST',
+                headers: authHeaders,
                 credentials: 'include'
             });
             if (!response.ok) {

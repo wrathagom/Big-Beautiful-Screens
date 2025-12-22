@@ -79,15 +79,8 @@ async def get_current_user(request: Request) -> AuthUser | None:
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return None
 
-    # Debug: log what we're receiving
-    session_cookie = request.cookies.get("__session")
-    print(f"[AUTH DEBUG] Path: {request.url.path}")
-    print(f"[AUTH DEBUG] Has __session cookie: {bool(session_cookie)}")
-    print(f"[AUTH DEBUG] Cookie length: {len(session_cookie) if session_cookie else 0}")
-
     # Check if there's any token to verify
     if not _has_clerk_token(request):
-        print("[AUTH DEBUG] No Clerk token found")
         return None
 
     try:
