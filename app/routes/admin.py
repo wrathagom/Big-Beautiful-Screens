@@ -25,23 +25,30 @@ templates_path = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=templates_path)
 
 
-@router.get("/auth/callback", response_class=HTMLResponse)
-async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
-    """Handle Clerk auth callback - loads Clerk JS SDK to complete auth."""
+@router.get("/", response_class=HTMLResponse)
+async def root(request: Request):
+    """Root route - handles Clerk auth redirect and serves as landing page."""
     settings = get_settings()
 
-    if settings.APP_MODE != AppMode.SAAS:
-        return RedirectResponse(url=redirect_url, status_code=302)
+    # In SaaS mode with Clerk auth params, render the callback page to process them
+    if settings.APP_MODE == AppMode.SAAS:
+        has_auth_params = request.query_params.get("__clerk_db_jwt") or request.query_params.get(
+            "__clerk_handshake"
+        )
 
-    return templates.TemplateResponse(
-        request=request,
-        name="clerk_callback.html",
-        context={
-            "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
-            "redirect_url": redirect_url,
-            "sign_in_url": get_clerk_sign_in_url(redirect_url),
-        },
-    )
+        if has_auth_params:
+            return templates.TemplateResponse(
+                request=request,
+                name="clerk_callback.html",
+                context={
+                    "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+                    "redirect_url": "/admin/screens",
+                    "sign_in_url": get_clerk_sign_in_url("/admin/screens"),
+                },
+            )
+
+    # Default: redirect to admin screens
+    return RedirectResponse(url="/admin/screens", status_code=302)
 
 
 @router.get("/admin/screens", response_class=HTMLResponse)
