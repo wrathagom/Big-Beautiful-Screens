@@ -88,7 +88,15 @@
             }
 
             // No auth params - check if already signed in
-            if (clerk.user || clerk.session) {
+            if (clerk.session) {
+                // Force token refresh before redirecting
+                try {
+                    await clerk.session.getToken({ skipCache: true });
+                    // Wait a moment for cookie to be set
+                    await new Promise(r => setTimeout(r, 200));
+                } catch (e) {
+                    console.log('Token refresh failed:', e.message);
+                }
                 window.location.href = redirectUrl || '/admin/screens';
                 return;
             }

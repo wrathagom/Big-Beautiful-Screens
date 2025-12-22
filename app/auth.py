@@ -99,13 +99,17 @@ async def _verify_clerk_jwt(token: str) -> dict | None:
         if not signing_key:
             return None
 
-        # Verify the token with leeway for clock skew
+        # Verify the token with leeway for clock skew.
+        # Clerk session tokens have a 60-second lifetime by design.
+        # The Clerk JS SDK refreshes every 50 seconds, but sometimes tokens
+        # arrive older. We use 300s leeway as a safety net, combined with
+        # the session refresh callback page for truly expired sessions.
         claims = jwt.decode(
             token,
             signing_key,
             algorithms=["RS256"],
             options={"verify_aud": False},  # Clerk doesn't always set aud
-            leeway=60,  # Allow 60 seconds of clock skew
+            leeway=300,  # Allow 5 minutes for Clerk token refresh delays
         )
 
         return claims
@@ -152,6 +156,15 @@ def _extract_token(request: Request) -> str | None:
         return db_jwt
 
     return None
+
+
+def has_session_cookie(request: Request) -> bool:
+    """Check if the request has a session cookie (even if expired).
+
+    Use this to decide whether to render a session refresh page
+    instead of redirecting to sign-in.
+    """
+    return bool(request.cookies.get("__session"))
 
 
 async def get_current_user(request: Request) -> AuthUser | None:

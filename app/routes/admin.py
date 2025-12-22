@@ -9,7 +9,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from ..auth import get_clerk_sign_in_url, get_current_user
+from ..auth import get_clerk_sign_in_url, get_current_user, has_session_cookie
 from ..config import PLAN_LIMITS, AppMode, get_settings
 from ..connection_manager import manager
 from ..database import (
@@ -213,6 +213,17 @@ async def admin_screens(request: Request, page: int = 1):
     if settings.APP_MODE == AppMode.SAAS:
         user = await get_current_user(request)
         if not user:
+            # If user has an expired session cookie, let Clerk JS SDK refresh it
+            if has_session_cookie(request):
+                return templates.TemplateResponse(
+                    request=request,
+                    name="clerk_callback.html",
+                    context={
+                        "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+                        "redirect_url": "/admin/screens",
+                        "sign_in_url": get_clerk_sign_in_url("/admin/screens"),
+                    },
+                )
             return RedirectResponse(url=get_clerk_sign_in_url("/admin/screens"), status_code=302)
 
     per_page = 10
@@ -281,6 +292,17 @@ async def admin_themes(request: Request, page: int = 1):
     if settings.APP_MODE == AppMode.SAAS:
         user = await get_current_user(request)
         if not user:
+            # If user has an expired session cookie, let Clerk JS SDK refresh it
+            if has_session_cookie(request):
+                return templates.TemplateResponse(
+                    request=request,
+                    name="clerk_callback.html",
+                    context={
+                        "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+                        "redirect_url": "/admin/themes",
+                        "sign_in_url": get_clerk_sign_in_url("/admin/themes"),
+                    },
+                )
             return RedirectResponse(url=get_clerk_sign_in_url("/admin/themes"), status_code=302)
 
     per_page = 10
@@ -339,6 +361,17 @@ async def admin_usage(request: Request, checkout: str | None = None):
 
     user = await get_current_user(request)
     if not user:
+        # If user has an expired session cookie, let Clerk JS SDK refresh it
+        if has_session_cookie(request):
+            return templates.TemplateResponse(
+                request=request,
+                name="clerk_callback.html",
+                context={
+                    "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+                    "redirect_url": "/admin/usage",
+                    "sign_in_url": get_clerk_sign_in_url("/admin/usage"),
+                },
+            )
         return RedirectResponse(url=get_clerk_sign_in_url("/admin/usage"), status_code=302)
 
     db = get_database()
