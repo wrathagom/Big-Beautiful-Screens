@@ -26,6 +26,7 @@ from ..database import (
     update_screen_name,
     upsert_page,
 )
+from ..db import get_database
 from ..models import (
     MessageRequest,
     MessageResponse,
@@ -65,6 +66,15 @@ async def create_new_screen(user: OptionalUser = None):
     if settings.APP_MODE == AppMode.SAAS and user:
         owner_id = user.user_id
         org_id = user.org_id
+
+        # Ensure user exists in database (handles case where webhook didn't fire)
+        db = get_database()
+        await db.create_or_update_user(
+            user_id=user.user_id,
+            email=user.email or "unknown@example.com",
+            name=user.name,
+            plan="free",
+        )
 
     await create_screen(screen_id, api_key, created_at, owner_id=owner_id, org_id=org_id)
 
