@@ -891,6 +891,33 @@ h1 {
     border-top: 1px solid #2a2a4e;
 }
 
+.modal-large {
+    max-width: 800px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-large .modal-body {
+    overflow: auto;
+    flex: 1;
+}
+
+.json-display {
+    background: #0f0f1a;
+    border: 1px solid #2a2a4e;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin: 0;
+    font-family: 'Fira Code', 'Consolas', monospace;
+    font-size: 0.8rem;
+    color: #a0d0a0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 60vh;
+    overflow: auto;
+}
+
 /* Responsive for Theme Management */
 @media (max-width: 768px) {
     .theme-summary {

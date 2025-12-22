@@ -90,6 +90,7 @@
                                         <button onclick="copyExample(this, 'python')">Python</button>
                                     </div>
                                 </div>
+                                <button class="btn-secondary" onclick="viewJson('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">View JSON</button>
                                 <button class="btn-debug" onclick="toggleDebug('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Toggle Debug</button>
                                 <button class="btn-reload" onclick="reloadScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Reload Viewers</button>
                                 <button class="btn-delete" onclick="deleteScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Delete Screen</button>
@@ -192,6 +193,7 @@
             card.querySelector('.copy-api-key').onclick = function() { copyValue(this, data.api_key); };
             card.querySelector('.copy-api-url').onclick = function() { copyValue(this, BASE_URL + data.api_url); };
             card.querySelector('.btn-save-head').onclick = function(e) { e.stopPropagation(); saveHeadHtml(data.screen_id, this); };
+            card.querySelector('.btn-view-json').onclick = function(e) { e.stopPropagation(); viewJson(data.screen_id, data.api_key); };
             card.querySelector('.btn-debug').onclick = function(e) { e.stopPropagation(); toggleDebug(data.screen_id, data.api_key); };
             card.querySelector('.btn-reload').onclick = function(e) { e.stopPropagation(); reloadScreen(data.screen_id, data.api_key); };
             card.querySelector('.btn-delete').onclick = function(e) { e.stopPropagation(); deleteScreen(data.screen_id, data.api_key); };
@@ -298,6 +300,37 @@ print(response.json())`;
             } catch (error) {
                 alert('Failed to reload: ' + error.message);
             }
+        }
+
+        async function viewJson(screenId, apiKey) {
+            try {
+                const response = await fetch(`/api/v1/screens/${screenId}`, {
+                    headers: { 'X-API-Key': apiKey }
+                });
+                if (!response.ok) {
+                    alert('Failed to fetch screen data');
+                    return;
+                }
+                const data = await response.json();
+                const modal = document.getElementById('json-modal');
+                const content = document.getElementById('json-content');
+                content.textContent = JSON.stringify(data, null, 2);
+                modal.style.display = 'flex';
+            } catch (error) {
+                alert('Failed to fetch: ' + error.message);
+            }
+        }
+
+        function closeJsonModal() {
+            document.getElementById('json-modal').style.display = 'none';
+        }
+
+        function copyJson() {
+            const content = document.getElementById('json-content').textContent;
+            navigator.clipboard.writeText(content);
+            const btn = document.querySelector('#json-modal .btn-primary');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy JSON', 1500);
         }
 
         // Track debug state per screen
@@ -440,6 +473,23 @@ print(response.json())`;
         }
     </script>
 
+    <!-- JSON View Modal -->
+    <div id="json-modal" class="modal" onclick="if(event.target === this) closeJsonModal()">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2>Screen Data (JSON)</h2>
+                <button class="modal-close" onclick="closeJsonModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <pre id="json-content" class="json-display"></pre>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeJsonModal()">Close</button>
+                <button class="btn-primary" onclick="copyJson()">Copy JSON</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Template for new screen cards (cloned by JavaScript) -->
     <template id="screen-card-template">
         <div class="screen-card">
@@ -491,6 +541,7 @@ print(response.json())`;
                                 <button onclick="copyExample(this, 'python')">Python</button>
                             </div>
                         </div>
+                        <button class="btn-secondary btn-view-json" onclick="event.stopPropagation();">View JSON</button>
                         <button class="btn-debug" onclick="event.stopPropagation();">Toggle Debug</button>
                         <button class="btn-reload" onclick="event.stopPropagation();">Reload Viewers</button>
                         <button class="btn-delete" onclick="event.stopPropagation();">Delete Screen</button>
