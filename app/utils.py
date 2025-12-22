@@ -63,6 +63,8 @@ def normalize_content(content: list) -> list:
             # Preserve per-panel styling if specified
             if item.panel_color:
                 entry["panel_color"] = item.panel_color
+            if item.panel_shadow is not None:
+                entry["panel_shadow"] = item.panel_shadow
             if item.font_family:
                 entry["font_family"] = item.font_family
             if item.font_color:
