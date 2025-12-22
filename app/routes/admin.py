@@ -3,6 +3,7 @@
 import base64
 import contextlib
 import json
+from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Request
@@ -22,6 +23,17 @@ from ..database import (
 from ..db import get_database
 
 router = APIRouter(include_in_schema=False)
+
+
+def _format_datetime(value: str | datetime | None) -> str:
+    """Format a datetime value for display, handling both strings and datetime objects."""
+    if value is None:
+        return "Never"
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M:%S")
+    # String format from SQLite
+    return value[:19].replace("T", " ")
+
 
 # Set up Jinja2 templates
 templates_path = Path(__file__).parent.parent / "templates"
@@ -252,12 +264,8 @@ async def admin_screens(request: Request, page: int = 1):
                 "screen_url": f"/screen/{screen['id']}",
                 "api_url": f"/api/screens/{screen['id']}/message",
                 "viewer_count": manager.get_viewer_count(screen["id"]),
-                "created_display": screen["created_at"][:19].replace("T", " "),
-                "last_updated_display": (
-                    screen["last_updated"][:19].replace("T", " ")
-                    if screen.get("last_updated")
-                    else "Never"
-                ),
+                "created_display": _format_datetime(screen["created_at"]),
+                "last_updated_display": _format_datetime(screen.get("last_updated")),
                 "name_display": screen.get("name") or "Unnamed Screen",
                 "is_unnamed": not screen.get("name"),
             }
