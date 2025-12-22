@@ -422,6 +422,16 @@ h1 {
     letter-spacing: 0;
 }
 
+.warning-text {
+    font-size: 0.75rem;
+    color: #f39c12;
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    background: rgba(243, 156, 18, 0.1);
+    border-radius: 0.25rem;
+    border-left: 3px solid #f39c12;
+}
+
 .head-html-input {
     width: 100%;
     min-height: 100px;

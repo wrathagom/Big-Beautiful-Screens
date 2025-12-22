@@ -30,6 +30,11 @@ class ContentItem(BaseModel):
             "linear-gradient(135deg, #667eea, #764ba2)",
         ],
     )
+    panel_shadow: str | None = Field(
+        default=None,
+        description="Override panel shadow for this item. Use 'none' to disable shadow.",
+        examples=["none", "0 4px 12px rgba(0,0,0,0.3)"],
+    )
     font_family: str | None = Field(
         default=None,
         description="Override font family for this item",
@@ -65,6 +70,12 @@ class ContentItem(BaseModel):
                     "url": "https://example.com/clip.mp4",
                     "autoplay": True,
                     "loop": True,
+                },
+                {
+                    "type": "text",
+                    "value": "No shadow",
+                    "panel_color": "transparent",
+                    "panel_shadow": "none",
                 },
             ]
         }

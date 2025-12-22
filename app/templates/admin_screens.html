@@ -47,7 +47,7 @@
                             <span class="screen-name {{ 'unnamed' if screen.is_unnamed else '' }}" onclick="editName(this, event)" title="Click to edit name">{{ screen.name_display }}</span>
                             <code class="screen-id">{{ screen.id }}</code>
                             <a href="{{ screen.screen_url }}" target="_blank" class="screen-link" onclick="event.stopPropagation()">
-                                <span class="link-icon">↗</span> {{ screen.screen_url }}
+                                <span class="link-icon">↗</span> <span class="screen-link-text">{{ screen.screen_url }}</span>
                             </a>
                             <span class="viewer-badge">{{ screen.viewer_count }} viewer{{ 's' if screen.viewer_count != 1 else '' }}</span>
                         </div>
@@ -59,14 +59,14 @@
                                 <label>API Key</label>
                                 <div class="detail-value">
                                     <code class="api-key">{{ screen.api_key }}</code>
-                                    <button class="btn-icon" onclick="copyValue(this, '{{ screen.api_key }}')" title="Copy API Key">📋</button>
+                                    <button class="btn-icon copy-api-key" onclick="copyValue(this, '{{ screen.api_key }}')" title="Copy API Key">📋</button>
                                 </div>
                             </div>
                             <div class="detail-item">
                                 <label>API Endpoint</label>
                                 <div class="detail-value">
-                                    <code>{{ screen.api_url }}</code>
-                                    <button class="btn-icon" onclick="copyValue(this, BASE_URL + '{{ screen.api_url }}')" title="Copy API URL">📋</button>
+                                    <code class="api-url">{{ screen.api_url }}</code>
+                                    <button class="btn-icon copy-api-url" onclick="copyValue(this, BASE_URL + '{{ screen.api_url }}')" title="Copy API URL">📋</button>
                                 </div>
                             </div>
                         </div>
@@ -74,12 +74,13 @@
                             <label>Custom Head HTML <span class="hint">(for Google Fonts, etc.)</span></label>
                             <textarea class="head-html-input" placeholder="<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
 <link href=&quot;https://fonts.googleapis.com/css2?family=...&quot; rel=&quot;stylesheet&quot;>" onclick="event.stopPropagation()">{{ screen.head_html or '' }}</textarea>
+                            <p class="warning-text">Warning: Custom HTML including scripts is injected directly into your screen. Only add code from sources you trust.</p>
                             <button class="btn-secondary btn-save-head" onclick="saveHeadHtml('{{ screen.id }}', this); event.stopPropagation();">Save Head HTML</button>
                         </div>
                         <div class="detail-footer">
                             <div class="detail-timestamps">
-                                <span>Created: {{ screen.created_display }}</span>
-                                <span>Last Updated: {{ screen.last_updated_display }}</span>
+                                <span>Created: <span class="created-time">{{ screen.created_display }}</span></span>
+                                <span>Last Updated: <span class="updated-time">{{ screen.last_updated_display }}</span></span>
                             </div>
                             <div class="detail-actions">
                                 <div class="copy-dropdown">
@@ -168,70 +169,33 @@
         });
 
         function createScreenCard(data) {
-            const card = document.createElement('div');
-            card.className = 'screen-card';
+            const template = document.getElementById('screen-card-template');
+            const card = template.content.firstElementChild.cloneNode(true);
+
+            const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+            // Set data attributes
             card.dataset.screenId = data.screen_id;
             card.dataset.apiKey = data.api_key;
             card.dataset.screenUrl = data.screen_url;
             card.dataset.apiUrl = data.api_url;
 
-            const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            // Update content
+            card.querySelector('.screen-id').textContent = data.screen_id;
+            card.querySelector('.screen-link').href = data.screen_url;
+            card.querySelector('.screen-link-text').textContent = data.screen_url;
+            card.querySelector('.api-key').textContent = data.api_key;
+            card.querySelector('.api-url').textContent = data.api_url;
+            card.querySelector('.created-time').textContent = now;
 
-            card.innerHTML = `
-                <div class="card-header" onclick="toggleExpand(this.parentElement)">
-                    <div class="card-summary">
-                        <span class="screen-name unnamed" onclick="editName(this, event)" title="Click to edit name">Unnamed Screen</span>
-                        <code class="screen-id">${data.screen_id}</code>
-                        <a href="${data.screen_url}" target="_blank" class="screen-link" onclick="event.stopPropagation()">
-                            <span class="link-icon">↗</span> ${data.screen_url}
-                        </a>
-                        <span class="viewer-badge">0 viewers</span>
-                    </div>
-                    <span class="expand-icon">▼</span>
-                </div>
-                <div class="card-details">
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <label>API Key</label>
-                            <div class="detail-value">
-                                <code class="api-key">${data.api_key}</code>
-                                <button class="btn-icon" onclick="copyValue(this, '${data.api_key}')" title="Copy API Key">📋</button>
-                            </div>
-                        </div>
-                        <div class="detail-item">
-                            <label>API Endpoint</label>
-                            <div class="detail-value">
-                                <code>${data.api_url}</code>
-                                <button class="btn-icon" onclick="copyValue(this, BASE_URL + '${data.api_url}')" title="Copy API URL">📋</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="detail-section">
-                        <label>Custom Head HTML <span class="hint">(for Google Fonts, etc.)</span></label>
-                        <textarea class="head-html-input" placeholder="<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
-<link href=&quot;https://fonts.googleapis.com/css2?family=...&quot; rel=&quot;stylesheet&quot;>" onclick="event.stopPropagation()"></textarea>
-                        <button class="btn-secondary btn-save-head" onclick="saveHeadHtml('${data.screen_id}', this); event.stopPropagation();">Save Head HTML</button>
-                    </div>
-                    <div class="detail-footer">
-                        <div class="detail-timestamps">
-                            <span>Created: ${now}</span>
-                            <span>Last Updated: Never</span>
-                        </div>
-                        <div class="detail-actions">
-                            <div class="copy-dropdown">
-                                <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Copy Example ▾</button>
-                                <div class="dropdown-menu">
-                                    <button onclick="copyExample(this, 'bash')">Bash / cURL</button>
-                                    <button onclick="copyExample(this, 'python')">Python</button>
-                                </div>
-                            </div>
-                            <button class="btn-debug" onclick="toggleDebug('${data.screen_id}', '${data.api_key}'); event.stopPropagation();">Toggle Debug</button>
-                            <button class="btn-reload" onclick="reloadScreen('${data.screen_id}', '${data.api_key}'); event.stopPropagation();">Reload Viewers</button>
-                            <button class="btn-delete" onclick="deleteScreen('${data.screen_id}', '${data.api_key}'); event.stopPropagation();">Delete Screen</button>
-                        </div>
-                    </div>
-                </div>
-            `;
+            // Update onclick handlers with actual values
+            card.querySelector('.copy-api-key').onclick = function() { copyValue(this, data.api_key); };
+            card.querySelector('.copy-api-url').onclick = function() { copyValue(this, BASE_URL + data.api_url); };
+            card.querySelector('.btn-save-head').onclick = function(e) { e.stopPropagation(); saveHeadHtml(data.screen_id, this); };
+            card.querySelector('.btn-debug').onclick = function(e) { e.stopPropagation(); toggleDebug(data.screen_id, data.api_key); };
+            card.querySelector('.btn-reload').onclick = function(e) { e.stopPropagation(); reloadScreen(data.screen_id, data.api_key); };
+            card.querySelector('.btn-delete').onclick = function(e) { e.stopPropagation(); deleteScreen(data.screen_id, data.api_key); };
+
             return card;
         }
 
@@ -475,5 +439,65 @@ print(response.json())`;
             input.select();
         }
     </script>
+
+    <!-- Template for new screen cards (cloned by JavaScript) -->
+    <template id="screen-card-template">
+        <div class="screen-card">
+            <div class="card-header" onclick="toggleExpand(this.parentElement)">
+                <div class="card-summary">
+                    <span class="screen-name unnamed" onclick="editName(this, event)" title="Click to edit name">Unnamed Screen</span>
+                    <code class="screen-id"></code>
+                    <a href="#" target="_blank" class="screen-link" onclick="event.stopPropagation()">
+                        <span class="link-icon">↗</span> <span class="screen-link-text"></span>
+                    </a>
+                    <span class="viewer-badge">0 viewers</span>
+                </div>
+                <span class="expand-icon">▼</span>
+            </div>
+            <div class="card-details">
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <label>API Key</label>
+                        <div class="detail-value">
+                            <code class="api-key"></code>
+                            <button class="btn-icon copy-api-key" title="Copy API Key">📋</button>
+                        </div>
+                    </div>
+                    <div class="detail-item">
+                        <label>API Endpoint</label>
+                        <div class="detail-value">
+                            <code class="api-url"></code>
+                            <button class="btn-icon copy-api-url" title="Copy API URL">📋</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <label>Custom Head HTML <span class="hint">(for Google Fonts, etc.)</span></label>
+                    <textarea class="head-html-input" placeholder="<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
+<link href=&quot;https://fonts.googleapis.com/css2?family=...&quot; rel=&quot;stylesheet&quot;>" onclick="event.stopPropagation()"></textarea>
+                    <p class="warning-text">Warning: Custom HTML including scripts is injected directly into your screen. Only add code from sources you trust.</p>
+                    <button class="btn-secondary btn-save-head" onclick="event.stopPropagation();">Save Head HTML</button>
+                </div>
+                <div class="detail-footer">
+                    <div class="detail-timestamps">
+                        <span>Created: <span class="created-time"></span></span>
+                        <span>Last Updated: <span class="updated-time">Never</span></span>
+                    </div>
+                    <div class="detail-actions">
+                        <div class="copy-dropdown">
+                            <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Copy Example ▾</button>
+                            <div class="dropdown-menu">
+                                <button onclick="copyExample(this, 'bash')">Bash / cURL</button>
+                                <button onclick="copyExample(this, 'python')">Python</button>
+                            </div>
+                        </div>
+                        <button class="btn-debug" onclick="event.stopPropagation();">Toggle Debug</button>
+                        <button class="btn-reload" onclick="event.stopPropagation();">Reload Viewers</button>
+                        <button class="btn-delete" onclick="event.stopPropagation();">Delete Screen</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
 </body>
 </html>

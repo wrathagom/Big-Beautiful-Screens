@@ -392,8 +392,11 @@ function renderContent(content, styles = {}) {
         // Apply border radius
         panel.style.borderRadius = effectiveBorderRadius;
 
-        // Apply panel shadow
-        if (effectivePanelShadow) {
+        // Apply panel shadow (per-item override takes precedence)
+        // Use "none" to explicitly disable shadow on a panel
+        if (item.panel_shadow !== undefined && item.panel_shadow !== null) {
+            panel.style.boxShadow = item.panel_shadow === 'none' ? 'none' : item.panel_shadow;
+        } else if (effectivePanelShadow) {
             panel.style.boxShadow = effectivePanelShadow;
         }
 
