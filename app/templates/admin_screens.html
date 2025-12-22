@@ -337,8 +337,10 @@ print(response.json())`;
             const saveName = async () => {
                 const newName = input.value.trim();
                 try {
-                    const response = await fetch(`/api/v1/screens/${screenId}?name=${encodeURIComponent(newName)}`, {
-                        method: 'PATCH'
+                    const response = await fetch(`/api/v1/screens/${screenId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: newName || null })
                     });
                     if (response.ok) {
                         el.textContent = newName || 'Unnamed Screen';

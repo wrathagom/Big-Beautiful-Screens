@@ -132,6 +132,21 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
     if settings.APP_MODE != AppMode.SAAS:
         return RedirectResponse(url=redirect_url, status_code=302)
 
+    # Handle __clerk_db_jwt - this is a database reference token that
+    # needs to be processed by the Clerk SDK, not used directly as a cookie.
+    # Render the callback page to let the SDK handle the token exchange.
+    db_jwt = request.query_params.get("__clerk_db_jwt")
+    if db_jwt:
+        return templates.TemplateResponse(
+            request=request,
+            name="clerk_callback.html",
+            context={
+                "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+                "redirect_url": redirect_url,
+                "sign_in_url": get_clerk_sign_in_url(redirect_url),
+            },
+        )
+
     # Get the handshake JWT from query params
     handshake_jwt = request.query_params.get("__clerk_handshake")
 
