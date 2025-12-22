@@ -266,7 +266,7 @@ async def admin_screens(request: Request, page: int = 1):
             {
                 **screen,
                 "screen_url": f"/screen/{screen['id']}",
-                "api_url": f"/api/screens/{screen['id']}/message",
+                "api_url": f"/api/v1/screens/{screen['id']}/message",
                 "viewer_count": manager.get_viewer_count(screen["id"]),
                 "created_display": _format_datetime(screen["created_at"]),
                 "last_updated_display": _format_datetime(screen.get("last_updated")),

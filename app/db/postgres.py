@@ -5,6 +5,7 @@ Used in SaaS mode with Neon or other PostgreSQL providers.
 
 import json
 from datetime import UTC, datetime
+from datetime import date as date_type
 
 import asyncpg
 
@@ -1053,8 +1054,11 @@ class PostgresBackend(DatabaseBackend):
 
     # ============== API Quota Methods (SaaS only) ==============
 
-    async def get_daily_quota_usage(self, user_id: str, date: str) -> int:
+    async def get_daily_quota_usage(self, user_id: str, date: str | date_type) -> int:
         """Get API calls used for a specific date."""
+        # Convert string to date if needed (PostgreSQL requires date object)
+        if isinstance(date, str):
+            date = date_type.fromisoformat(date)
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             result = await conn.fetchval(
@@ -1064,8 +1068,11 @@ class PostgresBackend(DatabaseBackend):
             )
             return result or 0
 
-    async def increment_quota_usage(self, user_id: str, date: str) -> int:
+    async def increment_quota_usage(self, user_id: str, date: str | date_type) -> int:
         """Atomically increment and return new usage count."""
+        # Convert string to date if needed (PostgreSQL requires date object)
+        if isinstance(date, str):
+            date = date_type.fromisoformat(date)
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             result = await conn.fetchval(
