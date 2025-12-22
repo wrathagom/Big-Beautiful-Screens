@@ -40,8 +40,21 @@
         .back-link:hover {
             text-decoration: underline;
         }
-        stripe-pricing-table {
+        #pricing-table-container {
             width: 100%;
+            min-height: 400px;
+        }
+        .loading {
+            text-align: center;
+            padding: 3rem;
+            color: #888;
+        }
+        .error {
+            text-align: center;
+            padding: 2rem;
+            color: #e74c3c;
+            background: rgba(231, 76, 60, 0.1);
+            border-radius: 0.5rem;
         }
     </style>
 </head>
@@ -54,11 +67,9 @@
             <p>Select the plan that best fits your needs</p>
         </div>
 
-        <stripe-pricing-table
-            pricing-table-id="{{ stripe_pricing_table_id }}"
-            publishable-key="{{ stripe_publishable_key }}"
-            {% if user_email %}customer-email="{{ user_email }}"{% endif %}
-        ></stripe-pricing-table>
+        <div id="pricing-table-container">
+            <div class="loading">Loading pricing options...</div>
+        </div>
     </div>
 
     <script>
@@ -67,6 +78,63 @@
                 await Clerk.signOut();
             }
             window.location.href = '/auth/logout';
+        }
+
+        // Helper to get Clerk session token for API calls
+        async function getAuthHeaders() {
+            if (typeof Clerk === 'undefined') return {};
+            if (!Clerk.loaded) await Clerk.load();
+            if (!Clerk.session) return {};
+            try {
+                const token = await Clerk.session.getToken();
+                if (token) return { 'Authorization': `Bearer ${token}` };
+            } catch (e) {
+                console.error('[Auth] Error getting token:', e);
+            }
+            return {};
+        }
+
+        async function initPricingTable() {
+            const container = document.getElementById('pricing-table-container');
+
+            try {
+                // Get customer session from our API
+                const authHeaders = await getAuthHeaders();
+                const response = await fetch('/api/v1/billing/customer-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to initialize billing session');
+                }
+
+                const data = await response.json();
+
+                // Create pricing table with customer session
+                const pricingTable = document.createElement('stripe-pricing-table');
+                pricingTable.setAttribute('pricing-table-id', '{{ stripe_pricing_table_id }}');
+                pricingTable.setAttribute('publishable-key', '{{ stripe_publishable_key }}');
+                pricingTable.setAttribute('customer-session-client-secret', data.client_secret);
+
+                container.innerHTML = '';
+                container.appendChild(pricingTable);
+
+            } catch (error) {
+                console.error('Error initializing pricing table:', error);
+                container.innerHTML = '<div class="error">Failed to load pricing. Please try again or <a href="/admin/usage">go back</a>.</div>';
+            }
+        }
+
+        // Wait for Clerk to be ready, then init
+        if (typeof Clerk !== 'undefined') {
+            Clerk.load().then(() => initPricingTable());
+        } else {
+            // Fallback if Clerk isn't loaded
+            window.addEventListener('load', () => {
+                setTimeout(initPricingTable, 500);
+            });
         }
     </script>
 </body>

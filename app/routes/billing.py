@@ -140,6 +140,47 @@ async def create_portal_session(user: RequiredUser):
     return {"portal_url": session.url}
 
 
+@router.post("/customer-session")
+async def create_customer_session(user: RequiredUser):
+    """Create a Stripe Customer Session for the pricing table.
+
+    This ensures the pricing table uses the user's existing Stripe customer,
+    rather than creating a new one on checkout.
+
+    Returns:
+        client_secret: Customer session client secret for the pricing table
+    """
+    settings = get_settings()
+
+    if settings.APP_MODE != AppMode.SAAS:
+        raise HTTPException(status_code=404, detail="Billing not available in self-hosted mode")
+
+    stripe_client = get_stripe_client()
+    db = get_database()
+
+    # Get or create Stripe customer
+    user_data = await db.get_user(user.user_id)
+    customer_id = user_data.get("stripe_customer_id") if user_data else None
+
+    if not customer_id:
+        # Create new Stripe customer
+        customer = stripe_client.Customer.create(
+            email=user.email,
+            name=user.name,
+            metadata={"user_id": user.user_id},
+        )
+        customer_id = customer.id
+        await db.set_stripe_customer_id(user.user_id, customer_id)
+
+    # Create customer session for pricing table
+    session = stripe_client.CustomerSession.create(
+        customer=customer_id,
+        components={"pricing_table": {"enabled": True}},
+    )
+
+    return {"client_secret": session.client_secret}
+
+
 @router.get("/subscription")
 async def get_subscription_status(user: RequiredUser):
     """Get current subscription status for the user.
