@@ -119,25 +119,14 @@
         // Helper to get Clerk session token for API calls (SaaS mode)
         // Returns empty headers in self-hosted mode where Clerk isn't loaded
         async function getAuthHeaders() {
-            if (typeof Clerk === 'undefined') {
-                console.log('[Auth] Clerk not loaded');
-                return {};
-            }
+            if (typeof Clerk === 'undefined') return {};
 
             // Wait for Clerk to be ready if needed
-            if (!Clerk.loaded) {
-                console.log('[Auth] Waiting for Clerk to load...');
-                await Clerk.load();
-            }
-
-            if (!Clerk.session) {
-                console.log('[Auth] No Clerk session');
-                return {};
-            }
+            if (!Clerk.loaded) await Clerk.load();
+            if (!Clerk.session) return {};
 
             try {
                 const token = await Clerk.session.getToken();
-                console.log('[Auth] Got token:', token ? 'yes' : 'no');
                 if (token) {
                     return { 'Authorization': `Bearer ${token}` };
                 }
@@ -164,19 +153,83 @@
                 return;
             }
             const data = await response.json();
-            // Auto-expand the new screen card after reload
-            sessionStorage.setItem('expandScreen', data.screen_id);
-            location.reload();
+
+            // Create and insert new screen card
+            const screenList = document.querySelector('.screen-list');
+            const emptyMessage = screenList.querySelector('.empty');
+            if (emptyMessage) emptyMessage.remove();
+
+            const card = createScreenCard(data);
+            screenList.insertBefore(card, screenList.firstChild);
+            card.classList.add('expanded');
         });
 
-        // Auto-expand newly created screen
-        const expandScreen = sessionStorage.getItem('expandScreen');
-        if (expandScreen) {
-            sessionStorage.removeItem('expandScreen');
-            const card = document.querySelector(`[data-screen-id="${expandScreen}"]`);
-            if (card) {
-                card.classList.add('expanded');
-            }
+        function createScreenCard(data) {
+            const card = document.createElement('div');
+            card.className = 'screen-card';
+            card.dataset.screenId = data.screen_id;
+            card.dataset.apiKey = data.api_key;
+            card.dataset.screenUrl = data.screen_url;
+            card.dataset.apiUrl = data.api_url;
+
+            const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+            card.innerHTML = `
+                <div class="card-header" onclick="toggleExpand(this.parentElement)">
+                    <div class="card-summary">
+                        <span class="screen-name unnamed" onclick="editName(this, event)" title="Click to edit name">Unnamed Screen</span>
+                        <code class="screen-id">${data.screen_id}</code>
+                        <a href="${data.screen_url}" target="_blank" class="screen-link" onclick="event.stopPropagation()">
+                            <span class="link-icon">↗</span> ${data.screen_url}
+                        </a>
+                        <span class="viewer-badge">0 viewers</span>
+                    </div>
+                    <span class="expand-icon">▼</span>
+                </div>
+                <div class="card-details">
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>API Key</label>
+                            <div class="detail-value">
+                                <code class="api-key">${data.api_key}</code>
+                                <button class="btn-icon" onclick="copyValue(this, '${data.api_key}')" title="Copy API Key">📋</button>
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <label>API Endpoint</label>
+                            <div class="detail-value">
+                                <code>${data.api_url}</code>
+                                <button class="btn-icon" onclick="copyValue(this, BASE_URL + '${data.api_url}')" title="Copy API URL">📋</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <label>Custom Head HTML <span class="hint">(for Google Fonts, etc.)</span></label>
+                        <textarea class="head-html-input" placeholder="<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
+<link href=&quot;https://fonts.googleapis.com/css2?family=...&quot; rel=&quot;stylesheet&quot;>" onclick="event.stopPropagation()"></textarea>
+                        <button class="btn-secondary btn-save-head" onclick="saveHeadHtml('${data.screen_id}', this); event.stopPropagation();">Save Head HTML</button>
+                    </div>
+                    <div class="detail-footer">
+                        <div class="detail-timestamps">
+                            <span>Created: ${now}</span>
+                            <span>Last Updated: Never</span>
+                        </div>
+                        <div class="detail-actions">
+                            <div class="copy-dropdown">
+                                <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Copy Example ▾</button>
+                                <div class="dropdown-menu">
+                                    <button onclick="copyExample(this, 'bash')">Bash / cURL</button>
+                                    <button onclick="copyExample(this, 'python')">Python</button>
+                                </div>
+                            </div>
+                            <button class="btn-debug" onclick="toggleDebug('${data.screen_id}', '${data.api_key}'); event.stopPropagation();">Toggle Debug</button>
+                            <button class="btn-reload" onclick="reloadScreen('${data.screen_id}', '${data.api_key}'); event.stopPropagation();">Reload Viewers</button>
+                            <button class="btn-delete" onclick="deleteScreen('${data.screen_id}', '${data.api_key}'); event.stopPropagation();">Delete Screen</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return card;
         }
 
         // Close dropdowns when clicking outside
@@ -315,7 +368,16 @@ print(response.json())`;
                     headers: { 'X-API-Key': apiKey }
                 });
                 if (response.ok) {
-                    location.reload();
+                    // Remove card from DOM
+                    const card = document.querySelector(`[data-screen-id="${screenId}"]`);
+                    if (card) {
+                        card.remove();
+                        // Show empty message if no screens left
+                        const screenList = document.querySelector('.screen-list');
+                        if (!screenList.querySelector('.screen-card')) {
+                            screenList.innerHTML = '<div class="empty">No screens yet. Create one to get started!</div>';
+                        }
+                    }
                 } else {
                     const data = await response.json();
                     alert('Failed to delete screen: ' + (data.detail || 'Unknown error'));
