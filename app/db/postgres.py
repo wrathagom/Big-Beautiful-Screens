@@ -211,13 +211,16 @@ class PostgresBackend(DatabaseBackend):
         self,
         screen_id: str,
         api_key: str,
-        created_at: str,
+        created_at: str | datetime,
         name: str | None = None,
         owner_id: str | None = None,
         org_id: str | None = None,
     ) -> None:
         """Create a new screen with default theme applied."""
         default_theme = get_theme("default")
+        # PostgreSQL needs datetime object
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:

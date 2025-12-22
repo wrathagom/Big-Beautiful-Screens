@@ -147,13 +147,16 @@ class SQLiteBackend(DatabaseBackend):
         self,
         screen_id: str,
         api_key: str,
-        created_at: str,
+        created_at: str | datetime,
         name: str | None = None,
         owner_id: str | None = None,
         org_id: str | None = None,
     ) -> None:
         """Create a new screen with default theme applied."""
         default_theme = get_theme("default")
+        # SQLite needs string format
+        if isinstance(created_at, datetime):
+            created_at = created_at.isoformat()
 
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute(

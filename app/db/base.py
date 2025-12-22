@@ -4,6 +4,7 @@ All database backends must implement this interface.
 """
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 
 class DatabaseBackend(ABC):
@@ -21,7 +22,7 @@ class DatabaseBackend(ABC):
         self,
         screen_id: str,
         api_key: str,
-        created_at: str,
+        created_at: str | datetime,
         name: str | None = None,
         owner_id: str | None = None,
         org_id: str | None = None,
