@@ -195,6 +195,7 @@ async def stripe_webhook(
 
     Events handled:
     - checkout.session.completed: Upgrade user plan after successful checkout
+    - customer.subscription.created: Handle new/re-subscriptions (pricing table flow)
     - customer.subscription.updated: Sync subscription status changes
     - customer.subscription.deleted: Downgrade user to free plan
     - invoice.payment_failed: Mark subscription as past_due
@@ -233,20 +234,65 @@ async def stripe_webhook(
 
     # Handle checkout completion - upgrade plan
     if event_type == "checkout.session.completed":
-        user_id = data.get("metadata", {}).get("user_id")
         subscription_id = data.get("subscription")
+        customer_id = data.get("customer")
 
-        if user_id and subscription_id:
+        if subscription_id:
             # Get subscription to find the plan
             subscription = stripe.Subscription.retrieve(subscription_id)
-            plan = subscription.get("metadata", {}).get("plan", "pro")
 
-            await db.update_user_plan(
-                user_id=user_id,
-                plan=plan,
-                subscription_id=subscription_id,
-                subscription_status="active",
-            )
+            # Try to get user_id from metadata first (our checkout endpoint)
+            # Fall back to looking up by customer_id (Pricing Table checkout)
+            user_id = data.get("metadata", {}).get("user_id")
+            user = None
+
+            if user_id:
+                user = await db.get_user(user_id)
+            elif customer_id:
+                user = await db.get_user_by_stripe_customer(customer_id)
+
+            if user:
+                # Get plan from subscription metadata or price
+                plan = subscription.get("metadata", {}).get("plan")
+                if not plan:
+                    # Get plan from price ID
+                    items = subscription.get("items", {}).get("data", [])
+                    if items:
+                        price_id = items[0].get("price", {}).get("id")
+                        if price_id:
+                            plan = _get_plan_from_price(price_id)
+                plan = plan or "pro"
+
+                await db.update_user_plan(
+                    user_id=user["id"],
+                    plan=plan,
+                    subscription_id=subscription_id,
+                    subscription_status="active",
+                )
+
+    # Handle new subscription created (backup for pricing table flow)
+    elif event_type == "customer.subscription.created":
+        subscription_id = data.get("id")
+        customer_id = data.get("customer")
+        status = data.get("status")
+
+        if customer_id and status in ("active", "trialing"):
+            user = await db.get_user_by_stripe_customer(customer_id)
+            if user:
+                # Get plan from subscription items
+                items = data.get("items", {}).get("data", [])
+                plan = "pro"  # Default
+                if items:
+                    price_id = items[0].get("price", {}).get("id")
+                    if price_id:
+                        plan = _get_plan_from_price(price_id)
+
+                await db.update_user_plan(
+                    user_id=user["id"],
+                    plan=plan,
+                    subscription_id=subscription_id,
+                    subscription_status="active",
+                )
 
     # Handle subscription updates
     elif event_type == "customer.subscription.updated":
