@@ -32,6 +32,9 @@
                 <a href="/admin/themes" class="nav-link">Themes</a>
                 <a href="/admin/usage" class="nav-link">Usage & Billing</a>
                 <a href="/docs" class="nav-link" target="_blank">API Docs</a>
+                {% if clerk_publishable_key %}
+                <a href="#" class="nav-link" onclick="signOut(); return false;">Sign Out</a>
+                {% endif %}
             </div>
         </div>
 
@@ -112,6 +115,13 @@
 
     <script>
         const BASE_URL = window.location.origin;
+
+        async function signOut() {
+            if (window.Clerk) {
+                await window.Clerk.signOut();
+            }
+            window.location.href = '/';
+        }
 
         document.getElementById('create-screen').addEventListener('click', async () => {
             const response = await fetch('/api/v1/screens', { method: 'POST' });

@@ -32,6 +32,9 @@
                 <a href="/admin/screens" class="nav-link">Screens</a>
                 <a href="/admin/usage" class="nav-link">Usage & Billing</a>
                 <a href="/docs" class="nav-link" target="_blank">API Docs</a>
+                {% if clerk_publishable_key %}
+                <a href="#" class="nav-link" onclick="signOut(); return false;">Sign Out</a>
+                {% endif %}
             </div>
         </div>
 
@@ -181,6 +184,13 @@
     </div>
 
     <script>
+        async function signOut() {
+            if (window.Clerk) {
+                await window.Clerk.signOut();
+            }
+            window.location.href = '/';
+        }
+
         function toggleExpand(card) {
             card.classList.toggle('expanded');
         }
