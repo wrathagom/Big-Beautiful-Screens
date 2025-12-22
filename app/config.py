@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     # Stripe billing
     STRIPE_SECRET_KEY: str | None = None
     STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_PUBLISHABLE_KEY: str | None = None
+    STRIPE_PRICING_TABLE_ID: str | None = None
     STRIPE_PRICE_PRO_MONTHLY: str | None = None
     STRIPE_PRICE_PRO_YEARLY: str | None = None
     STRIPE_PRICE_TEAM_MONTHLY: str | None = None

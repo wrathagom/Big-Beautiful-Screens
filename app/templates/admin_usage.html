@@ -88,6 +88,8 @@
             cursor: pointer;
             transition: all 0.2s;
             font-weight: 600;
+            text-decoration: none;
+            display: inline-block;
         }
 
         .btn-upgrade:hover {
@@ -228,8 +230,7 @@
         .subscription-status {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 1rem;
+            gap: 0.5rem;
         }
 
         .status-indicator {
@@ -372,7 +373,7 @@
                     </div>
                     <div class="plan-actions">
                         {% if plan != 'team' and plan != 'unlimited' %}
-                        <button class="btn-upgrade" onclick="upgradePlan()">Upgrade Plan</button>
+                        <a href="/admin/pricing" class="btn-upgrade">Upgrade Plan</a>
                         {% endif %}
                         {% if has_subscription %}
                         <button class="btn-manage" onclick="manageSubscription()">Manage Subscription</button>
@@ -537,26 +538,6 @@
         // Update every second
         updateCountdown();
         setInterval(updateCountdown, 1000);
-
-        // Upgrade plan
-        async function upgradePlan() {
-            try {
-                const authHeaders = await getAuthHeaders();
-                const response = await fetch('/api/v1/billing/checkout', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', ...authHeaders },
-                    credentials: 'include'
-                });
-                const data = await response.json();
-                if (data.checkout_url) {
-                    window.location.href = data.checkout_url;
-                } else {
-                    alert('Failed to create checkout session: ' + (data.detail || 'Unknown error'));
-                }
-            } catch (error) {
-                alert('Error creating checkout session: ' + error.message);
-            }
-        }
 
         // Manage subscription
         async function manageSubscription() {
