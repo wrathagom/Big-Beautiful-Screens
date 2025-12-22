@@ -99,19 +99,38 @@ async def _verify_clerk_jwt(token: str) -> dict | None:
         if not signing_key:
             return None
 
-        # Verify the token
+        # Verify the token with leeway for clock skew
         claims = jwt.decode(
             token,
             signing_key,
             algorithms=["RS256"],
             options={"verify_aud": False},  # Clerk doesn't always set aud
+            leeway=60,  # Allow 60 seconds of clock skew
         )
 
         return claims
 
     except Exception as e:
-        # Log error in production
+        # Log error with more context
+        import jwt as pyjwt
+
+        token_preview = token[:50] + "..." if len(token) > 50 else token
         print(f"JWT verification failed: {e}")
+        print(f"  Token preview: {token_preview}")
+        try:
+            # Try to decode without verification to see claims
+            unverified = pyjwt.decode(token, options={"verify_signature": False})
+            exp = unverified.get("exp")
+            if exp:
+                from datetime import UTC, datetime
+
+                exp_time = datetime.fromtimestamp(exp, tz=UTC)
+                now = datetime.now(UTC)
+                print(
+                    f"  Token exp: {exp_time}, Now: {now}, Diff: {(exp_time - now).total_seconds()}s"
+                )
+        except Exception as decode_err:
+            print(f"  Could not decode token: {decode_err}")
         return None
 
 
