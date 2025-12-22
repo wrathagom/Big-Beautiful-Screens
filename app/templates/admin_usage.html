@@ -6,6 +6,13 @@
     <title>Big Beautiful Screens - Usage & Billing</title>
     <link rel="icon" type="image/png" href="/static/logo.png">
     <link rel="stylesheet" href="/static/admin.css">
+    {% if clerk_publishable_key %}
+    <script
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        async
+    ></script>
+    {% endif %}
     <style>
         /* Usage Dashboard Specific Styles */
         .usage-dashboard {

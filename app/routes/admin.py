@@ -202,6 +202,9 @@ async def admin_screens(request: Request, page: int = 1):
             "page": page,
             "total_pages": total_pages,
             "total_count": total_count,
+            "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY
+            if settings.APP_MODE == AppMode.SAAS
+            else None,
         },
     )
 
@@ -257,6 +260,9 @@ async def admin_themes(request: Request, page: int = 1):
             "page": page,
             "total_pages": total_pages,
             "total_count": total_count,
+            "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY
+            if settings.APP_MODE == AppMode.SAAS
+            else None,
         },
     )
 
@@ -315,5 +321,6 @@ async def admin_usage(request: Request, checkout: str | None = None):
             "customer_id": customer_id,
             "has_subscription": has_subscription,
             "checkout": checkout,
+            "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
         },
     )
