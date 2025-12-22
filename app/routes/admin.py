@@ -55,8 +55,31 @@ async def root(request: Request):
 
 
 @router.get("/auth/logout", response_class=HTMLResponse)
-async def logout():
-    """Sign out - clear cookies and show logged out page."""
+async def logout(request: Request):
+    """Sign out - revoke Clerk session, clear cookies, show logged out page."""
+    import httpx
+    import jwt
+
+    settings = get_settings()
+
+    # Try to revoke the Clerk session
+    session_cookie = request.cookies.get("__session")
+    if session_cookie and settings.CLERK_SECRET_KEY:
+        try:
+            # Decode JWT to get session ID (without verification - just need the sid)
+            claims = jwt.decode(session_cookie, options={"verify_signature": False})
+            session_id = claims.get("sid")
+
+            if session_id:
+                # Call Clerk API to revoke the session
+                async with httpx.AsyncClient() as client:
+                    await client.post(
+                        f"https://api.clerk.com/v1/sessions/{session_id}/revoke",
+                        headers={"Authorization": f"Bearer {settings.CLERK_SECRET_KEY}"},
+                    )
+        except Exception as e:
+            print(f"Failed to revoke Clerk session: {e}")
+
     # Create response with a simple logged-out page
     html = """
     <!DOCTYPE html>
@@ -82,10 +105,9 @@ async def logout():
     """
     response = HTMLResponse(content=html)
 
-    # Clear all Clerk cookies
-    response.delete_cookie("__session")
-    response.delete_cookie("__client_uat")
-    response.delete_cookie("__clerk_db_jwt")
+    # Clear all Clerk cookies with matching parameters
+    response.delete_cookie("__session", path="/", secure=True, samesite="none")
+    response.delete_cookie("__client_uat", path="/", secure=True, samesite="none")
 
     return response
 
