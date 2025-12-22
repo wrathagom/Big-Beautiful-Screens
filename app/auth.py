@@ -1,35 +1,44 @@
 """Authentication module for Big Beautiful Screens.
 
-Handles Clerk JWT verification in SaaS mode.
+Handles Clerk authentication in SaaS mode using the official Clerk SDK.
 In self-hosted mode, authentication is bypassed.
 """
 
-import json
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import quote
 
-import httpx
+from clerk_backend_api import AuthenticateRequestOptions, Clerk
 from fastapi import Depends, Header, HTTPException, Request
 
 from .config import AppMode, get_settings
 
+# Clerk SDK instance (lazy initialized)
+_clerk_client: Clerk | None = None
+
+
+def _get_clerk() -> Clerk:
+    """Get or create the Clerk client instance."""
+    global _clerk_client
+    if _clerk_client is None:
+        settings = get_settings()
+        _clerk_client = Clerk(bearer_auth=settings.CLERK_SECRET_KEY)
+    return _clerk_client
+
 
 def get_clerk_sign_in_url(redirect_url: str) -> str:
-    """Get the Clerk sign-in URL with redirect through our callback."""
+    """Get the Clerk sign-in URL with redirect."""
     settings = get_settings()
 
     if not settings.CLERK_SIGN_IN_URL:
-        # Fallback if not configured
         return f"/sign-in?redirect_url={redirect_url}"
 
     app_url = settings.APP_URL.rstrip("/")
-    # Redirect through our callback page which loads Clerk JS SDK
-    callback_url = f"{app_url}/auth/callback?redirect_url={quote(redirect_url)}"
+    # Redirect back to our app after sign-in
+    final_redirect = f"{app_url}{redirect_url}"
     sign_in_base = settings.CLERK_SIGN_IN_URL.rstrip("/")
 
-    return f"{sign_in_base}?redirect_url={quote(callback_url)}"
+    return f"{sign_in_base}?redirect_url={quote(final_redirect)}"
 
 
 @dataclass
@@ -40,138 +49,29 @@ class AuthUser:
     email: str | None = None
     name: str | None = None
     org_id: str | None = None
-    org_role: str | None = None  # 'owner', 'admin', 'member'
-
-
-# Clerk JWKS cache
-_jwks_cache: dict | None = None
-_jwks_cache_time: datetime | None = None
-JWKS_CACHE_TTL = 3600  # 1 hour
-
-
-async def _get_clerk_jwks() -> dict:
-    """Fetch Clerk's JWKS (JSON Web Key Set) for JWT verification."""
-    global _jwks_cache, _jwks_cache_time
-
-    now = datetime.now(UTC)
-
-    # Return cached JWKS if still valid
-    if _jwks_cache and _jwks_cache_time:
-        age = (now - _jwks_cache_time).total_seconds()
-        if age < JWKS_CACHE_TTL:
-            return _jwks_cache
-
-    settings = get_settings()
-    if not settings.CLERK_JWKS_URL:
-        raise ValueError("CLERK_JWKS_URL not configured")
-
-    async with httpx.AsyncClient() as client:
-        response = await client.get(settings.CLERK_JWKS_URL)
-        response.raise_for_status()
-        _jwks_cache = response.json()
-        _jwks_cache_time = now
-        return _jwks_cache
-
-
-async def _verify_clerk_jwt(token: str) -> dict | None:
-    """Verify a Clerk JWT and return the claims.
-
-    Returns None if verification fails.
-    """
-    try:
-        # Import jwt library for verification
-        import jwt
-
-        # Get JWKS
-        jwks = await _get_clerk_jwks()
-
-        # Find the signing key
-        # Clerk uses RS256
-        header = jwt.get_unverified_header(token)
-        kid = header.get("kid")
-
-        signing_key = None
-        for key in jwks.get("keys", []):
-            if key.get("kid") == kid:
-                signing_key = jwt.algorithms.RSAAlgorithm.from_jwk(json.dumps(key))
-                break
-
-        if not signing_key:
-            return None
-
-        # Verify the token with leeway for clock skew.
-        # Clerk session tokens have a 60-second lifetime by design.
-        # The Clerk JS SDK refreshes every 50 seconds, but sometimes tokens
-        # arrive older. We use 300s leeway as a safety net, combined with
-        # the session refresh callback page for truly expired sessions.
-        claims = jwt.decode(
-            token,
-            signing_key,
-            algorithms=["RS256"],
-            options={"verify_aud": False},  # Clerk doesn't always set aud
-            leeway=300,  # Allow 5 minutes for Clerk token refresh delays
-        )
-
-        return claims
-
-    except Exception as e:
-        # Log error with more context
-        import jwt as pyjwt
-
-        token_preview = token[:50] + "..." if len(token) > 50 else token
-        print(f"JWT verification failed: {e}")
-        print(f"  Token preview: {token_preview}")
-        try:
-            # Try to decode without verification to see claims
-            unverified = pyjwt.decode(token, options={"verify_signature": False})
-            exp = unverified.get("exp")
-            if exp:
-                from datetime import UTC, datetime
-
-                exp_time = datetime.fromtimestamp(exp, tz=UTC)
-                now = datetime.now(UTC)
-                print(
-                    f"  Token exp: {exp_time}, Now: {now}, Diff: {(exp_time - now).total_seconds()}s"
-                )
-        except Exception as decode_err:
-            print(f"  Could not decode token: {decode_err}")
-        return None
-
-
-def _extract_token(request: Request) -> str | None:
-    """Extract JWT token from request (cookie, header, or query param)."""
-    # Try cookie first (for browser sessions)
-    token = request.cookies.get("__session")
-    if token:
-        return token
-
-    # Try Authorization header (for API calls)
-    auth_header = request.headers.get("Authorization")
-    if auth_header and auth_header.startswith("Bearer "):
-        return auth_header[7:]
-
-    # Try __clerk_db_jwt query param (Clerk development mode)
-    db_jwt = request.query_params.get("__clerk_db_jwt")
-    if db_jwt:
-        return db_jwt
-
-    return None
+    org_role: str | None = None
 
 
 def has_session_cookie(request: Request) -> bool:
-    """Check if the request has a session cookie (even if expired).
-
-    Use this to decide whether to render a session refresh page
-    instead of redirecting to sign-in.
-    """
+    """Check if the request has a session cookie (even if expired)."""
     return bool(request.cookies.get("__session"))
+
+
+def _has_clerk_token(request: Request) -> bool:
+    """Check if request has any Clerk token (cookie, header, or query param)."""
+    if request.cookies.get("__session"):
+        return True
+    if request.query_params.get("__clerk_db_jwt"):
+        return True
+    auth_header = request.headers.get("Authorization", "")
+    return bool(auth_header.startswith("Bearer "))
 
 
 async def get_current_user(request: Request) -> AuthUser | None:
     """Get the current authenticated user, or None if not authenticated.
 
-    This is a soft auth check - it doesn't raise an error if not authenticated.
-    Use this for endpoints that work differently for authenticated vs anonymous users.
+    Uses the Clerk SDK to verify tokens, handling both development mode
+    (__clerk_db_jwt) and production mode (__session cookie).
     """
     settings = get_settings()
 
@@ -179,41 +79,50 @@ async def get_current_user(request: Request) -> AuthUser | None:
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return None
 
-    token = _extract_token(request)
-    if not token:
+    # Check if there's any token to verify
+    if not _has_clerk_token(request):
         return None
 
-    claims = await _verify_clerk_jwt(token)
-    if not claims:
+    try:
+        clerk = _get_clerk()
+
+        # Use Clerk SDK to authenticate the request
+        # The SDK handles both __clerk_db_jwt and __session cookie
+        request_state = clerk.authenticate_request(
+            request,
+            AuthenticateRequestOptions(
+                authorized_parties=[settings.APP_URL.rstrip("/")],
+            ),
+        )
+
+        if not request_state.is_signed_in:
+            if request_state.reason:
+                print(f"Clerk auth failed: {request_state.reason}")
+            return None
+
+        # Extract user info from the verified token payload
+        payload = request_state.payload or {}
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+
+        return AuthUser(
+            user_id=user_id,
+            email=payload.get("email"),
+            name=payload.get("name"),
+            org_id=payload.get("org_id"),
+            org_role=payload.get("org_role"),
+        )
+
+    except Exception as e:
+        print(f"Clerk authentication error: {e}")
         return None
-
-    # Extract user info from claims
-    user_id = claims.get("sub")
-    if not user_id:
-        return None
-
-    # Get org info if present (from session claims)
-    org_id = claims.get("org_id")
-    org_role = claims.get("org_role")
-
-    return AuthUser(
-        user_id=user_id,
-        email=claims.get("email"),
-        name=claims.get("name"),
-        org_id=org_id,
-        org_role=org_role,
-    )
 
 
 async def require_auth(request: Request) -> AuthUser:
-    """Require authentication - raises 401 if not authenticated.
-
-    Use this as a dependency for endpoints that require a logged-in user.
-    """
+    """Require authentication - raises 401 if not authenticated."""
     settings = get_settings()
 
-    # In self-hosted mode, authentication is not required
-    # Return a dummy user for compatibility
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return AuthUser(user_id="self-hosted", email=None, name="Self-Hosted User")
 
@@ -231,24 +140,17 @@ async def require_auth(request: Request) -> AuthUser:
 async def require_auth_or_api_key(
     request: Request, x_api_key: str | None = Header(default=None, alias="X-API-Key")
 ) -> AuthUser | str:
-    """Require either Clerk authentication or API key.
-
-    Returns AuthUser if authenticated via Clerk, or the API key string if using API key.
-    Raises 401 if neither is provided.
-    """
+    """Require either Clerk authentication or API key."""
     settings = get_settings()
 
-    # Try API key first (works in both modes)
     if x_api_key:
         return x_api_key
 
-    # In self-hosted mode, API key is the only auth method
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         raise HTTPException(
             status_code=401, detail="API key required", headers={"X-API-Key": "Required"}
         )
 
-    # In SaaS mode, try Clerk auth
     user = await get_current_user(request)
     if user:
         return user
@@ -268,63 +170,40 @@ AuthOrApiKey = Annotated[AuthUser | str, Depends(require_auth_or_api_key)]
 
 
 def can_access_screen(user: AuthUser | None, screen: dict) -> bool:
-    """Check if a user can access (view) a screen.
-
-    Rules:
-    - In self-hosted mode: everyone can access all screens
-    - Screen viewer (/screen/{id}) is always public
-    - Owner can access their screens
-    - Org members can access org screens
-    """
+    """Check if a user can access (view) a screen."""
     settings = get_settings()
 
-    # Self-hosted mode: no restrictions
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return True
 
-    # No ownership set (legacy/public screen)
     if not screen.get("owner_id") and not screen.get("org_id"):
         return True
 
-    # Not authenticated
     if not user:
         return False
 
-    # User is owner
     if screen.get("owner_id") == user.user_id:
         return True
 
-    # User is in the org that owns the screen
     return bool(screen.get("org_id") and screen.get("org_id") == user.org_id)
 
 
 def can_modify_screen(user: AuthUser | None, screen: dict, api_key: str | None = None) -> bool:
-    """Check if a user can modify a screen.
-
-    Rules:
-    - Valid API key always grants access
-    - Owner can modify their screens
-    - Org admins/owners can modify org screens
-    """
+    """Check if a user can modify a screen."""
     settings = get_settings()
 
-    # Valid API key always works
     if api_key and screen.get("api_key") == api_key:
         return True
 
-    # Self-hosted mode with no API key: check not allowed
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return False
 
-    # Not authenticated
     if not user:
         return False
 
-    # User is owner
     if screen.get("owner_id") == user.user_id:
         return True
 
-    # User is admin/owner of the org that owns the screen
     return bool(
         screen.get("org_id")
         and screen.get("org_id") == user.org_id
@@ -333,52 +212,32 @@ def can_modify_screen(user: AuthUser | None, screen: dict, api_key: str | None =
 
 
 def can_access_theme(user: AuthUser | None, theme: dict) -> bool:
-    """Check if a user can access (view) a theme.
-
-    Rules:
-    - Built-in themes are accessible to everyone
-    - Global themes (no owner) are accessible to everyone
-    - User can access their own themes
-    """
+    """Check if a user can access (view) a theme."""
     settings = get_settings()
 
-    # Self-hosted mode: no restrictions
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return True
 
-    # Built-in or global theme
     if theme.get("is_builtin") or not theme.get("owner_id"):
         return True
 
-    # Not authenticated
     if not user:
         return False
 
-    # User owns the theme
     return theme.get("owner_id") == user.user_id
 
 
 def can_modify_theme(user: AuthUser | None, theme: dict) -> bool:
-    """Check if a user can modify a theme.
-
-    Rules:
-    - Built-in themes can be modified in self-hosted mode
-    - User can modify their own themes
-    - In SaaS mode, built-in themes cannot be modified by users
-    """
+    """Check if a user can modify a theme."""
     settings = get_settings()
 
-    # Self-hosted mode: all themes can be modified
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return True
 
-    # Not authenticated in SaaS mode
     if not user:
         return False
 
-    # Built-in themes cannot be modified in SaaS mode
     if theme.get("is_builtin"):
         return False
 
-    # User owns the theme
     return theme.get("owner_id") == user.user_id

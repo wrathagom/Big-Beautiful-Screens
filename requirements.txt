@@ -9,7 +9,7 @@ aiosqlite>=0.19.0
 asyncpg>=0.29.0
 
 # Authentication (SaaS mode)
-PyJWT[crypto]>=2.8.0
+clerk-backend-api>=1.0.0
 httpx>=0.24.0
 
 # Billing (SaaS mode)
