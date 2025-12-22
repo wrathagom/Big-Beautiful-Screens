@@ -121,7 +121,15 @@
         }
 
         document.getElementById('create-screen').addEventListener('click', async () => {
-            const response = await fetch('/api/v1/screens', { method: 'POST' });
+            const response = await fetch('/api/v1/screens', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            if (!response.ok) {
+                const error = await response.json().catch(() => ({}));
+                alert(error.detail || 'Failed to create screen. Please try refreshing the page.');
+                return;
+            }
             const data = await response.json();
             // Auto-expand the new screen card after reload
             sessionStorage.setItem('expandScreen', data.screen_id);

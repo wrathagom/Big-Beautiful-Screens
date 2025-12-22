@@ -258,7 +258,9 @@ class TestScreenManagement:
     def test_update_screen_name(self, client, screen):
         """Test updating a screen's name."""
         response = client.patch(
-            f"/api/v1/screens/{screen['screen_id']}", json={"name": "My Test Screen"}
+            f"/api/v1/screens/{screen['screen_id']}",
+            json={"name": "My Test Screen"},
+            headers={"X-API-Key": screen["api_key"]},
         )
         assert response.status_code == 200
         assert response.json()["success"] is True
@@ -267,15 +269,27 @@ class TestScreenManagement:
     def test_update_screen_name_empty(self, client, screen):
         """Test clearing a screen's name."""
         # First set a name
-        client.patch(f"/api/v1/screens/{screen['screen_id']}", json={"name": "Test"})
+        client.patch(
+            f"/api/v1/screens/{screen['screen_id']}",
+            json={"name": "Test"},
+            headers={"X-API-Key": screen["api_key"]},
+        )
 
         # Then clear it
-        response = client.patch(f"/api/v1/screens/{screen['screen_id']}", json={"name": ""})
+        response = client.patch(
+            f"/api/v1/screens/{screen['screen_id']}",
+            json={"name": ""},
+            headers={"X-API-Key": screen["api_key"]},
+        )
         assert response.status_code == 200
 
-    def test_update_nonexistent_screen_name(self, client):
+    def test_update_nonexistent_screen_name(self, client, screen):
         """Test updating name of nonexistent screen."""
-        response = client.patch("/api/v1/screens/nonexistent123", json={"name": "Test"})
+        response = client.patch(
+            "/api/v1/screens/nonexistent123",
+            json={"name": "Test"},
+            headers={"X-API-Key": screen["api_key"]},
+        )
         assert response.status_code == 404
 
     def test_reload_screen(self, client, screen):
@@ -751,4 +765,5 @@ class TestThemes:
         response = client.patch(
             f"/api/v1/screens/{screen['screen_id']}", json={"theme": "catppuccin-mocha"}
         )
-        assert response.status_code == 401
+        # 422 because X-API-Key header is required by FastAPI validation
+        assert response.status_code == 422

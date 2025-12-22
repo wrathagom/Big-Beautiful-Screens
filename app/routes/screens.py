@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-from ..auth import OptionalUser
+from ..auth import OptionalUser, RequiredUser, can_modify_screen
 from ..config import AppMode, get_settings
 from ..connection_manager import manager
 from ..database import (
@@ -357,6 +357,56 @@ async def update_screen(
         response["settings"] = await resolve_theme_settings(settings)
 
     return response
+
+
+@router.post("/api/v1/screens/{screen_id}/transfer")
+async def transfer_screen(screen_id: str, user: RequiredUser, to_org: bool = False):
+    """Transfer a screen to/from the user's organization. Requires Clerk authentication.
+
+    - to_org=True: Transfer personal screen to current org
+    - to_org=False: Transfer org screen to personal ownership
+
+    Only available in SaaS mode.
+    """
+    settings = get_settings()
+    if settings.APP_MODE != AppMode.SAAS:
+        raise HTTPException(status_code=404, detail="Not available in self-hosted mode")
+
+    screen = await get_screen_by_id(screen_id)
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    # Must be owner or org admin to transfer
+    if not can_modify_screen(user, screen):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    db = get_database()
+
+    if to_org:
+        # Transfer to org
+        if not user.org_id:
+            raise HTTPException(status_code=400, detail="You are not in an organization")
+
+        # Update screen ownership
+        async with db._get_pool() as pool, pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE screens SET org_id = $1, owner_id = NULL WHERE id = $2",
+                user.org_id,
+                screen_id,
+            )
+    else:
+        # Transfer to personal
+        async with db._get_pool() as pool, pool.acquire() as conn:
+            await conn.execute(
+                "UPDATE screens SET owner_id = $1, org_id = NULL WHERE id = $2",
+                user.user_id,
+                screen_id,
+            )
+
+    return {
+        "success": True,
+        "message": f"Screen transferred {'to organization' if to_org else 'to personal'}",
+    }
 
 
 # ============== Page Endpoints ==============
