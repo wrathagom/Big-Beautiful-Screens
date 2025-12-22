@@ -44,10 +44,13 @@
     </div>
 
     <script>
-        const publishableKey = '{{ clerk_publishable_key }}';
         const redirectUrl = '{{ redirect_url }}';
 
         async function init() {
+            // Check if we're returning from Clerk auth (has auth params)
+            const urlParams = new URLSearchParams(window.location.search);
+            const hasAuthParams = urlParams.has('__clerk_db_jwt') || urlParams.has('__clerk_handshake');
+
             // Wait for Clerk to be available (with timeout)
             let attempts = 0;
             while (!window.Clerk) {
@@ -57,52 +60,41 @@
             }
 
             const clerk = window.Clerk;
-            console.log('Clerk object:', clerk);
-            console.log('Clerk.loaded:', clerk.loaded);
-            console.log('Clerk.user:', clerk.user);
-            console.log('Clerk.session:', clerk.session);
 
-            // If Clerk has a load method and isn't loaded, load it
+            // Load Clerk if needed
             if (clerk.load && !clerk.loaded) {
                 await clerk.load();
             }
 
-            console.log('After load - user:', clerk.user, 'session:', clerk.session);
-
-            // Handle the redirect callback from Clerk's Account Portal
-            if (clerk.handleRedirectCallback) {
-                try {
-                    await clerk.handleRedirectCallback();
-                    console.log('handleRedirectCallback completed');
-                } catch (e) {
-                    console.log('handleRedirectCallback error:', e);
+            // If we have auth params, we're returning from Clerk sign-in
+            // Just wait for Clerk to process them and redirect
+            if (hasAuthParams) {
+                // Handle the redirect callback to process the auth params
+                if (clerk.handleRedirectCallback) {
+                    try {
+                        await clerk.handleRedirectCallback();
+                    } catch (e) {
+                        // Expected to throw if params already processed
+                        console.log('handleRedirectCallback:', e.message);
+                    }
                 }
+
+                // Wait for session to sync
+                await new Promise(r => setTimeout(r, 500));
+
+                // Redirect to target - session cookies should be set
+                window.location.href = redirectUrl || '/admin/screens';
+                return;
             }
 
-            // Wait a moment for session to be established
-            await new Promise(r => setTimeout(r, 500));
-            console.log('After wait - user:', clerk.user, 'session:', clerk.session);
-
-            if (clerk.user) {
-                // User is signed in, redirect to the app
-                console.log('User found, redirecting...');
+            // No auth params - check if already signed in
+            if (clerk.user || clerk.session) {
                 window.location.href = redirectUrl || '/admin/screens';
-            } else if (clerk.session) {
-                // Session exists
-                console.log('Session found, redirecting...');
-                window.location.href = redirectUrl || '/admin/screens';
-            } else {
-                console.log('No session, showing sign-in form');
-                // No session - show sign-in UI directly on this page
-                document.querySelector('.loading').innerHTML = `
-                    <p>Please sign in to continue</p>
-                    <div id="clerk-sign-in" style="margin-top: 1rem;"></div>
-                `;
-                clerk.mountSignIn(document.getElementById('clerk-sign-in'), {
-                    afterSignInUrl: redirectUrl || '/admin/screens',
-                    afterSignUpUrl: redirectUrl || '/admin/screens',
-                });
+                return;
             }
+
+            // Not signed in, redirect to Clerk sign-in
+            window.location.href = '{{ sign_in_url }}';
         }
 
         init().catch(err => {
