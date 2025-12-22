@@ -188,6 +188,20 @@
             window.location.href = '/auth/logout';
         }
 
+        // Helper to get Clerk session token for API calls (SaaS mode)
+        async function getAuthHeaders() {
+            if (typeof Clerk === 'undefined') return {};
+            if (!Clerk.loaded) await Clerk.load();
+            if (!Clerk.session) return {};
+            try {
+                const token = await Clerk.session.getToken();
+                if (token) return { 'Authorization': `Bearer ${token}` };
+            } catch (e) {
+                console.error('[Auth] Error getting token:', e);
+            }
+            return {};
+        }
+
         function toggleExpand(card) {
             card.classList.toggle('expanded');
         }
@@ -228,9 +242,11 @@
             }
 
             try {
+                const authHeaders = await getAuthHeaders();
                 const response = await fetch('/api/v1/themes', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    credentials: 'include',
                     body: JSON.stringify({
                         name: name,
                         display_name: displayName || null,
@@ -269,9 +285,11 @@
                 btn.disabled = true;
                 btn.textContent = 'Saving...';
 
+                const authHeaders = await getAuthHeaders();
                 const response = await fetch(`/api/v1/themes/${themeName}`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    credentials: 'include',
                     body: JSON.stringify(updates)
                 });
 
@@ -306,8 +324,11 @@
             }
 
             try {
+                const authHeaders = await getAuthHeaders();
                 const response = await fetch(`/api/v1/themes/${themeName}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: authHeaders,
+                    credentials: 'include'
                 });
 
                 if (response.ok) {
@@ -326,8 +347,13 @@
             if (!newName) return;
 
             try {
+                const authHeaders = await getAuthHeaders();
+
                 // First get the theme data
-                const getResponse = await fetch(`/api/v1/themes/${themeName}`);
+                const getResponse = await fetch(`/api/v1/themes/${themeName}`, {
+                    headers: authHeaders,
+                    credentials: 'include'
+                });
                 if (!getResponse.ok) {
                     alert('Failed to get theme data');
                     return;
@@ -337,7 +363,8 @@
                 // Create new theme with same values
                 const response = await fetch('/api/v1/themes', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    credentials: 'include',
                     body: JSON.stringify({
                         name: newName,
                         display_name: (theme.display_name || theme.name) + ' (Copy)',

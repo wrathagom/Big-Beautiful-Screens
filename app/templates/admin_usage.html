@@ -491,6 +491,26 @@
     </div>
 
     <script>
+        // Helper to get Clerk session token for API calls (SaaS mode)
+        // Returns empty headers in self-hosted mode where Clerk isn't loaded
+        async function getAuthHeaders() {
+            if (typeof Clerk === 'undefined') return {};
+
+            // Wait for Clerk to be ready if needed
+            if (!Clerk.loaded) await Clerk.load();
+            if (!Clerk.session) return {};
+
+            try {
+                const token = await Clerk.session.getToken();
+                if (token) {
+                    return { 'Authorization': `Bearer ${token}` };
+                }
+            } catch (e) {
+                console.error('[Auth] Error getting token:', e);
+            }
+            return {};
+        }
+
         function signOut() {
             window.location.href = '/auth/logout';
         }
@@ -518,9 +538,11 @@
         // Upgrade plan
         async function upgradePlan() {
             try {
+                const authHeaders = await getAuthHeaders();
                 const response = await fetch('/api/v1/billing/checkout', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    credentials: 'include'
                 });
                 const data = await response.json();
                 if (data.checkout_url) {
@@ -536,9 +558,11 @@
         // Manage subscription
         async function manageSubscription() {
             try {
+                const authHeaders = await getAuthHeaders();
                 const response = await fetch('/api/v1/billing/portal', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    credentials: 'include'
                 });
                 const data = await response.json();
                 if (data.portal_url) {
