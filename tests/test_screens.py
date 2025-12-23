@@ -700,6 +700,167 @@ class TestRotation:
         assert settings["theme"] == "default"
 
 
+class TestWidgets:
+    """Tests for widget content types."""
+
+    def test_send_clock_widget_digital(self, client, screen):
+        """Test sending a digital clock widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "clock",
+                        "widget_config": {"style": "digital", "format": "12h"},
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_clock_widget_analog(self, client, screen):
+        """Test sending an analog clock widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "clock",
+                        "widget_config": {"style": "analog", "show_numbers": True},
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_clock_widget_with_timezone(self, client, screen):
+        """Test sending a clock widget with timezone."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "clock",
+                        "widget_config": {
+                            "style": "digital",
+                            "timezone": "America/New_York",
+                            "format": "24h",
+                            "show_seconds": True,
+                            "show_date": True,
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_widget_with_empty_config(self, client, screen):
+        """Test sending a widget with empty config (uses defaults)."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": [{"type": "widget", "widget_type": "clock", "widget_config": {}}]},
+        )
+        assert response.status_code == 200
+
+    def test_send_widget_without_config(self, client, screen):
+        """Test sending a widget without config field."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": [{"type": "widget", "widget_type": "clock"}]},
+        )
+        assert response.status_code == 200
+
+    def test_send_multiple_widgets(self, client, screen):
+        """Test sending multiple widgets in one message."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "clock",
+                        "widget_config": {"style": "digital"},
+                    },
+                    {
+                        "type": "widget",
+                        "widget_type": "clock",
+                        "widget_config": {"style": "analog"},
+                    },
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_widget_with_panel_styling(self, client, screen):
+        """Test sending a widget with per-panel styling."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "clock",
+                        "widget_config": {"style": "digital"},
+                        "panel_color": "#1a1a2e",
+                        "font_color": "#ffffff",
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_widget_mixed_content(self, client, screen):
+        """Test sending widgets mixed with other content types."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {"type": "markdown", "value": "# Dashboard"},
+                    {
+                        "type": "widget",
+                        "widget_type": "clock",
+                        "widget_config": {"style": "digital"},
+                    },
+                    {"type": "text", "value": "Status: Online"},
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_create_page_with_widget(self, client, screen):
+        """Test creating a page with widget content."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/pages/clock-page",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "clock",
+                        "widget_config": {"style": "analog", "timezone": "UTC"},
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        page = response.json()["page"]
+        assert page["name"] == "clock-page"
+        assert page["content"][0]["type"] == "widget"
+        assert page["content"][0]["widget_type"] == "clock"
+
+
 class TestThemes:
     """Tests for theme functionality."""
 

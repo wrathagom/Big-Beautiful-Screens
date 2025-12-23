@@ -57,6 +57,12 @@ def normalize_content(content: list) -> list:
                     "loop": item.loop if item.loop is not None else True,
                     "muted": item.muted if item.muted is not None else True,
                 }
+            elif item.type == "widget":
+                entry = {
+                    "type": "widget",
+                    "widget_type": item.widget_type,
+                    "widget_config": item.widget_config or {},
+                }
             else:
                 entry = {"type": item.type, "value": item.value}
 

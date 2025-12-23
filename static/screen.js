@@ -1,3 +1,7 @@
+// Import widget system
+import { createWidget, destroyWidget } from './widgets/registry.js';
+import './widgets/clock.js';  // Register clock widget
+
 // Extract screen ID from URL
 const pathParts = window.location.pathname.split('/');
 const screenId = pathParts[pathParts.length - 1];
@@ -27,6 +31,9 @@ let screenHeadHtml = null;         // Custom HTML for <head> (e.g., Google Fonts
 
 // Debug state
 let debugEnabled = false;
+
+// Active widget elements for cleanup
+let activeWidgets = [];
 
 // Initialize
 connect();
@@ -340,6 +347,16 @@ function advanceToNextPage() {
 function renderContent(content, styles = {}) {
     const { backgroundColor, panelColor, fontFamily, fontColor, gap, borderRadius, panelShadow } = styles;
 
+    // Clean up any active widgets before clearing content
+    activeWidgets.forEach(widget => {
+        try {
+            destroyWidget(widget);
+        } catch (e) {
+            console.error('Error destroying widget:', e);
+        }
+    });
+    activeWidgets = [];
+
     // Clear existing content
     screenEl.innerHTML = '';
 
@@ -439,6 +456,13 @@ function renderContent(content, styles = {}) {
             case 'markdown':
                 contentWrapper.appendChild(createMarkdownElement(item.value, content.length));
                 break;
+            case 'widget':
+                const widgetEl = createWidgetElement(item, contentWrapper);
+                if (widgetEl) {
+                    contentWrapper.appendChild(widgetEl);
+                    activeWidgets.push(widgetEl);
+                }
+                break;
             default:
                 contentWrapper.appendChild(createTextElement(item.value || item.url || '', content.length));
         }
@@ -536,6 +560,38 @@ function createMarkdownElement(markdown, panelCount) {
     }
 
     return el;
+}
+
+function createWidgetElement(item, container) {
+    const widgetType = item.widget_type;
+    const widgetConfig = item.widget_config || {};
+
+    if (!widgetType) {
+        console.error('Widget item missing widget_type');
+        const fallback = document.createElement('div');
+        fallback.className = 'content-text';
+        fallback.textContent = 'Widget: missing type';
+        fallback.style.color = '#e74c3c';
+        return fallback;
+    }
+
+    try {
+        const widget = createWidget(widgetType, widgetConfig, container);
+        if (!widget) {
+            throw new Error(`Unknown widget type: ${widgetType}`);
+        }
+        return widget;
+    } catch (error) {
+        console.error(`Error creating widget '${widgetType}':`, error);
+        const fallback = document.createElement('div');
+        fallback.className = 'content-text';
+        fallback.innerHTML = `<div style="text-align: center; color: #e74c3c;">
+            <div style="font-size: 2rem;">⚠</div>
+            <div>Widget error: ${widgetType}</div>
+            <div style="font-size: 0.8em; opacity: 0.7;">${error.message}</div>
+        </div>`;
+        return fallback;
+    }
 }
 
 function simpleMarkdown(text) {

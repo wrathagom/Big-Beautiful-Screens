@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 class ContentItem(BaseModel):
     """Structured content item with explicit type and styling options."""
 
-    type: Literal["text", "markdown", "image", "video"] = Field(
+    type: Literal["text", "markdown", "image", "video", "widget"] = Field(
         description="Content type: 'text' for plain text, 'markdown' for formatted text, "
-        "'image' for images, 'video' for video files"
+        "'image' for images, 'video' for video files, 'widget' for interactive widgets"
     )
     value: str | None = Field(
         default=None,
@@ -58,6 +58,19 @@ class ContentItem(BaseModel):
         description="Enable text wrapping. When false, text auto-sizes to fit without wrapping "
         "(default: true for text, allows larger display)",
     )
+    widget_type: str | None = Field(
+        default=None,
+        description="Widget type for type='widget': 'clock', 'countdown', 'chart'",
+        examples=["clock", "countdown", "chart"],
+    )
+    widget_config: dict | None = Field(
+        default=None,
+        description="Widget-specific configuration. See widget documentation for options.",
+        examples=[
+            {"style": "digital", "timezone": "America/New_York", "format": "12h"},
+            {"target": "2025-01-01T00:00:00Z", "expired_text": "Happy New Year!"},
+        ],
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -76,6 +89,11 @@ class ContentItem(BaseModel):
                     "value": "No shadow",
                     "panel_color": "transparent",
                     "panel_shadow": "none",
+                },
+                {
+                    "type": "widget",
+                    "widget_type": "clock",
+                    "widget_config": {"style": "digital", "timezone": "local", "format": "12h"},
                 },
             ]
         }

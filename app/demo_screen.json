@@ -77,6 +77,37 @@
       ]
     },
     {
+      "name": "widgets",
+      "content": [
+        {
+          "type": "markdown",
+          "value": "# Interactive Widgets\n\nAdd live, interactive elements to your screens."
+        },
+        {
+          "type": "widget",
+          "widget_type": "clock",
+          "widget_config": {
+            "style": "digital",
+            "format": "12h",
+            "show_seconds": true,
+            "show_date": true
+          }
+        },
+        {
+          "type": "widget",
+          "widget_type": "clock",
+          "widget_config": {
+            "style": "analog",
+            "show_numbers": true
+          }
+        },
+        {
+          "type": "markdown",
+          "value": "## Coming Soon\n\n- Countdown timers\n- Charts & graphs\n- Weather displays"
+        }
+      ]
+    },
+    {
       "name": "themes",
       "content": [
         {
