@@ -83,17 +83,22 @@
                                 <span>Last Updated: <span class="updated-time">{{ screen.last_updated_display }}</span></span>
                             </div>
                             <div class="detail-actions">
-                                <div class="copy-dropdown">
+                                <div class="action-dropdown">
                                     <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Copy Example ▾</button>
                                     <div class="dropdown-menu">
                                         <button onclick="copyExample(this, 'bash')">Bash / cURL</button>
                                         <button onclick="copyExample(this, 'python')">Python</button>
                                     </div>
                                 </div>
-                                <button class="btn-secondary" onclick="viewJson('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">View JSON</button>
-                                <button class="btn-debug" onclick="toggleDebug('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Toggle Debug</button>
-                                <button class="btn-reload" onclick="reloadScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Reload Viewers</button>
-                                <button class="btn-delete" onclick="deleteScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Delete Screen</button>
+                                <div class="action-dropdown">
+                                    <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Screen Actions ▾</button>
+                                    <div class="dropdown-menu dropdown-menu-right">
+                                        <button onclick="viewJson('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">View JSON</button>
+                                        <button class="btn-debug" onclick="toggleDebug('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Toggle Debug</button>
+                                        <button class="btn-reload" onclick="reloadScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Reload Viewers</button>
+                                        <button class="btn-delete" onclick="deleteScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Delete Screen</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -203,7 +208,7 @@
 
         // Close dropdowns when clicking outside
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('.copy-dropdown')) {
+            if (!e.target.closest('.copy-dropdown') && !e.target.closest('.action-dropdown')) {
                 document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
                     menu.classList.remove('show');
                 });
@@ -304,7 +309,7 @@ print(response.json())`;
 
         async function viewJson(screenId, apiKey) {
             try {
-                const response = await fetch(`/api/v1/screens/${screenId}`, {
+                const response = await fetch(`/api/v1/screens/${screenId}/pages`, {
                     headers: { 'X-API-Key': apiKey }
                 });
                 if (!response.ok) {
@@ -534,17 +539,22 @@ print(response.json())`;
                         <span>Last Updated: <span class="updated-time">Never</span></span>
                     </div>
                     <div class="detail-actions">
-                        <div class="copy-dropdown">
+                        <div class="action-dropdown">
                             <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Copy Example ▾</button>
                             <div class="dropdown-menu">
                                 <button onclick="copyExample(this, 'bash')">Bash / cURL</button>
                                 <button onclick="copyExample(this, 'python')">Python</button>
                             </div>
                         </div>
-                        <button class="btn-secondary btn-view-json" onclick="event.stopPropagation();">View JSON</button>
-                        <button class="btn-debug" onclick="event.stopPropagation();">Toggle Debug</button>
-                        <button class="btn-reload" onclick="event.stopPropagation();">Reload Viewers</button>
-                        <button class="btn-delete" onclick="event.stopPropagation();">Delete Screen</button>
+                        <div class="action-dropdown">
+                            <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Screen Actions ▾</button>
+                            <div class="dropdown-menu dropdown-menu-right">
+                                <button class="btn-view-json" onclick="event.stopPropagation();">View JSON</button>
+                                <button class="btn-debug" onclick="event.stopPropagation();">Toggle Debug</button>
+                                <button class="btn-reload" onclick="event.stopPropagation();">Reload Viewers</button>
+                                <button class="btn-delete" onclick="event.stopPropagation();">Delete Screen</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

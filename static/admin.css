@@ -351,7 +351,8 @@ h1 {
 }
 
 /* Dropdown Menu */
-.copy-dropdown {
+.copy-dropdown,
+.action-dropdown {
     position: relative;
     display: inline-block;
 }
@@ -369,6 +370,11 @@ h1 {
     z-index: 100;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     overflow: hidden;
+}
+
+.dropdown-menu-right {
+    left: auto;
+    right: 0;
 }
 
 .dropdown-menu.show {
@@ -396,6 +402,31 @@ h1 {
 .dropdown-menu button.copied {
     background: #27ae60;
     color: #fff;
+}
+
+/* Colored buttons in dropdown */
+.dropdown-menu button.btn-debug {
+    color: #a855f7;
+}
+.dropdown-menu button.btn-debug:hover {
+    background: rgba(168, 85, 247, 0.2);
+    color: #c084fc;
+}
+
+.dropdown-menu button.btn-reload {
+    color: #4a69bd;
+}
+.dropdown-menu button.btn-reload:hover {
+    background: rgba(74, 105, 189, 0.2);
+    color: #6b8cce;
+}
+
+.dropdown-menu button.btn-delete {
+    color: #e74c3c;
+}
+.dropdown-menu button.btn-delete:hover {
+    background: rgba(231, 76, 60, 0.2);
+    color: #ff6b5b;
 }
 
 /* Detail Section (for head_html etc.) */
@@ -533,7 +564,8 @@ h1 {
     }
 
     .detail-actions button,
-    .detail-actions .copy-dropdown {
+    .detail-actions .copy-dropdown,
+    .detail-actions .action-dropdown {
         width: 100%;
     }
 
