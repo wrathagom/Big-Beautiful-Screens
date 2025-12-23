@@ -48,8 +48,9 @@ class Settings(BaseSettings):
     # App URL (for Stripe redirects)
     APP_URL: str = "http://localhost:8000"
 
-    # Help button URL (shown on admin pages)
-    HELP_URL: str = "https://github.com/anthropics/big-beautiful-screens/issues"
+    # Help button (shown on admin pages)
+    HELP_URL: str = "https://github.com/wrathagom/Big-Beautiful-Screens/issues"
+    HELP_TEXT: str | None = None  # Auto-set based on mode if not specified
 
     class Config:
         env_file = ".env"

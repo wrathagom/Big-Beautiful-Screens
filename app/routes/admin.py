@@ -35,6 +35,16 @@ def _format_datetime(value: str | datetime | None) -> str:
     return value[:19].replace("T", " ")
 
 
+def _get_help_text() -> str:
+    """Get help button text based on mode or config."""
+    settings = get_settings()
+    if settings.HELP_TEXT:
+        return settings.HELP_TEXT
+    if settings.APP_MODE == AppMode.SAAS:
+        return "Create a support ticket"
+    return "Create a GitHub issue for help"
+
+
 # Set up Jinja2 templates
 templates_path = Path(__file__).parent.parent / "templates"
 templates = Jinja2Templates(directory=templates_path)
@@ -287,6 +297,7 @@ async def admin_screens(request: Request, page: int = 1):
             if settings.APP_MODE == AppMode.SAAS
             else None,
             "help_url": settings.HELP_URL,
+            "help_text": _get_help_text(),
         },
     )
 
@@ -346,6 +357,7 @@ async def admin_themes(request: Request, page: int = 1):
             if settings.APP_MODE == AppMode.SAAS
             else None,
             "help_url": settings.HELP_URL,
+            "help_text": _get_help_text(),
         },
     )
 
@@ -406,6 +418,7 @@ async def admin_usage(request: Request, checkout: str | None = None):
             "checkout": checkout,
             "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
             "help_url": settings.HELP_URL,
+            "help_text": _get_help_text(),
         },
     )
 
@@ -439,5 +452,6 @@ async def admin_pricing(request: Request):
             "stripe_pricing_table_id": settings.STRIPE_PRICING_TABLE_ID,
             "user_email": user.email,
             "help_url": settings.HELP_URL,
+            "help_text": _get_help_text(),
         },
     )

@@ -30,7 +30,9 @@
             <button id="create-screen" class="btn-primary">+ Create New Screen</button>
             <div class="nav-links">
                 <a href="/admin/themes" class="nav-link">Themes</a>
+                {% if clerk_publishable_key %}
                 <a href="/admin/usage" class="nav-link">Usage & Billing</a>
+                {% endif %}
                 <a href="/docs" class="nav-link" target="_blank">API Docs</a>
                 {% if clerk_publishable_key %}
                 <a href="#" class="nav-link" onclick="signOut(); return false;">Sign Out</a>
@@ -572,6 +574,9 @@ print(response.json())`;
     </template>
 
     <!-- Help Button -->
-    <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
+    <div class="help-container">
+        <span class="help-text">{{ help_text }}</span>
+        <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
+    </div>
 </body>
 </html>

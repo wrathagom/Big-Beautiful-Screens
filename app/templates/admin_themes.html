@@ -30,7 +30,9 @@
             <button id="create-theme" class="btn-primary">+ Create New Theme</button>
             <div class="nav-links">
                 <a href="/admin/screens" class="nav-link">Screens</a>
+                {% if clerk_publishable_key %}
                 <a href="/admin/usage" class="nav-link">Usage & Billing</a>
+                {% endif %}
                 <a href="/docs" class="nav-link" target="_blank">API Docs</a>
                 {% if clerk_publishable_key %}
                 <a href="#" class="nav-link" onclick="signOut(); return false;">Sign Out</a>
@@ -438,6 +440,9 @@
     </script>
 
     <!-- Help Button -->
-    <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
+    <div class="help-container">
+        <span class="help-text">{{ help_text }}</span>
+        <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
+    </div>
 </body>
 </html>
