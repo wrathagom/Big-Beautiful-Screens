@@ -104,13 +104,13 @@ async def check_and_increment_quota(user_id: str) -> QuotaStatus:
 
     # Get today's date in UTC
     today = datetime.now(UTC).date().isoformat()
-
-    # Atomic increment and check
-    new_count = await db.increment_quota_usage(user_id, today)
     reset_time = get_next_reset_time()
 
-    if new_count > limit:
-        # Quota exceeded
+    # Check current usage first (before incrementing)
+    current_count = await db.get_daily_quota_usage(user_id, today)
+
+    if current_count >= limit:
+        # Already at or over quota - reject without incrementing
         seconds_until_reset = int((reset_time - datetime.now(UTC)).total_seconds())
         raise HTTPException(
             status_code=429,
@@ -118,7 +118,7 @@ async def check_and_increment_quota(user_id: str) -> QuotaStatus:
                 "error": "quota_exceeded",
                 "message": f"Daily API quota exceeded ({limit} calls/day). Upgrade your plan for more.",
                 "limit": limit,
-                "used": new_count,
+                "used": current_count,
                 "resets_at": reset_time.isoformat(),
                 "upgrade_url": "/admin/usage",
             },
@@ -129,6 +129,9 @@ async def check_and_increment_quota(user_id: str) -> QuotaStatus:
                 "X-RateLimit-Reset": str(int(reset_time.timestamp())),
             },
         )
+
+    # Under limit - increment and proceed
+    new_count = await db.increment_quota_usage(user_id, today)
 
     return QuotaStatus(
         plan=plan,

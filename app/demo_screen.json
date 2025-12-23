@@ -1,0 +1,105 @@
+{
+  "name": "Welcome Demo",
+  "background_color": "#1a1a2e",
+  "panel_color": "#16213e",
+  "font_color": "#eee",
+  "font_family": "system-ui, sans-serif",
+  "gap": "1rem",
+  "border_radius": "0.5rem",
+  "rotation": {
+    "enabled": true,
+    "interval": 8
+  },
+  "pages": [
+    {
+      "name": "default",
+      "content": [
+        {
+          "type": "markdown",
+          "value": "# Welcome to Big Beautiful Screens!\n\nReal-time display screens for dashboards, menus, and signage."
+        },
+        {
+          "type": "markdown",
+          "value": "## What You Can Build\n\n- Restaurant menus\n- Status dashboards\n- Office displays\n- Event signage\n- Kiosk screens"
+        },
+        {
+          "type": "image",
+          "url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800"
+        },
+        {
+          "type": "text",
+          "value": "This demo rotates through multiple pages automatically!"
+        }
+      ]
+    },
+    {
+      "name": "features",
+      "content": [
+        {
+          "type": "markdown",
+          "value": "# Content Types\n\nMultiple content types supported out of the box."
+        },
+        {
+          "type": "markdown",
+          "value": "## Text & Markdown\n\nSupports **bold**, *italic*, `code`, lists, and more.\n\n- Bullet lists\n- Work great\n- For menus"
+        },
+        {
+          "type": "markdown",
+          "value": "## Images & Video\n\nEmbed images from any URL. Videos auto-play and loop."
+        },
+        {
+          "type": "markdown",
+          "value": "## Per-Panel Styling\n\nEach panel can have its own colors!",
+          "panel_color": "#2d4a3e",
+          "font_color": "#a8e6cf"
+        }
+      ]
+    },
+    {
+      "name": "api",
+      "content": [
+        {
+          "type": "markdown",
+          "value": "# API Powered\n\nUpdate screens from anywhere via REST API."
+        },
+        {
+          "type": "markdown",
+          "value": "## Send Updates\n\n```bash\ncurl -X POST /api/v1/screens/{id}/message \\\n  -H \"X-API-Key: sk_xxx\" \\\n  -d '{\"content\": [\"Hello!\"]}'\n```"
+        },
+        {
+          "type": "markdown",
+          "value": "## Real-Time\n\nChanges appear instantly on all connected viewers via WebSocket."
+        },
+        {
+          "type": "markdown",
+          "value": "## Integrations\n\nConnect to Home Assistant, n8n, Zapier, or any automation tool."
+        }
+      ]
+    },
+    {
+      "name": "themes",
+      "content": [
+        {
+          "type": "markdown",
+          "value": "# Themes & Styling\n\nCustomize every aspect of your screens."
+        },
+        {
+          "type": "markdown",
+          "value": "## Built-in Themes\n\n13+ themes including Catppuccin, Nord, Dracula, Solarized, and more."
+        },
+        {
+          "type": "markdown",
+          "value": "## Custom Colors\n\nSet background, panel, and font colors. Use gradients for backgrounds.",
+          "panel_color": "#4a3728",
+          "font_color": "#f5e6d3"
+        },
+        {
+          "type": "markdown",
+          "value": "## Ready to Start?\n\nYou can delete this demo screen from the admin dashboard and create your own!",
+          "panel_color": "#3d1f1f",
+          "font_color": "#ffb3b3"
+        }
+      ]
+    }
+  ]
+}

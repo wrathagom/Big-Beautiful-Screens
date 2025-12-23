@@ -126,6 +126,15 @@ async def clerk_webhook(
                 plan="free",  # Default plan
             )
 
+            # Create demo screen for new users
+            if event_type == "user.created":
+                from .onboarding import create_demo_screen
+
+                try:
+                    await create_demo_screen(owner_id=user_id)
+                except Exception as e:
+                    print(f"Failed to create demo screen for user {user_id}: {e}")
+
     elif event_type == "user.deleted":
         user_id = data.get("id")
         if user_id:

@@ -107,6 +107,19 @@ async def startup():
     """Initialize database on application startup."""
     await init_db()
 
+    # In self-hosted mode, create demo screen on first run
+    if settings.APP_MODE == AppMode.SELF_HOSTED:
+        from .database import get_screens_count
+        from .onboarding import create_demo_screen
+
+        count = await get_screens_count()
+        if count == 0:
+            try:
+                result = await create_demo_screen()
+                print(f"Created demo screen: /screen/{result['screen_id']}")
+            except Exception as e:
+                print(f"Failed to create demo screen: {e}")
+
 
 if __name__ == "__main__":
     import uvicorn

@@ -1024,3 +1024,65 @@ h1 {
         justify-content: center;
     }
 }
+
+/* ============== Floating Help Button ============== */
+.help-button {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #4a69bd;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s;
+    text-decoration: none;
+    z-index: 999;
+}
+
+.help-button:hover {
+    background: #6a89dd;
+    transform: scale(1.1);
+}
+
+.help-button:active {
+    transform: scale(0.95);
+}
+
+/* ============== Demo Screen Indicator ============== */
+.demo-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: bounce 1s ease infinite;
+}
+
+.demo-indicator-text {
+    background: #27ae60;
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.demo-indicator-arrow {
+    font-size: 1rem;
+}
+
+@keyframes bounce {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(-5px);
+    }
+}

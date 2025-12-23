@@ -49,6 +49,12 @@
                             <a href="{{ screen.screen_url }}" target="_blank" class="screen-link" onclick="event.stopPropagation()">
                                 <span class="link-icon">↗</span> <span class="screen-link-text">{{ screen.screen_url }}</span>
                             </a>
+                            {% if screen.name_display == 'Welcome Demo' %}
+                            <span class="demo-indicator" onclick="event.stopPropagation()">
+                                <span class="demo-indicator-arrow">👈</span>
+                                <span class="demo-indicator-text">Click to view demo!</span>
+                            </span>
+                            {% endif %}
                             <span class="viewer-badge">{{ screen.viewer_count }} viewer{{ 's' if screen.viewer_count != 1 else '' }}</span>
                         </div>
                         <span class="expand-icon">▼</span>
@@ -564,5 +570,8 @@ print(response.json())`;
             </div>
         </div>
     </template>
+
+    <!-- Help Button -->
+    <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
 </body>
 </html>

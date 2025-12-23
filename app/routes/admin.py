@@ -286,6 +286,7 @@ async def admin_screens(request: Request, page: int = 1):
             "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY
             if settings.APP_MODE == AppMode.SAAS
             else None,
+            "help_url": settings.HELP_URL,
         },
     )
 
@@ -344,6 +345,7 @@ async def admin_themes(request: Request, page: int = 1):
             "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY
             if settings.APP_MODE == AppMode.SAAS
             else None,
+            "help_url": settings.HELP_URL,
         },
     )
 
@@ -403,6 +405,7 @@ async def admin_usage(request: Request, checkout: str | None = None):
             "has_subscription": has_subscription,
             "checkout": checkout,
             "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+            "help_url": settings.HELP_URL,
         },
     )
 
@@ -435,5 +438,6 @@ async def admin_pricing(request: Request):
             "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
             "stripe_pricing_table_id": settings.STRIPE_PRICING_TABLE_ID,
             "user_email": user.email,
+            "help_url": settings.HELP_URL,
         },
     )
