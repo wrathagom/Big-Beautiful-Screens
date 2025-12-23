@@ -434,6 +434,7 @@ print(response.json())`;
             event.stopPropagation();
             const card = el.closest('.screen-card');
             const screenId = card.dataset.screenId;
+            const apiKey = card.dataset.apiKey;
             const currentName = el.classList.contains('unnamed') ? '' : el.textContent;
 
             const input = document.createElement('input');
@@ -447,7 +448,10 @@ print(response.json())`;
                 try {
                     const response = await fetch(`/api/v1/screens/${screenId}`, {
                         method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-Key': apiKey
+                        },
                         body: JSON.stringify({ name: newName || null })
                     });
                     if (response.ok) {

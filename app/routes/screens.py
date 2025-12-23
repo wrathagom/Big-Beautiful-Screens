@@ -53,17 +53,14 @@ async def create_new_screen(user: OptionalUser = None):
     """Create a new screen and return its ID and API key.
 
     In SaaS mode, requires authentication and sets the current user as owner.
-    In self-hosted mode, creates anonymous screens.
+    Screen creation is limited based on the user's plan.
+    In self-hosted mode, creates anonymous screens with no limits.
     """
     settings = get_settings()
 
     # In SaaS mode, require authentication to prevent orphan screens
     if settings.APP_MODE == AppMode.SAAS and not user:
         raise HTTPException(status_code=401, detail="Authentication required to create screens")
-
-    screen_id = uuid.uuid4().hex[:12]
-    api_key = f"sk_{secrets.token_urlsafe(24)}"
-    created_at = datetime.now(UTC).isoformat()
 
     # Set ownership if user is authenticated in SaaS mode
     owner_id = None
@@ -80,6 +77,25 @@ async def create_new_screen(user: OptionalUser = None):
             name=user.name,
             plan="free",
         )
+
+        # Check plan limits (free=3, pro=25, team=100 screens)
+        from ..config import PLAN_LIMITS
+
+        user_data = await db.get_user(user.user_id)
+        plan = user_data.get("plan", "free") if user_data else "free"
+        limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+        screen_limit = limits.get("screens", 3)
+
+        current_count = await get_screens_count(owner_id=user.user_id)
+        if current_count >= screen_limit:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Screen limit reached ({screen_limit} screens on {plan} plan). Upgrade to create more.",
+            )
+
+    screen_id = uuid.uuid4().hex[:12]
+    api_key = f"sk_{secrets.token_urlsafe(24)}"
+    created_at = datetime.now(UTC).isoformat()
 
     await create_screen(screen_id, api_key, created_at, owner_id=owner_id, org_id=org_id)
 
