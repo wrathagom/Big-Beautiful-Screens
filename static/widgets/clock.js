@@ -51,18 +51,18 @@ const ClockWidget = {
         const timeEl = document.createElement('div');
         timeEl.className = 'clock-time';
         timeEl.style.cssText = `
-            font-size: 4rem;
             font-weight: 300;
             letter-spacing: 0.05em;
             font-variant-numeric: tabular-nums;
+            white-space: nowrap;
         `;
 
         const dateEl = document.createElement('div');
         dateEl.className = 'clock-date';
         dateEl.style.cssText = `
-            font-size: 1.2rem;
             opacity: 0.7;
-            margin-top: 0.5rem;
+            margin-top: 0.5em;
+            white-space: nowrap;
         `;
         if (!config.show_date) {
             dateEl.style.display = 'none';
@@ -70,6 +70,36 @@ const ClockWidget = {
 
         wrapper.appendChild(timeEl);
         wrapper.appendChild(dateEl);
+
+        // Auto-scale function
+        const autoScale = () => {
+            const parent = wrapper.closest('.panel-content');
+            if (!parent) return;
+
+            const maxWidth = parent.clientWidth * 0.9;
+            const maxHeight = parent.clientHeight * (config.show_date ? 0.7 : 0.85);
+
+            // Binary search for optimal font size
+            let minSize = 16;
+            let maxSize = 500;
+            let optimalSize = minSize;
+
+            while (maxSize - minSize > 2) {
+                const midSize = Math.floor((minSize + maxSize) / 2);
+                timeEl.style.fontSize = `${midSize}px`;
+                dateEl.style.fontSize = `${midSize * 0.3}px`;
+
+                if (timeEl.scrollWidth <= maxWidth && timeEl.scrollHeight <= maxHeight) {
+                    optimalSize = midSize;
+                    minSize = midSize;
+                } else {
+                    maxSize = midSize;
+                }
+            }
+
+            timeEl.style.fontSize = `${optimalSize}px`;
+            dateEl.style.fontSize = `${optimalSize * 0.3}px`;
+        };
 
         // Update function
         const update = () => {
@@ -82,6 +112,14 @@ const ClockWidget = {
 
         // Initial update
         update();
+
+        // Auto-scale after render
+        requestAnimationFrame(() => {
+            autoScale();
+            // Re-scale on window resize
+            wrapper._resizeHandler = () => autoScale();
+            window.addEventListener('resize', wrapper._resizeHandler);
+        });
 
         // Set up interval
         const intervalId = setInterval(update, 1000);
@@ -97,10 +135,12 @@ const ClockWidget = {
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
         svg.style.cssText = `
-            width: 100%;
-            max-width: 300px;
-            max-height: 300px;
+            width: 90%;
+            height: 90%;
+            max-width: 90vh;
+            max-height: 90vh;
             aspect-ratio: 1;
+            object-fit: contain;
         `;
 
         const center = size / 2;
@@ -327,6 +367,10 @@ const ClockWidget = {
         if (element && element._clockIntervalId) {
             clearInterval(element._clockIntervalId);
             element._clockIntervalId = null;
+        }
+        if (element && element._resizeHandler) {
+            window.removeEventListener('resize', element._resizeHandler);
+            element._resizeHandler = null;
         }
     }
 };

@@ -58,7 +58,7 @@ class TestOnboardingModule:
             assert "content" in page
             for item in page["content"]:
                 assert "type" in item
-                assert item["type"] in ["text", "markdown", "image", "video"]
+                assert item["type"] in ["text", "markdown", "image", "video", "widget"]
 
     def test_demo_screen_config(self):
         """Test that demo screen config has required fields."""

@@ -860,6 +860,167 @@ class TestWidgets:
         assert page["content"][0]["type"] == "widget"
         assert page["content"][0]["widget_type"] == "clock"
 
+    def test_send_countdown_widget(self, client, screen):
+        """Test sending a countdown widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "countdown",
+                        "widget_config": {"target": "2099-12-31T00:00:00Z"},
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_countdown_with_expired_text(self, client, screen):
+        """Test sending a countdown with custom expired text."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "countdown",
+                        "widget_config": {
+                            "target": "2099-12-31T00:00:00Z",
+                            "expired_text": "Happy New Year!",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_countdown_display_options(self, client, screen):
+        """Test sending a countdown with display options."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "countdown",
+                        "widget_config": {
+                            "target": "2099-12-31T00:00:00Z",
+                            "show_days": True,
+                            "show_hours": True,
+                            "show_minutes": True,
+                            "show_seconds": False,
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_countdown_simple_style(self, client, screen):
+        """Test sending a countdown with simple style."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "countdown",
+                        "widget_config": {
+                            "target": "2099-12-31T00:00:00Z",
+                            "style": "simple",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_chart_widget_line(self, client, screen):
+        """Test sending a line chart widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "line",
+                            "labels": ["Mon", "Tue", "Wed", "Thu", "Fri"],
+                            "values": [10, 25, 15, 30, 22],
+                            "label": "Sales",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_chart_widget_bar(self, client, screen):
+        """Test sending a bar chart widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "bar",
+                            "labels": ["Q1", "Q2", "Q3", "Q4"],
+                            "values": [120, 190, 300, 250],
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_chart_widget_multi_series(self, client, screen):
+        """Test sending a chart with multiple datasets."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "bar",
+                            "labels": ["Q1", "Q2", "Q3", "Q4"],
+                            "datasets": [
+                                {
+                                    "label": "2023",
+                                    "values": [120, 190, 300, 250],
+                                    "color": "#3498db",
+                                },
+                                {
+                                    "label": "2024",
+                                    "values": [150, 220, 280, 310],
+                                    "color": "#2ecc71",
+                                },
+                            ],
+                            "x_axis_label": "Quarter",
+                            "y_axis_label": "Revenue ($K)",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
 
 class TestThemes:
     """Tests for theme functionality."""

@@ -1,6 +1,8 @@
 // Import widget system
 import { createWidget, destroyWidget } from './widgets/registry.js';
-import './widgets/clock.js';  // Register clock widget
+import './widgets/clock.js';      // Register clock widget
+import './widgets/countdown.js';  // Register countdown widget
+import './widgets/chart.js';      // Register chart widget
 
 // Extract screen ID from URL
 const pathParts = window.location.pathname.split('/');
