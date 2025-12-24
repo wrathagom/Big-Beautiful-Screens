@@ -1,0 +1,86 @@
+site_name: Big Beautiful Screens
+site_description: API-driven real-time display screens for dashboards, menus, and signage
+site_url: https://wrathagom.github.io/Big-Beautiful-Screens/
+repo_url: https://github.com/wrathagom/Big-Beautiful-Screens
+repo_name: wrathagom/Big-Beautiful-Screens
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: purple
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  icon:
+    repo: fontawesome/brands/github
+
+plugins:
+  - search
+  - minify:
+      minify_html: true
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - tables
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+  - API Reference:
+    - Screens: api/screens.md
+    - Pages: api/pages.md
+    - Messages: api/messages.md
+    - Themes: api/themes.md
+  - Content:
+    - Content Types: content/types.md
+    - Widgets: content/widgets.md
+  - Styling:
+    - Colors & Fonts: styling/colors.md
+    - Themes: styling/themes.md
+    - Layout & Spacing: styling/layout.md
+  - Examples:
+    - Dashboard: examples/dashboard.md
+    - Menu Board: examples/menu-board.md
+    - Status Display: examples/status-display.md
+  - Development:
+    - Testing: development/testing.md
+    - Contributing: development/contributing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/wrathagom/Big-Beautiful-Screens
