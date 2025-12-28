@@ -4,6 +4,47 @@ import './widgets/clock.js';      // Register clock widget
 import './widgets/countdown.js';  // Register countdown widget
 import './widgets/chart.js';      // Register chart widget
 
+// ============== Layout Presets ==============
+const LAYOUT_PRESETS = {
+    // Auto (backward compatible)
+    "auto": {},
+
+    // Vertical stacking (single column)
+    "vertical": { columns: 1 },
+    "vertical-6": { columns: 1, rows: 6 },
+    "vertical-8": { columns: 1, rows: 8 },
+    "vertical-10": { columns: 1, rows: 10 },
+    "vertical-12": { columns: 1, rows: 12 },
+
+    // Horizontal (single row)
+    "horizontal": { rows: 1 },
+    "horizontal-4": { columns: 4, rows: 1 },
+    "horizontal-6": { columns: 6, rows: 1 },
+
+    // Standard grids
+    "grid-2x2": { columns: 2, rows: 2 },
+    "grid-3x2": { columns: 3, rows: 2 },
+    "grid-2x3": { columns: 2, rows: 3 },
+    "grid-3x3": { columns: 3, rows: 3 },
+    "grid-4x3": { columns: 4, rows: 3 },
+    "grid-4x4": { columns: 4, rows: 4 },
+
+    // Dashboard layouts (header/footer span full width)
+    "dashboard-header": { columns: 3, rows: "auto 1fr 1fr", header_rows: 1 },
+    "dashboard-footer": { columns: 3, rows: "1fr 1fr auto", footer_rows: 1 },
+    "dashboard-both": { columns: 3, rows: "auto 1fr 1fr auto", header_rows: 1, footer_rows: 1 },
+
+    // Menu/schedule layouts
+    "menu-board": { columns: 2, rows: "auto 1fr 1fr 1fr 1fr 1fr 1fr", header_rows: 1 },
+    "menu-3col": { columns: 3, rows: "auto 1fr 1fr 1fr 1fr", header_rows: 1 },
+    "schedule": { columns: 1, rows: "auto 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr", header_rows: 1 },
+
+    // Featured/sidebar layouts
+    "featured-top": { columns: 3, rows: "2fr 1fr", header_rows: 1 },
+    "sidebar-left": { columns: "1fr 3fr" },
+    "sidebar-right": { columns: "3fr 1fr" }
+};
+
 // Extract screen ID from URL
 const pathParts = window.location.pathname.split('/');
 const screenId = pathParts[pathParts.length - 1];
@@ -30,6 +71,7 @@ let screenPanelColor = null;       // Screen-level panel color
 let screenFontFamily = null;       // Screen-level font family
 let screenFontColor = null;        // Screen-level font color
 let screenHeadHtml = null;         // Custom HTML for <head> (e.g., Google Fonts)
+let screenDefaultLayout = null;    // Screen-level default layout
 
 // Debug state
 let debugEnabled = false;
@@ -85,7 +127,8 @@ function connect() {
                     fontColor: data.font_color,
                     gap: data.gap,
                     borderRadius: data.border_radius,
-                    panelShadow: data.panel_shadow
+                    panelShadow: data.panel_shadow,
+                    layout: data.layout
                 });
                 break;
 
@@ -166,6 +209,85 @@ function updateDebugDisplay() {
     }
 }
 
+// ============== Layout Resolution ==============
+
+function resolveLayout(layout, contentCount) {
+    // No layout = backward compatible auto-detection
+    if (!layout) {
+        return { type: 'auto', panelCount: Math.min(contentCount, 6) };
+    }
+
+    // String = preset name
+    if (typeof layout === 'string') {
+        const preset = LAYOUT_PRESETS[layout];
+        if (preset && Object.keys(preset).length === 0) {
+            // 'auto' preset
+            return { type: 'auto', panelCount: Math.min(contentCount, 6) };
+        }
+        return preset ? { type: 'custom', ...preset } : { type: 'auto', panelCount: contentCount };
+    }
+
+    // Object = full config (could be LayoutConfig model serialized)
+    if (typeof layout === 'object') {
+        // Check if it's using a preset
+        if (layout.preset) {
+            const preset = LAYOUT_PRESETS[layout.preset];
+            if (preset) {
+                // Merge preset with overrides
+                const config = { ...preset };
+                Object.keys(layout).forEach(key => {
+                    if (layout[key] !== null && layout[key] !== undefined && key !== 'preset') {
+                        config[key] = layout[key];
+                    }
+                });
+                return { type: 'custom', ...config };
+            }
+        }
+        return { type: 'custom', ...layout };
+    }
+
+    // Fallback
+    return { type: 'auto', panelCount: contentCount };
+}
+
+function applyScreenLayout(screenEl, layoutConfig, contentCount) {
+    // Reset any previous inline styles
+    screenEl.style.gridTemplateColumns = '';
+    screenEl.style.gridTemplateRows = '';
+
+    if (layoutConfig.type === 'auto') {
+        // Backward compatible - use panels-N classes
+        screenEl.className = `screen panels-${layoutConfig.panelCount}`;
+        return;
+    }
+
+    // Custom layout
+    screenEl.className = 'screen layout-custom';
+
+    // Apply columns
+    if (layoutConfig.columns) {
+        const cols = typeof layoutConfig.columns === 'number'
+            ? `repeat(${layoutConfig.columns}, 1fr)`
+            : layoutConfig.columns;
+        screenEl.style.gridTemplateColumns = cols;
+    }
+
+    // Apply rows
+    if (layoutConfig.rows) {
+        const rows = typeof layoutConfig.rows === 'number'
+            ? `repeat(${layoutConfig.rows}, 1fr)`
+            : layoutConfig.rows;
+        screenEl.style.gridTemplateRows = rows;
+    } else if (layoutConfig.columns && !layoutConfig.rows) {
+        // Auto rows based on content count and column count
+        const cols = typeof layoutConfig.columns === 'number'
+            ? layoutConfig.columns
+            : layoutConfig.columns.split(' ').length;
+        const rowCount = Math.ceil(contentCount / cols);
+        screenEl.style.gridTemplateRows = `repeat(${rowCount}, 1fr)`;
+    }
+}
+
 // ============== Page Handling ==============
 
 function handlePagesSync(newPages, rotation) {
@@ -183,6 +305,7 @@ function handlePagesSync(newPages, rotation) {
         screenPanelColor = rotation.panel_color || null;
         screenFontFamily = rotation.font_family || null;
         screenFontColor = rotation.font_color || null;
+        screenDefaultLayout = rotation.default_layout || null;
         updateHeadHtml(rotation.head_html || null);
     }
 
@@ -259,6 +382,7 @@ function handleRotationUpdate(rotation) {
     screenPanelColor = rotation.panel_color || null;
     screenFontFamily = rotation.font_family || null;
     screenFontColor = rotation.font_color || null;
+    screenDefaultLayout = rotation.default_layout || null;
     updateHeadHtml(rotation.head_html || null);
 
     // Re-render to apply new settings
@@ -294,6 +418,9 @@ function renderCurrentPage() {
 
     const page = activePages[currentPageIndex];
 
+    // Determine layout: page override > screen default > auto
+    const effectiveLayout = page.layout || screenDefaultLayout || null;
+
     renderContent(page.content, {
         backgroundColor: page.background_color,
         panelColor: page.panel_color,
@@ -301,7 +428,8 @@ function renderCurrentPage() {
         fontColor: page.font_color,
         gap: page.gap,  // Page-level gap override (null uses screen default)
         borderRadius: page.border_radius,  // Page-level border radius override
-        panelShadow: page.panel_shadow  // Page-level panel shadow override
+        panelShadow: page.panel_shadow,  // Page-level panel shadow override
+        layout: effectiveLayout  // Layout configuration
     });
 }
 
@@ -347,7 +475,7 @@ function advanceToNextPage() {
 }
 
 function renderContent(content, styles = {}) {
-    const { backgroundColor, panelColor, fontFamily, fontColor, gap, borderRadius, panelShadow } = styles;
+    const { backgroundColor, panelColor, fontFamily, fontColor, gap, borderRadius, panelShadow, layout } = styles;
 
     // Clean up any active widgets before clearing content
     activeWidgets.forEach(widget => {
@@ -400,8 +528,14 @@ function renderContent(content, styles = {}) {
         screenEl.style.color = '';
     }
 
-    // Update grid class based on panel count
-    screenEl.className = `screen panels-${Math.min(content.length, 6)}`;
+    // Resolve and apply layout
+    const layoutConfig = resolveLayout(layout, content.length);
+    applyScreenLayout(screenEl, layoutConfig, content.length);
+
+    // Extract header/footer row counts for auto-spanning
+    const headerRows = layoutConfig.header_rows || 0;
+    const footerRows = layoutConfig.footer_rows || 0;
+    const totalItems = content.length;
 
     // Create panels for each content item
     content.forEach((item, index) => {
@@ -433,6 +567,21 @@ function renderContent(content, styles = {}) {
         }
         if (item.font_color) {
             panel.style.color = item.font_color;
+        }
+
+        // Apply per-panel grid positioning
+        if (item.grid_column) {
+            panel.style.gridColumn = item.grid_column;
+        } else if (layoutConfig.type === 'custom') {
+            // Auto-span header and footer rows (only if custom layout)
+            if (headerRows > 0 && index < headerRows) {
+                panel.style.gridColumn = '1 / -1';  // Full width
+            } else if (footerRows > 0 && index >= totalItems - footerRows) {
+                panel.style.gridColumn = '1 / -1';  // Full width
+            }
+        }
+        if (item.grid_row) {
+            panel.style.gridRow = item.grid_row;
         }
 
         const contentWrapper = document.createElement('div');

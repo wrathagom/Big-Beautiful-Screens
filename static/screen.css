@@ -254,6 +254,33 @@ html, body {
     grid-template-rows: 1fr 1fr;
 }
 
+/* Custom layout support - for flexible grid configurations */
+.screen.layout-custom {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+}
+
+/* Spanning utility classes for panels */
+.panel.span-full-width {
+    grid-column: 1 / -1;
+}
+
+.panel.span-2-cols {
+    grid-column: span 2;
+}
+
+.panel.span-3-cols {
+    grid-column: span 3;
+}
+
+.panel.span-2-rows {
+    grid-row: span 2;
+}
+
+.panel.span-3-rows {
+    grid-row: span 3;
+}
+
 /* Connection status indicator */
 .connection-status {
     position: fixed;

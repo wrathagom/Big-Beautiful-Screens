@@ -1089,3 +1089,164 @@ class TestThemes:
         )
         # 422 because X-API-Key header is required by FastAPI validation
         assert response.status_code == 422
+
+
+class TestLayouts:
+    """Tests for layout presets and custom layouts."""
+
+    def test_list_layouts(self, client):
+        """Test listing all available layout presets."""
+        response = client.get("/api/v1/layouts")
+        assert response.status_code == 200
+        data = response.json()
+        assert "layouts" in data
+        assert len(data["layouts"]) > 0
+
+        # Check some expected presets exist
+        layout_names = [layout["name"] for layout in data["layouts"]]
+        assert "auto" in layout_names
+        assert "vertical" in layout_names
+        assert "grid-2x2" in layout_names
+        assert "dashboard-header" in layout_names
+
+    def test_layout_preset_structure(self, client):
+        """Test that layout presets have required fields."""
+        response = client.get("/api/v1/layouts")
+        data = response.json()
+
+        for layout in data["layouts"]:
+            assert "name" in layout
+            assert "description" in layout
+
+    def test_message_with_layout_preset(self, client, screen):
+        """Test sending a message with a layout preset name."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": ["Item 1", "Item 2", "Item 3", "Item 4"],
+                "layout": "vertical",
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_message_with_custom_layout(self, client, screen):
+        """Test sending a message with a custom layout configuration."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": ["Header", "Panel 1", "Panel 2", "Panel 3"],
+                "layout": {
+                    "columns": 3,
+                    "rows": "auto 1fr",
+                    "header_rows": 1,
+                },
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_message_with_grid_positioning(self, client, screen):
+        """Test sending a message with per-panel grid positioning."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {"type": "text", "value": "Title", "grid_column": "1 / -1"},
+                    {
+                        "type": "text",
+                        "value": "Main",
+                        "grid_column": "span 2",
+                        "grid_row": "span 2",
+                    },
+                    {"type": "text", "value": "Side 1"},
+                    {"type": "text", "value": "Side 2"},
+                ],
+                "layout": {"columns": 3, "rows": "auto 1fr 1fr"},
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_screen_default_layout(self, client, screen):
+        """Test setting default layout for a screen."""
+        response = client.patch(
+            f"/api/v1/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"default_layout": "vertical-12"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["default_layout"] == "vertical-12"
+
+    def test_screen_default_layout_custom(self, client, screen):
+        """Test setting a custom default layout for a screen."""
+        response = client.patch(
+            f"/api/v1/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"default_layout": {"columns": 2, "rows": 6}},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["default_layout"]["columns"] == 2
+        assert data["settings"]["default_layout"]["rows"] == 6
+
+    def test_page_with_layout(self, client, screen):
+        """Test creating a page with a specific layout."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/pages/menu",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": ["# Menu", "Item 1", "Item 2", "Item 3"],
+                "layout": "menu-board",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["page"]["layout"] == "menu-board"
+
+    def test_page_layout_in_list(self, client, screen):
+        """Test that page layout is included in pages list."""
+        # Create page with layout
+        client.post(
+            f"/api/v1/screens/{screen['screen_id']}/pages/test-layout",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": ["Test"],
+                "layout": "grid-3x3",
+            },
+        )
+
+        # Get pages list
+        response = client.get(f"/api/v1/screens/{screen['screen_id']}/pages")
+        assert response.status_code == 200
+        pages = response.json()["pages"]
+
+        # Find our page
+        test_page = next((p for p in pages if p["name"] == "test-layout"), None)
+        assert test_page is not None
+        assert test_page["layout"] == "grid-3x3"
+
+    def test_patch_page_layout(self, client, screen):
+        """Test updating a page's layout via PATCH."""
+        # Create page
+        client.post(
+            f"/api/v1/screens/{screen['screen_id']}/pages/patch-layout-test",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"content": ["Test"]},
+        )
+
+        # Update layout
+        response = client.patch(
+            f"/api/v1/screens/{screen['screen_id']}/pages/patch-layout-test",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"layout": "horizontal"},
+        )
+        assert response.status_code == 200
+        assert response.json()["page"]["layout"] == "horizontal"

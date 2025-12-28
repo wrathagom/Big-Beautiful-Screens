@@ -33,6 +33,13 @@ __all__ = [
     "update_theme_in_db",
     "delete_theme_from_db",
     "get_theme_usage_counts",
+    # Media functions
+    "create_media",
+    "get_media_by_id",
+    "get_all_media",
+    "get_media_count",
+    "get_storage_used",
+    "delete_media",
 ]
 
 
@@ -112,6 +119,7 @@ async def update_rotation_settings(
     font_color: str | None = None,
     theme: str | None = None,
     head_html: str | None = None,
+    default_layout: str | dict | None = None,
 ) -> bool:
     """Update rotation/display settings. Returns True if updated."""
     db = get_database()
@@ -128,6 +136,7 @@ async def update_rotation_settings(
         font_color,
         theme,
         head_html,
+        default_layout,
     )
 
 
@@ -162,6 +171,7 @@ async def update_page(
     screen_id: str,
     name: str,
     content: list | None = None,
+    layout: str | dict | None = None,
     background_color: str | None = None,
     panel_color: str | None = None,
     font_family: str | None = None,
@@ -178,6 +188,7 @@ async def update_page(
         screen_id,
         name,
         content,
+        layout,
         background_color,
         panel_color,
         font_family,
@@ -295,3 +306,74 @@ async def get_theme_usage_counts() -> dict[str, int]:
     """Get usage count for all themes."""
     db = get_database()
     return await db.get_theme_usage_counts()
+
+
+# ============== Media Functions ==============
+
+
+async def create_media(
+    media_id: str,
+    filename: str,
+    original_filename: str,
+    content_type: str,
+    size_bytes: int,
+    storage_path: str,
+    storage_backend: str,
+    owner_id: str | None = None,
+    org_id: str | None = None,
+) -> dict:
+    """Create a media record."""
+    db = get_database()
+    return await db.create_media(
+        media_id,
+        filename,
+        original_filename,
+        content_type,
+        size_bytes,
+        storage_path,
+        storage_backend,
+        owner_id,
+        org_id,
+    )
+
+
+async def get_media_by_id(media_id: str) -> dict | None:
+    """Get a media record by ID."""
+    db = get_database()
+    return await db.get_media_by_id(media_id)
+
+
+async def get_all_media(
+    limit: int | None = None,
+    offset: int = 0,
+    owner_id: str | None = None,
+    org_id: str | None = None,
+    content_type_filter: str | None = None,
+) -> list[dict]:
+    """Get media with optional pagination and filtering."""
+    db = get_database()
+    return await db.get_all_media(limit, offset, owner_id, org_id, content_type_filter)
+
+
+async def get_media_count(
+    owner_id: str | None = None,
+    org_id: str | None = None,
+) -> int:
+    """Get total count of media records."""
+    db = get_database()
+    return await db.get_media_count(owner_id, org_id)
+
+
+async def get_storage_used(
+    owner_id: str | None = None,
+    org_id: str | None = None,
+) -> int:
+    """Get total storage used in bytes."""
+    db = get_database()
+    return await db.get_storage_used(owner_id, org_id)
+
+
+async def delete_media(media_id: str) -> dict | None:
+    """Delete a media record. Returns the deleted data for storage cleanup."""
+    db = get_database()
+    return await db.delete_media(media_id)

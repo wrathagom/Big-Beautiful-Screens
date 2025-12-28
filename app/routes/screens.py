@@ -27,6 +27,7 @@ from ..database import (
     upsert_page,
 )
 from ..db import get_database
+from ..layouts import list_layout_presets
 from ..models import (
     MessageRequest,
     MessageResponse,
@@ -180,6 +181,11 @@ async def send_message(
     # Normalize content to structured format
     normalized_content = normalize_content(request.content)
 
+    # Serialize layout if it's a LayoutConfig object
+    layout_value = request.layout
+    if layout_value is not None and hasattr(layout_value, "model_dump"):
+        layout_value = layout_value.model_dump(exclude_none=True)
+
     # Build full message payload with styling
     message_payload = {
         "content": normalized_content,
@@ -190,6 +196,7 @@ async def send_message(
         "gap": request.gap,
         "border_radius": request.border_radius,
         "panel_shadow": request.panel_shadow,
+        "layout": layout_value,
     }
 
     # Save to pages table as "default" page
@@ -318,6 +325,11 @@ async def update_screen(
     )
     head_html = request.head_html
 
+    # Serialize default_layout if it's a LayoutConfig object
+    default_layout = request.default_layout
+    if default_layout is not None and hasattr(default_layout, "model_dump"):
+        default_layout = default_layout.model_dump(exclude_none=True)
+
     # Validate API key
     if screen["api_key"] != x_api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
@@ -334,6 +346,7 @@ async def update_screen(
         or font_family is not None
         or font_color is not None
         or head_html is not None
+        or default_layout is not None
     )
 
     # Update name if provided
@@ -355,6 +368,7 @@ async def update_screen(
             font_color=font_color,
             theme=theme_name,
             head_html=head_html,
+            default_layout=default_layout,
         )
 
         # Broadcast settings update to viewers (with theme values resolved)
@@ -425,6 +439,18 @@ async def transfer_screen(screen_id: str, user: RequiredUser, to_org: bool = Fal
     }
 
 
+# ============== Layout Endpoints ==============
+
+
+@router.get("/api/v1/layouts", tags=["Layouts"])
+async def get_layouts():
+    """List all available layout presets.
+
+    Returns preset names, descriptions, and configuration details.
+    """
+    return {"layouts": list_layout_presets()}
+
+
 # ============== Page Endpoints ==============
 
 
@@ -465,6 +491,11 @@ async def create_or_update_page(
     # Normalize content
     normalized_content = normalize_content(request.content)
 
+    # Serialize layout if it's a LayoutConfig object
+    layout_value = request.layout
+    if layout_value is not None and hasattr(layout_value, "model_dump"):
+        layout_value = layout_value.model_dump(exclude_none=True)
+
     message_payload = {
         "content": normalized_content,
         "background_color": request.background_color,
@@ -474,6 +505,7 @@ async def create_or_update_page(
         "gap": request.gap,
         "border_radius": request.border_radius,
         "panel_shadow": request.panel_shadow,
+        "layout": layout_value,
     }
 
     # Convert expires_at to ISO string if provided
@@ -517,6 +549,11 @@ async def patch_page(
     if request.content is not None:
         normalized_content = normalize_content(request.content)
 
+    # Serialize layout if it's a LayoutConfig object
+    layout_value = request.layout
+    if layout_value is not None and hasattr(layout_value, "model_dump"):
+        layout_value = layout_value.model_dump(exclude_none=True)
+
     # Convert expires_at to ISO string if provided
     expires_at_str = request.expires_at.isoformat() if request.expires_at else None
 
@@ -533,6 +570,7 @@ async def patch_page(
         panel_shadow=request.panel_shadow,
         duration=request.duration,
         expires_at=expires_at_str,
+        layout=layout_value,
     )
 
     if not page_data:

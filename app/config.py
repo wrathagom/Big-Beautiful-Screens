@@ -2,6 +2,7 @@
 
 from enum import Enum
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings
 
@@ -9,6 +10,10 @@ from pydantic_settings import BaseSettings
 class AppMode(str, Enum):
     SELF_HOSTED = "self-hosted"
     SAAS = "saas"
+
+
+# Storage backend type
+StorageBackendType = Literal["local", "s3", "r2"]
 
 
 class Settings(BaseSettings):
@@ -48,6 +53,30 @@ class Settings(BaseSettings):
     # App URL (for Stripe redirects)
     APP_URL: str = "http://localhost:8000"
 
+    # Media Storage Backend
+    STORAGE_BACKEND: StorageBackendType = "local"
+
+    # Local Storage Settings
+    STORAGE_LOCAL_PATH: str = "data/media"
+
+    # S3 Storage Settings
+    STORAGE_S3_BUCKET: str | None = None
+    STORAGE_S3_REGION: str = "us-east-1"
+    STORAGE_S3_ACCESS_KEY: str | None = None
+    STORAGE_S3_SECRET_KEY: str | None = None
+    STORAGE_S3_ENDPOINT_URL: str | None = None  # Custom endpoint for S3-compatible services
+    STORAGE_S3_PUBLIC_URL: str | None = None  # Custom domain/CDN for public URLs
+
+    # Cloudflare R2 Storage Settings
+    STORAGE_R2_BUCKET: str | None = None
+    STORAGE_R2_ACCOUNT_ID: str | None = None
+    STORAGE_R2_ACCESS_KEY: str | None = None
+    STORAGE_R2_SECRET_KEY: str | None = None
+    STORAGE_R2_PUBLIC_DOMAIN: str | None = None  # Required for public access
+
+    # Media Upload Limits
+    MAX_UPLOAD_SIZE_MB: int = 50
+
     # Help button (shown on admin pages)
     HELP_URL: str = "https://github.com/wrathagom/Big-Beautiful-Screens/issues"
     HELP_TEXT: str | None = None  # Auto-set based on mode if not specified
@@ -83,10 +112,36 @@ class Settings(BaseSettings):
 
 # Plan limits lookup (includes resource counts and API quotas)
 PLAN_LIMITS = {
-    "free": {"screens": 3, "themes": 200, "pages_per_screen": 5, "api_calls_daily": 100},
-    "pro": {"screens": 25, "themes": 200, "pages_per_screen": 50, "api_calls_daily": 1000},
-    "team": {"screens": 100, "themes": 200, "pages_per_screen": 100, "api_calls_daily": -1},
+    "free": {
+        "screens": 3,
+        "themes": 200,
+        "pages_per_screen": 5,
+        "api_calls_daily": 100,
+        "media_enabled": False,
+        "storage_bytes": 0,
+    },
+    "pro": {
+        "screens": 25,
+        "themes": 200,
+        "pages_per_screen": 50,
+        "api_calls_daily": 1000,
+        "media_enabled": True,
+        "storage_bytes": 1073741824,  # 1GB
+    },
+    "team": {
+        "screens": 100,
+        "themes": 200,
+        "pages_per_screen": 100,
+        "api_calls_daily": -1,
+        "media_enabled": True,
+        "storage_bytes": 10737418240,  # 10GB
+    },
 }
+
+# Allowed media file types
+ALLOWED_IMAGE_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"}
+ALLOWED_VIDEO_TYPES = {"video/mp4", "video/webm", "video/quicktime"}
+ALLOWED_MEDIA_TYPES = ALLOWED_IMAGE_TYPES | ALLOWED_VIDEO_TYPES
 
 
 @lru_cache

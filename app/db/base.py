@@ -255,3 +255,74 @@ class DatabaseBackend(ABC):
     async def get_user_organizations(self, user_id: str) -> list[dict]:
         """Get organizations for a user. Only implemented in SaaS backends."""
         return []
+
+    # ============== Media Methods ==============
+
+    @abstractmethod
+    async def create_media(
+        self,
+        media_id: str,
+        filename: str,
+        original_filename: str,
+        content_type: str,
+        size_bytes: int,
+        storage_path: str,
+        storage_backend: str,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> dict:
+        """Create a media record. Returns the media data."""
+        pass
+
+    @abstractmethod
+    async def get_media_by_id(self, media_id: str) -> dict | None:
+        """Get a media record by ID."""
+        pass
+
+    @abstractmethod
+    async def get_all_media(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+        content_type_filter: str | None = None,
+    ) -> list[dict]:
+        """
+        Get media with optional pagination and filtering.
+
+        Args:
+            limit: Maximum number of records to return
+            offset: Number of records to skip
+            owner_id: Filter by owner ID
+            org_id: Filter by organization ID
+            content_type_filter: Filter by type ('image' or 'video')
+        """
+        pass
+
+    @abstractmethod
+    async def get_media_count(
+        self,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> int:
+        """Get total count of media records."""
+        pass
+
+    @abstractmethod
+    async def get_storage_used(
+        self,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> int:
+        """Get total storage used in bytes."""
+        pass
+
+    @abstractmethod
+    async def delete_media(self, media_id: str) -> dict | None:
+        """
+        Delete a media record.
+
+        Returns the deleted media data (for storage cleanup) or None if not found.
+        """
+        pass

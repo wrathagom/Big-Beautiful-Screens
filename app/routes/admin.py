@@ -14,9 +14,12 @@ from ..auth import get_clerk_sign_in_url, get_current_user
 from ..config import PLAN_LIMITS, AppMode, get_settings
 from ..connection_manager import manager
 from ..database import (
+    get_all_media,
     get_all_screens,
     get_all_themes,
+    get_media_count,
     get_screens_count,
+    get_storage_used,
     get_theme_usage_counts,
     get_themes_count,
 )
@@ -451,6 +454,129 @@ async def admin_pricing(request: Request):
             "stripe_publishable_key": settings.STRIPE_PUBLISHABLE_KEY,
             "stripe_pricing_table_id": settings.STRIPE_PRICING_TABLE_ID,
             "user_email": user.email,
+            "help_url": settings.HELP_URL,
+            "help_text": _get_help_text(),
+        },
+    )
+
+
+def _format_bytes(bytes_value: int) -> str:
+    """Format bytes as human-readable string."""
+    if bytes_value == 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
+    i = 0
+    while bytes_value >= 1024 and i < len(units) - 1:
+        bytes_value /= 1024
+        i += 1
+    return f"{bytes_value:.1f} {units[i]}"
+
+
+@router.get("/admin/media", response_class=HTMLResponse)
+async def admin_media(request: Request, page: int = 1, content_type: str | None = None):
+    """Admin page for managing media files.
+
+    In SaaS mode, requires authentication and checks plan limits.
+    In self-hosted mode, shows all media without authentication.
+    """
+    settings = get_settings()
+    user = None
+    media_enabled = True
+    storage_quota = -1  # Unlimited
+
+    # In SaaS mode, require authentication and check plan
+    if settings.APP_MODE == AppMode.SAAS:
+        user = await get_current_user(request)
+        if not user:
+            return RedirectResponse(url=get_clerk_sign_in_url("/admin/media"), status_code=302)
+
+        # Check if media is enabled for this plan
+        db = get_database()
+        user_data = await db.get_user(user.user_id)
+        plan = user_data.get("plan", "free") if user_data else "free"
+        limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+        media_enabled = limits.get("media_enabled", False)
+        storage_quota = limits.get("storage_bytes", 0)
+
+    if not media_enabled:
+        return templates.TemplateResponse(
+            request=request,
+            name="admin_media.html",
+            context={
+                "media_enabled": False,
+                "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY
+                if settings.APP_MODE == AppMode.SAAS
+                else None,
+                "help_url": settings.HELP_URL,
+                "help_text": _get_help_text(),
+            },
+        )
+
+    per_page = 24
+    offset = (page - 1) * per_page
+
+    # Get media with ownership filter in SaaS mode
+    owner_id = user.user_id if user and settings.APP_MODE == AppMode.SAAS else None
+    org_id = user.org_id if user and settings.APP_MODE == AppMode.SAAS else None
+
+    total_count = await get_media_count(owner_id=owner_id, org_id=org_id)
+    total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+    page = max(1, min(page, total_pages))
+
+    media_items = await get_all_media(
+        limit=per_page,
+        offset=offset,
+        owner_id=owner_id,
+        org_id=org_id,
+        content_type_filter=content_type,
+    )
+
+    storage_used = await get_storage_used(owner_id=owner_id, org_id=org_id)
+
+    # Get storage backend for URLs
+    from ..storage import get_storage
+
+    storage = get_storage()
+
+    # Enrich media data for template
+    enriched_media = []
+    for item in media_items:
+        enriched_media.append(
+            {
+                **item,
+                "url": storage.get_public_url(item["storage_path"]),
+                "size_display": _format_bytes(item["size_bytes"]),
+                "created_display": _format_datetime(item["created_at"]),
+            }
+        )
+
+    # Calculate storage percentage
+    if storage_quota > 0:
+        storage_percent = min(100, (storage_used / storage_quota) * 100)
+        storage_quota_display = _format_bytes(storage_quota)
+    else:
+        storage_percent = 0
+        storage_quota_display = "Unlimited"
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_media.html",
+        context={
+            "media_enabled": True,
+            "media": enriched_media,
+            "page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "content_type": content_type,
+            "storage_used": storage_used,
+            "storage_used_display": _format_bytes(storage_used),
+            "storage_quota": storage_quota,
+            "storage_quota_display": storage_quota_display,
+            "storage_percent": storage_percent,
+            "max_upload_size_mb": settings.MAX_UPLOAD_SIZE_MB,
+            "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY
+            if settings.APP_MODE == AppMode.SAAS
+            else None,
             "help_url": settings.HELP_URL,
             "help_text": _get_help_text(),
         },

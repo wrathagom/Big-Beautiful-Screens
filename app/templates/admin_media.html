@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Library - Big Beautiful Screens</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <link rel="stylesheet" href="/static/admin.css">
+    {% if clerk_publishable_key %}
+    <script
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        async
+    ></script>
+    {% endif %}
+    <style>
+        .media-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .media-card {
+            background: var(--card-bg, #1a1a2e);
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            transition: transform 0.2s;
+        }
+        .media-card:hover {
+            transform: translateY(-2px);
+        }
+        .media-preview {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            background: #0f0f23;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .media-preview img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+        .media-preview video {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .media-preview .video-icon {
+            font-size: 3rem;
+            color: #666;
+        }
+        .media-info {
+            padding: 0.75rem;
+        }
+        .media-filename {
+            font-size: 0.85rem;
+            color: #ccc;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 0.25rem;
+        }
+        .media-meta {
+            font-size: 0.75rem;
+            color: #888;
+        }
+        .media-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        .media-actions button {
+            flex: 1;
+            padding: 0.35rem;
+            font-size: 0.75rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-copy-url {
+            background: #4a69bd;
+            color: white;
+        }
+        .btn-copy-url:hover {
+            background: #3c5aa6;
+        }
+        .btn-delete-media {
+            background: #c0392b;
+            color: white;
+        }
+        .btn-delete-media:hover {
+            background: #a93226;
+        }
+        .upload-zone {
+            border: 2px dashed #444;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            margin-bottom: 1rem;
+        }
+        .upload-zone:hover, .upload-zone.dragover {
+            border-color: #4a69bd;
+            background: rgba(74, 105, 189, 0.1);
+        }
+        .upload-zone input[type="file"] {
+            display: none;
+        }
+        .upload-zone h3 {
+            margin: 0 0 0.5rem 0;
+            color: #ccc;
+        }
+        .upload-zone p {
+            margin: 0;
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .storage-bar {
+            background: #1a1a2e;
+            border-radius: 4px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .storage-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .storage-progress {
+            height: 8px;
+            background: #0f0f23;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .storage-progress-fill {
+            height: 100%;
+            background: #4a69bd;
+            border-radius: 4px;
+            transition: width 0.3s;
+        }
+        .storage-progress-fill.warning {
+            background: #f39c12;
+        }
+        .storage-progress-fill.danger {
+            background: #c0392b;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .filter-bar select {
+            padding: 0.5rem;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            color: #ccc;
+            border-radius: 4px;
+        }
+        .upload-progress {
+            display: none;
+            margin-top: 1rem;
+        }
+        .upload-progress.active {
+            display: block;
+        }
+        .upload-progress-bar {
+            height: 4px;
+            background: #0f0f23;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .upload-progress-fill {
+            height: 100%;
+            background: #27ae60;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .upload-status {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 0.5rem;
+        }
+        .media-disabled {
+            text-align: center;
+            padding: 3rem;
+            background: #1a1a2e;
+            border-radius: 8px;
+        }
+        .media-disabled h2 {
+            margin-bottom: 1rem;
+        }
+        .media-disabled p {
+            color: #888;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="admin-header">
+            <div class="header-title">
+                <img src="/static/logo.png" alt="BBS Logo" class="header-logo">
+                <div>
+                    <h1>Big Beautiful Screens</h1>
+                    <p class="subtitle">Media Library</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <div></div>
+            <div class="nav-links">
+                <a href="/admin/screens" class="nav-link">Screens</a>
+                <a href="/admin/themes" class="nav-link">Themes</a>
+                <a href="/admin/media" class="nav-link active">Media</a>
+                {% if clerk_publishable_key %}
+                <a href="/admin/usage" class="nav-link">Usage & Billing</a>
+                <a href="#" class="nav-link" onclick="signOut(); return false;">Sign Out</a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if not media_enabled %}
+        <div class="media-disabled">
+            <h2>Media Library Not Available</h2>
+            <p>The media library is available on Pro and Team plans. Upgrade to upload images and videos.</p>
+            <a href="/admin/pricing" class="btn-primary">View Pricing</a>
+        </div>
+        {% else %}
+        <!-- Storage Usage Bar -->
+        <div class="storage-bar">
+            <div class="storage-label">
+                <span>Storage Used</span>
+                <span id="storage-text">{{ storage_used_display }} / {{ storage_quota_display }}</span>
+            </div>
+            <div class="storage-progress">
+                <div class="storage-progress-fill {% if storage_percent > 90 %}danger{% elif storage_percent > 70 %}warning{% endif %}"
+                     style="width: {{ storage_percent }}%"></div>
+            </div>
+        </div>
+
+        <!-- Upload Zone -->
+        <div class="upload-zone" id="upload-zone">
+            <input type="file" id="file-input" accept="image/*,video/*" multiple>
+            <h3>Drop files here or click to upload</h3>
+            <p>Supports PNG, JPG, GIF, WebP, SVG, MP4, WebM, MOV (max {{ max_upload_size_mb }}MB)</p>
+            <div class="upload-progress" id="upload-progress">
+                <div class="upload-progress-bar">
+                    <div class="upload-progress-fill" id="upload-progress-fill"></div>
+                </div>
+                <div class="upload-status" id="upload-status">Uploading...</div>
+            </div>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <select id="type-filter" onchange="filterMedia()">
+                <option value="">All Types</option>
+                <option value="image" {% if content_type == 'image' %}selected{% endif %}>Images</option>
+                <option value="video" {% if content_type == 'video' %}selected{% endif %}>Videos</option>
+            </select>
+        </div>
+
+        <!-- Media Grid -->
+        <div class="media-grid" id="media-grid">
+            {% for item in media %}
+            <div class="media-card" data-media-id="{{ item.id }}">
+                <div class="media-preview">
+                    {% if item.content_type.startswith('video/') %}
+                    <video src="{{ item.url }}" muted></video>
+                    {% else %}
+                    <img src="{{ item.url }}" alt="{{ item.original_filename }}" loading="lazy">
+                    {% endif %}
+                </div>
+                <div class="media-info">
+                    <div class="media-filename" title="{{ item.original_filename }}">{{ item.original_filename }}</div>
+                    <div class="media-meta">{{ item.size_display }} &bull; {{ item.created_display }}</div>
+                    <div class="media-actions">
+                        <button class="btn-copy-url" onclick="copyUrl('{{ item.url }}', this)">Copy URL</button>
+                        <button class="btn-delete-media" onclick="deleteMedia('{{ item.id }}', this)">Delete</button>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="empty" id="empty-message" style="grid-column: 1 / -1;">
+                No media files yet. Upload some to get started!
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            <span class="page-info">Page {{ page }} of {{ total_pages }} ({{ total_count }} files)</span>
+            <div class="page-controls">
+                <a href="?page={{ page - 1 }}{% if content_type %}&content_type={{ content_type }}{% endif %}"
+                   class="btn-secondary{{ ' disabled' if page <= 1 else '' }}">Previous</a>
+                <a href="?page={{ page + 1 }}{% if content_type %}&content_type={{ content_type }}{% endif %}"
+                   class="btn-secondary{{ ' disabled' if page >= total_pages else '' }}">Next</a>
+            </div>
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+
+    <script>
+        const BASE_URL = window.location.origin;
+
+        // Helper to get Clerk session token for API calls (SaaS mode)
+        async function getAuthHeaders() {
+            if (typeof Clerk === 'undefined') return {};
+            if (!Clerk.loaded) await Clerk.load();
+            if (!Clerk.session) return {};
+            try {
+                const token = await Clerk.session.getToken();
+                if (token) {
+                    return { 'Authorization': `Bearer ${token}` };
+                }
+            } catch (e) {
+                console.error('[Auth] Error getting token:', e);
+            }
+            return {};
+        }
+
+        async function signOut() {
+            if (typeof Clerk !== 'undefined' && Clerk.loaded) {
+                await Clerk.signOut();
+            }
+            window.location.href = '/auth/logout';
+        }
+
+        // Upload handling
+        const uploadZone = document.getElementById('upload-zone');
+        const fileInput = document.getElementById('file-input');
+        const uploadProgress = document.getElementById('upload-progress');
+        const uploadProgressFill = document.getElementById('upload-progress-fill');
+        const uploadStatus = document.getElementById('upload-status');
+
+        if (uploadZone) {
+            uploadZone.addEventListener('click', () => fileInput.click());
+
+            uploadZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadZone.classList.add('dragover');
+            });
+
+            uploadZone.addEventListener('dragleave', () => {
+                uploadZone.classList.remove('dragover');
+            });
+
+            uploadZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadZone.classList.remove('dragover');
+                handleFiles(e.dataTransfer.files);
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+            });
+        }
+
+        async function handleFiles(files) {
+            if (files.length === 0) return;
+
+            uploadProgress.classList.add('active');
+            let completed = 0;
+
+            for (const file of files) {
+                uploadStatus.textContent = `Uploading ${file.name}...`;
+                uploadProgressFill.style.width = `${(completed / files.length) * 100}%`;
+
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const authHeaders = await getAuthHeaders();
+                    const response = await fetch('/api/v1/media/upload', {
+                        method: 'POST',
+                        headers: authHeaders,
+                        credentials: 'include',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const error = await response.json().catch(() => ({}));
+                        throw new Error(error.detail || 'Upload failed');
+                    }
+
+                    const data = await response.json();
+                    addMediaCard(data.media);
+                    completed++;
+                } catch (error) {
+                    alert(`Failed to upload ${file.name}: ${error.message}`);
+                    completed++;
+                }
+            }
+
+            uploadProgressFill.style.width = '100%';
+            uploadStatus.textContent = `Uploaded ${completed} file(s)`;
+
+            setTimeout(() => {
+                uploadProgress.classList.remove('active');
+                uploadProgressFill.style.width = '0%';
+            }, 2000);
+
+            fileInput.value = '';
+
+            // Refresh page to update storage stats
+            if (completed > 0) {
+                setTimeout(() => location.reload(), 1500);
+            }
+        }
+
+        function addMediaCard(media) {
+            const grid = document.getElementById('media-grid');
+            const emptyMsg = document.getElementById('empty-message');
+            if (emptyMsg) emptyMsg.remove();
+
+            const isVideo = media.content_type.startsWith('video/');
+            const sizeDisplay = formatBytes(media.size_bytes);
+            const dateDisplay = new Date(media.created_at).toLocaleDateString();
+
+            const card = document.createElement('div');
+            card.className = 'media-card';
+            card.dataset.mediaId = media.id;
+            card.innerHTML = `
+                <div class="media-preview">
+                    ${isVideo
+                        ? `<video src="${media.url}" muted></video>`
+                        : `<img src="${media.url}" alt="${media.original_filename}" loading="lazy">`
+                    }
+                </div>
+                <div class="media-info">
+                    <div class="media-filename" title="${media.original_filename}">${media.original_filename}</div>
+                    <div class="media-meta">${sizeDisplay} &bull; ${dateDisplay}</div>
+                    <div class="media-actions">
+                        <button class="btn-copy-url" onclick="copyUrl('${media.url}', this)">Copy URL</button>
+                        <button class="btn-delete-media" onclick="deleteMedia('${media.id}', this)">Delete</button>
+                    </div>
+                </div>
+            `;
+
+            grid.insertBefore(card, grid.firstChild);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+        }
+
+        function copyUrl(url, btn) {
+            // Make sure URL is absolute
+            const fullUrl = url.startsWith('http') ? url : BASE_URL + url;
+            navigator.clipboard.writeText(fullUrl).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.textContent = original, 1500);
+            });
+        }
+
+        async function deleteMedia(mediaId, btn) {
+            if (!confirm('Are you sure you want to delete this file?')) return;
+
+            try {
+                const authHeaders = await getAuthHeaders();
+                const response = await fetch(`/api/v1/media/${mediaId}`, {
+                    method: 'DELETE',
+                    headers: authHeaders,
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.detail || 'Delete failed');
+                }
+
+                const card = btn.closest('.media-card');
+                card.remove();
+
+                // Check if grid is empty
+                const grid = document.getElementById('media-grid');
+                if (!grid.querySelector('.media-card')) {
+                    grid.innerHTML = '<div class="empty" id="empty-message" style="grid-column: 1 / -1;">No media files yet. Upload some to get started!</div>';
+                }
+
+                // Refresh to update storage stats
+                setTimeout(() => location.reload(), 500);
+            } catch (error) {
+                alert('Failed to delete: ' + error.message);
+            }
+        }
+
+        function filterMedia() {
+            const type = document.getElementById('type-filter').value;
+            const params = new URLSearchParams(window.location.search);
+            if (type) {
+                params.set('content_type', type);
+            } else {
+                params.delete('content_type');
+            }
+            params.delete('page'); // Reset to page 1
+            window.location.search = params.toString();
+        }
+    </script>
+
+    <!-- Footer -->
+    <footer class="page-footer">
+        <div class="footer-links">
+            <a href="/docs" target="_blank" class="footer-link">
+                <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm-1 2l5 5h-5V4zM6 20V4h6v6h6v10H6z"/></svg>
+                API Docs
+            </a>
+            <a href="https://github.com/anthonyeden/big-beautiful-screens" target="_blank" class="footer-link">
+                <svg viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                GitHub
+            </a>
+        </div>
+    </footer>
+
+    <!-- Help Button -->
+    <div class="help-container">
+        <span class="help-text">{{ help_text }}</span>
+        <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
+    </div>
+</body>
+</html>

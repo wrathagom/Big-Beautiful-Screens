@@ -4,6 +4,42 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+class LayoutConfig(BaseModel):
+    """Layout configuration for panel arrangement."""
+
+    preset: str | None = Field(
+        default=None,
+        description="Named layout preset (e.g., 'vertical', 'grid-2x2', 'dashboard-header')",
+        examples=["vertical", "vertical-12", "grid-3x2", "dashboard-header"],
+    )
+    columns: int | str | None = Field(
+        default=None,
+        description="Number of columns (int) or CSS grid-template-columns (str)",
+        examples=[3, "1fr 2fr 1fr", "repeat(4, 1fr)"],
+    )
+    rows: int | str | None = Field(
+        default=None,
+        description="Number of rows (int) or CSS grid-template-rows (str)",
+        examples=[4, "auto 1fr 1fr auto", "repeat(12, 1fr)"],
+    )
+    header_rows: int | None = Field(
+        default=None,
+        description="Number of rows at top that span full width",
+        ge=0,
+        le=3,
+    )
+    footer_rows: int | None = Field(
+        default=None,
+        description="Number of rows at bottom that span full width",
+        ge=0,
+        le=3,
+    )
+    direction: Literal["row", "column"] | None = Field(
+        default=None,
+        description="Panel placement direction: 'row' (left-to-right) or 'column' (top-to-bottom)",
+    )
+
+
 class ContentItem(BaseModel):
     """Structured content item with explicit type and styling options."""
 
@@ -70,6 +106,16 @@ class ContentItem(BaseModel):
             {"style": "digital", "timezone": "America/New_York", "format": "12h"},
             {"target": "2025-01-01T00:00:00Z", "expired_text": "Happy New Year!"},
         ],
+    )
+    grid_column: str | None = Field(
+        default=None,
+        description="CSS grid-column for explicit positioning (e.g., 'span 2', '1 / -1' for full width)",
+        examples=["span 2", "1 / -1", "1 / 3"],
+    )
+    grid_row: str | None = Field(
+        default=None,
+        description="CSS grid-row for explicit positioning (e.g., 'span 2', '1 / 3')",
+        examples=["span 2", "1 / 3"],
     )
 
     model_config = {
@@ -146,6 +192,12 @@ class MessageRequest(BaseModel):
         description="Panel drop shadow (CSS box-shadow)",
         examples=["0 4px 12px rgba(0,0,0,0.3)", "none"],
     )
+    layout: str | LayoutConfig | None = Field(
+        default=None,
+        description="Layout preset name (str) or configuration (object). "
+        "Examples: 'vertical', 'grid-2x2', 'dashboard-header', or custom config.",
+        examples=["vertical", "grid-3x2", {"columns": 3, "rows": "auto 1fr 1fr"}],
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -167,6 +219,11 @@ class PageRequest(BaseModel):
     """Create or update a named page for rotation."""
 
     content: list[str | ContentItem] = Field(description="Array of content items for this page")
+    layout: str | LayoutConfig | None = Field(
+        default=None,
+        description="Layout preset name or configuration for this page",
+        examples=["vertical", "dashboard-header", {"columns": 2, "rows": 6}],
+    )
     background_color: str | None = Field(
         default=None, description="Page-specific background color override"
     )
@@ -198,6 +255,7 @@ class PageUpdateRequest(BaseModel):
     content: list[str | ContentItem] | None = Field(
         default=None, description="New content (replaces existing)"
     )
+    layout: str | LayoutConfig | None = Field(default=None, description="Layout preset or config")
     background_color: str | None = Field(default=None, description="Background color")
     panel_color: str | None = Field(default=None, description="Panel color")
     font_family: str | None = Field(default=None, description="Font family")
@@ -253,6 +311,11 @@ class ScreenUpdateRequest(BaseModel):
             '<link rel="preconnect" href="https://fonts.googleapis.com">\n'
             '<link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">'
         ],
+    )
+    default_layout: str | LayoutConfig | None = Field(
+        default=None,
+        description="Default layout for all pages on this screen. Pages can override.",
+        examples=["vertical", "grid-2x2", {"columns": 3, "header_rows": 1}],
     )
 
 

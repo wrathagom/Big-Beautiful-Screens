@@ -172,6 +172,29 @@ class PostgresBackend(DatabaseBackend):
                 CREATE INDEX IF NOT EXISTS idx_users_stripe_customer ON users(stripe_customer_id)
             """)
 
+            # Media table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS media (
+                    id TEXT PRIMARY KEY,
+                    owner_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+                    org_id TEXT REFERENCES organizations(id) ON DELETE SET NULL,
+                    filename TEXT NOT NULL,
+                    original_filename TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    size_bytes BIGINT NOT NULL,
+                    storage_path TEXT NOT NULL,
+                    storage_backend TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL
+                )
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_media_owner ON media(owner_id)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_media_org ON media(org_id)
+            """)
+
             # Seed built-in themes
             await self._seed_builtin_themes(conn)
 
@@ -1155,3 +1178,167 @@ class PostgresBackend(DatabaseBackend):
                 customer_id,
             )
             return dict(row) if row else None
+
+    # ============== Media Methods ==============
+
+    async def create_media(
+        self,
+        media_id: str,
+        filename: str,
+        original_filename: str,
+        content_type: str,
+        size_bytes: int,
+        storage_path: str,
+        storage_backend: str,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> dict:
+        """Create a media record."""
+        now = datetime.now(UTC)
+        pool = await self._get_pool()
+
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO media (id, owner_id, org_id, filename, original_filename,
+                                   content_type, size_bytes, storage_path, storage_backend,
+                                   created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $10)
+            """,
+                media_id,
+                owner_id,
+                org_id,
+                filename,
+                original_filename,
+                content_type,
+                size_bytes,
+                storage_path,
+                storage_backend,
+                now,
+            )
+
+        return {
+            "id": media_id,
+            "owner_id": owner_id,
+            "org_id": org_id,
+            "filename": filename,
+            "original_filename": original_filename,
+            "content_type": content_type,
+            "size_bytes": size_bytes,
+            "storage_path": storage_path,
+            "storage_backend": storage_backend,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+
+    async def get_media_by_id(self, media_id: str) -> dict | None:
+        """Get a media record by ID."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM media WHERE id = $1", media_id)
+            if not row:
+                return None
+            result = dict(row)
+            # Convert timestamps to ISO format strings
+            if result.get("created_at"):
+                result["created_at"] = result["created_at"].isoformat()
+            if result.get("updated_at"):
+                result["updated_at"] = result["updated_at"].isoformat()
+            return result
+
+    async def get_all_media(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+        content_type_filter: str | None = None,
+    ) -> list[dict]:
+        """Get media with optional pagination and filtering."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            conditions = []
+            params = []
+            param_idx = 1
+
+            if owner_id is not None:
+                conditions.append(f"(owner_id = ${param_idx} OR org_id = ${param_idx + 1})")
+                params.extend([owner_id, org_id])
+                param_idx += 2
+
+            if content_type_filter == "image":
+                conditions.append("content_type LIKE 'image/%'")
+            elif content_type_filter == "video":
+                conditions.append("content_type LIKE 'video/%'")
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+            query = f"SELECT * FROM media {where_clause} ORDER BY created_at DESC"
+
+            if limit:
+                query += f" LIMIT {limit} OFFSET {offset}"
+
+            rows = await conn.fetch(query, *params)
+
+            results = []
+            for row in rows:
+                result = dict(row)
+                if result.get("created_at"):
+                    result["created_at"] = result["created_at"].isoformat()
+                if result.get("updated_at"):
+                    result["updated_at"] = result["updated_at"].isoformat()
+                results.append(result)
+            return results
+
+    async def get_media_count(
+        self,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> int:
+        """Get total count of media records."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            if owner_id is not None:
+                return await conn.fetchval(
+                    "SELECT COUNT(*) FROM media WHERE owner_id = $1 OR org_id = $2",
+                    owner_id,
+                    org_id,
+                )
+            else:
+                return await conn.fetchval("SELECT COUNT(*) FROM media")
+
+    async def get_storage_used(
+        self,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> int:
+        """Get total storage used in bytes."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            if owner_id is not None:
+                result = await conn.fetchval(
+                    "SELECT COALESCE(SUM(size_bytes), 0) FROM media WHERE owner_id = $1 OR org_id = $2",
+                    owner_id,
+                    org_id,
+                )
+            else:
+                result = await conn.fetchval("SELECT COALESCE(SUM(size_bytes), 0) FROM media")
+            return result or 0
+
+    async def delete_media(self, media_id: str) -> dict | None:
+        """Delete a media record and return its data for storage cleanup."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM media WHERE id = $1", media_id)
+
+            if not row:
+                return None
+
+            media_data = dict(row)
+            if media_data.get("created_at"):
+                media_data["created_at"] = media_data["created_at"].isoformat()
+            if media_data.get("updated_at"):
+                media_data["updated_at"] = media_data["updated_at"].isoformat()
+
+            await conn.execute("DELETE FROM media WHERE id = $1", media_id)
+
+            return media_data

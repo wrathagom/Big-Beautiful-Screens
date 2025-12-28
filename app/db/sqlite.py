@@ -56,7 +56,8 @@ class SQLiteBackend(DatabaseBackend):
                     font_family TEXT,
                     font_color TEXT,
                     theme TEXT,
-                    head_html TEXT
+                    head_html TEXT,
+                    default_layout TEXT
                 )
             """)
 
@@ -102,10 +103,44 @@ class SQLiteBackend(DatabaseBackend):
                 CREATE INDEX IF NOT EXISTS idx_themes_owner ON themes(owner_id)
             """)
 
+            # Media table
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS media (
+                    id TEXT PRIMARY KEY,
+                    owner_id TEXT,
+                    org_id TEXT,
+                    filename TEXT NOT NULL,
+                    original_filename TEXT NOT NULL,
+                    content_type TEXT NOT NULL,
+                    size_bytes INTEGER NOT NULL,
+                    storage_path TEXT NOT NULL,
+                    storage_backend TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_media_owner ON media(owner_id)
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_media_org ON media(org_id)
+            """)
+
             # Seed built-in themes if table is empty
             await self._seed_builtin_themes(db)
 
+            # Run migrations for existing databases
+            await self._run_migrations(db)
+
             await db.commit()
+
+    async def _run_migrations(self, db) -> None:
+        """Run schema migrations for existing databases."""
+        # Migration: Add default_layout column to screens table
+        async with db.execute("PRAGMA table_info(screens)") as cursor:
+            columns = [row[1] async for row in cursor]
+        if "default_layout" not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN default_layout TEXT")
 
     async def _seed_builtin_themes(self, db) -> None:
         """Seed the database with built-in themes if not already present."""
@@ -276,7 +311,8 @@ class SQLiteBackend(DatabaseBackend):
             async with db.execute(
                 """
                 SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
-                       background_color, panel_color, font_family, font_color, theme, head_html
+                       background_color, panel_color, font_family, font_color, theme, head_html,
+                       default_layout
                 FROM screens WHERE id = ?
             """,
                 (screen_id,),
@@ -285,6 +321,16 @@ class SQLiteBackend(DatabaseBackend):
 
             if not row:
                 return None
+
+            # Parse default_layout from JSON if present
+            default_layout = None
+            if row["default_layout"]:
+                import json
+
+                try:
+                    default_layout = json.loads(row["default_layout"])
+                except (json.JSONDecodeError, TypeError):
+                    default_layout = row["default_layout"]  # Treat as preset name string
 
             return {
                 "enabled": bool(row["rotation_enabled"]),
@@ -298,6 +344,7 @@ class SQLiteBackend(DatabaseBackend):
                 "font_color": row["font_color"],
                 "theme": row["theme"],
                 "head_html": row["head_html"],
+                "default_layout": default_layout,
             }
 
     async def update_rotation_settings(
@@ -314,6 +361,7 @@ class SQLiteBackend(DatabaseBackend):
         font_color: str | None = None,
         theme: str | None = None,
         head_html: str | None = None,
+        default_layout: str | dict | None = None,
     ) -> bool:
         """Update rotation/display settings."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -357,6 +405,13 @@ class SQLiteBackend(DatabaseBackend):
             if head_html is not None:
                 updates.append("head_html = ?")
                 params.append(head_html)
+            if default_layout is not None:
+                updates.append("default_layout = ?")
+                # Store as JSON string if dict, otherwise as string (preset name)
+                if isinstance(default_layout, dict):
+                    params.append(json.dumps(default_layout))
+                else:
+                    params.append(default_layout)
 
             if updates:
                 params.append(screen_id)
@@ -428,6 +483,7 @@ class SQLiteBackend(DatabaseBackend):
             return {
                 "name": name,
                 "content": payload.get("content", []),
+                "layout": payload.get("layout"),
                 "background_color": payload.get("background_color"),
                 "panel_color": payload.get("panel_color"),
                 "font_family": payload.get("font_family"),
@@ -467,6 +523,7 @@ class SQLiteBackend(DatabaseBackend):
                     {
                         "name": row["name"],
                         "content": content_data.get("content", []),
+                        "layout": content_data.get("layout"),
                         "background_color": content_data.get("background_color"),
                         "panel_color": content_data.get("panel_color"),
                         "font_family": content_data.get("font_family"),
@@ -497,6 +554,7 @@ class SQLiteBackend(DatabaseBackend):
             return {
                 "name": row["name"],
                 "content": content_data.get("content", []),
+                "layout": content_data.get("layout"),
                 "background_color": content_data.get("background_color"),
                 "panel_color": content_data.get("panel_color"),
                 "font_family": content_data.get("font_family"),
@@ -514,6 +572,7 @@ class SQLiteBackend(DatabaseBackend):
         screen_id: str,
         name: str,
         content: list | None = None,
+        layout: str | dict | None = None,
         background_color: str | None = None,
         panel_color: str | None = None,
         font_family: str | None = None,
@@ -541,6 +600,8 @@ class SQLiteBackend(DatabaseBackend):
 
             if content is not None:
                 existing_data["content"] = content
+            if layout is not None:
+                existing_data["layout"] = layout
             if background_color is not None:
                 existing_data["background_color"] = background_color
             if panel_color is not None:
@@ -573,6 +634,7 @@ class SQLiteBackend(DatabaseBackend):
             return {
                 "name": name,
                 "content": existing_data.get("content", []),
+                "layout": existing_data.get("layout"),
                 "background_color": existing_data.get("background_color"),
                 "panel_color": existing_data.get("panel_color"),
                 "font_family": existing_data.get("font_family"),
@@ -851,3 +913,152 @@ class SQLiteBackend(DatabaseBackend):
         ):
             rows = await cursor.fetchall()
         return {row[0]: row[1] for row in rows}
+
+    # ============== Media Methods ==============
+
+    async def create_media(
+        self,
+        media_id: str,
+        filename: str,
+        original_filename: str,
+        content_type: str,
+        size_bytes: int,
+        storage_path: str,
+        storage_backend: str,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> dict:
+        """Create a media record."""
+        now = datetime.now(UTC).isoformat()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO media (id, owner_id, org_id, filename, original_filename,
+                                   content_type, size_bytes, storage_path, storage_backend,
+                                   created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    media_id,
+                    owner_id,
+                    org_id,
+                    filename,
+                    original_filename,
+                    content_type,
+                    size_bytes,
+                    storage_path,
+                    storage_backend,
+                    now,
+                    now,
+                ),
+            )
+            await db.commit()
+
+        return {
+            "id": media_id,
+            "owner_id": owner_id,
+            "org_id": org_id,
+            "filename": filename,
+            "original_filename": original_filename,
+            "content_type": content_type,
+            "size_bytes": size_bytes,
+            "storage_path": storage_path,
+            "storage_backend": storage_backend,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    async def get_media_by_id(self, media_id: str) -> dict | None:
+        """Get a media record by ID."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM media WHERE id = ?", (media_id,)) as cursor:
+                row = await cursor.fetchone()
+                return dict(row) if row else None
+
+    async def get_all_media(
+        self,
+        limit: int | None = None,
+        offset: int = 0,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+        content_type_filter: str | None = None,
+    ) -> list[dict]:
+        """Get media with optional pagination and filtering."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+
+            conditions = []
+            params = []
+
+            if owner_id is not None:
+                conditions.append("(owner_id = ? OR org_id = ?)")
+                params.extend([owner_id, org_id])
+
+            if content_type_filter == "image":
+                conditions.append("content_type LIKE 'image/%'")
+            elif content_type_filter == "video":
+                conditions.append("content_type LIKE 'video/%'")
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+            query = f"SELECT * FROM media {where_clause} ORDER BY created_at DESC"
+
+            if limit:
+                query += f" LIMIT {limit} OFFSET {offset}"
+
+            async with db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+
+    async def get_media_count(
+        self,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> int:
+        """Get total count of media records."""
+        async with aiosqlite.connect(self.db_path) as db:
+            if owner_id is not None:
+                query = "SELECT COUNT(*) FROM media WHERE owner_id = ? OR org_id = ?"
+                params = (owner_id, org_id)
+            else:
+                query = "SELECT COUNT(*) FROM media"
+                params = ()
+
+            async with db.execute(query, params) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
+
+    async def get_storage_used(
+        self,
+        owner_id: str | None = None,
+        org_id: str | None = None,
+    ) -> int:
+        """Get total storage used in bytes."""
+        async with aiosqlite.connect(self.db_path) as db:
+            if owner_id is not None:
+                query = "SELECT COALESCE(SUM(size_bytes), 0) FROM media WHERE owner_id = ? OR org_id = ?"
+                params = (owner_id, org_id)
+            else:
+                query = "SELECT COALESCE(SUM(size_bytes), 0) FROM media"
+                params = ()
+
+            async with db.execute(query, params) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
+
+    async def delete_media(self, media_id: str) -> dict | None:
+        """Delete a media record and return its data for storage cleanup."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM media WHERE id = ?", (media_id,)) as cursor:
+                row = await cursor.fetchone()
+
+            if not row:
+                return None
+
+            media_data = dict(row)
+            await db.execute("DELETE FROM media WHERE id = ?", (media_id,))
+            await db.commit()
+
+            return media_data
