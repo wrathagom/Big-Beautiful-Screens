@@ -424,10 +424,10 @@
                     const formData = new FormData();
                     formData.append('file', file);
 
-                    const authHeaders = await getAuthHeaders();
+                    // Don't use Bearer token for uploads - it can expire during long uploads
+                    // The session cookie (credentials: 'include') is more reliable
                     const response = await fetch('/api/v1/media/upload', {
                         method: 'POST',
-                        headers: authHeaders,
                         credentials: 'include',
                         body: formData
                     });
