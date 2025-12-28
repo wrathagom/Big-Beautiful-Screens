@@ -102,10 +102,21 @@
             cursor: pointer;
             transition: border-color 0.2s, background 0.2s;
             margin-bottom: 1rem;
+            position: relative;
         }
         .upload-zone:hover, .upload-zone.dragover {
             border-color: #4a69bd;
             background: rgba(74, 105, 189, 0.1);
+        }
+        .upload-zone.uploading {
+            border-color: #27ae60;
+            background: rgba(39, 174, 96, 0.1);
+            pointer-events: none;
+            cursor: wait;
+        }
+        .upload-zone.uploading h3,
+        .upload-zone.uploading > p {
+            opacity: 0.5;
         }
         .upload-zone input[type="file"] {
             display: none;
@@ -118,6 +129,22 @@
             margin: 0;
             color: #888;
             font-size: 0.9rem;
+        }
+        .upload-spinner {
+            display: none;
+            margin: 0 auto 0.5rem;
+            width: 32px;
+            height: 32px;
+            border: 3px solid #333;
+            border-top-color: #27ae60;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .upload-zone.uploading .upload-spinner {
+            display: block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
         .storage-bar {
             background: #1a1a2e;
@@ -178,12 +205,22 @@
             height: 100%;
             background: #27ae60;
             width: 0%;
-            transition: width 0.3s;
+            transition: width 0.3s, background 0.3s;
+        }
+        .upload-progress-fill.error {
+            background: #c0392b;
         }
         .upload-status {
             font-size: 0.85rem;
             color: #888;
             margin-top: 0.5rem;
+        }
+        .upload-status.error {
+            color: #e74c3c;
+        }
+        .upload-zone.error {
+            border-color: #c0392b;
+            background: rgba(192, 57, 43, 0.1);
         }
         .media-disabled {
             text-align: center;
@@ -247,6 +284,7 @@
         <!-- Upload Zone -->
         <div class="upload-zone" id="upload-zone">
             <input type="file" id="file-input" accept="image/*,video/*" multiple>
+            <div class="upload-spinner"></div>
             <h3>Drop files here or click to upload</h3>
             <p>Supports PNG, JPG, GIF, WebP, SVG, MP4, WebM, MOV (max {{ max_upload_size_mb }}MB)</p>
             <div class="upload-progress" id="upload-progress">
@@ -366,11 +404,20 @@
         async function handleFiles(files) {
             if (files.length === 0) return;
 
+            // Immediately show uploading state
+            uploadZone.classList.add('uploading');
+            uploadZone.classList.remove('error');
             uploadProgress.classList.add('active');
+            uploadProgressFill.classList.remove('error');
+            uploadStatus.classList.remove('error');
+            uploadStatus.textContent = `Preparing ${files.length} file(s)...`;
+
             let completed = 0;
+            let successful = 0;
+            let failed = 0;
 
             for (const file of files) {
-                uploadStatus.textContent = `Uploading ${file.name}...`;
+                uploadStatus.textContent = `Uploading ${file.name} (${completed + 1}/${files.length})...`;
                 uploadProgressFill.style.width = `${(completed / files.length) * 100}%`;
 
                 try {
@@ -392,25 +439,44 @@
 
                     const data = await response.json();
                     addMediaCard(data.media);
-                    completed++;
+                    successful++;
                 } catch (error) {
+                    failed++;
                     alert(`Failed to upload ${file.name}: ${error.message}`);
-                    completed++;
                 }
+                completed++;
             }
 
-            uploadProgressFill.style.width = '100%';
-            uploadStatus.textContent = `Uploaded ${completed} file(s)`;
+            // Show appropriate end state
+            const allFailed = successful === 0 && failed > 0;
+            const someFailed = failed > 0 && successful > 0;
+
+            if (allFailed) {
+                uploadZone.classList.remove('uploading');
+                uploadZone.classList.add('error');
+                uploadProgressFill.classList.add('error');
+                uploadStatus.classList.add('error');
+                uploadStatus.textContent = `Failed to upload ${failed} file(s)`;
+            } else if (someFailed) {
+                uploadProgressFill.style.width = '100%';
+                uploadStatus.textContent = `Uploaded ${successful} of ${files.length} file(s) (${failed} failed)`;
+            } else {
+                uploadProgressFill.style.width = '100%';
+                uploadStatus.textContent = `Uploaded ${successful} file(s)`;
+            }
 
             setTimeout(() => {
+                uploadZone.classList.remove('uploading', 'error');
                 uploadProgress.classList.remove('active');
+                uploadProgressFill.classList.remove('error');
                 uploadProgressFill.style.width = '0%';
-            }, 2000);
+                uploadStatus.classList.remove('error');
+            }, allFailed ? 3000 : 2000);
 
             fileInput.value = '';
 
             // Refresh page to update storage stats
-            if (completed > 0) {
+            if (successful > 0) {
                 setTimeout(() => location.reload(), 1500);
             }
         }

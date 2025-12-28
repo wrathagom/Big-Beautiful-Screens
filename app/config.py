@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     STORAGE_R2_PUBLIC_DOMAIN: str | None = None  # Required for public access
 
     # Media Upload Limits
-    MAX_UPLOAD_SIZE_MB: int = 50
+    MAX_UPLOAD_SIZE_MB: int = 250
 
     # Help button (shown on admin pages)
     HELP_URL: str = "https://github.com/wrathagom/Big-Beautiful-Screens/issues"
