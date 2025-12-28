@@ -4,7 +4,7 @@ import os
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 
 from ..auth import OptionalUser
@@ -31,6 +31,7 @@ from ..models_media import (
     MediaListResponse,
     MediaUploadResponse,
 )
+from ..rate_limit import RATE_LIMIT_MUTATE, RATE_LIMIT_UPLOADS, limiter
 from ..storage import get_storage
 from ..storage.local import LocalStorage
 
@@ -150,9 +151,12 @@ def _can_access_media(user: OptionalUser, media: dict, settings) -> bool:
         402: {"model": MediaErrorResponse, "description": "Storage quota exceeded"},
         403: {"model": MediaErrorResponse, "description": "Media not available on plan"},
         413: {"model": MediaErrorResponse, "description": "File too large"},
+        429: {"model": MediaErrorResponse, "description": "Too many requests"},
     },
 )
+@limiter.limit(RATE_LIMIT_UPLOADS)
 async def upload_media(
+    request: Request,
     file: UploadFile = File(...),
     user: OptionalUser = None,
 ):
@@ -355,9 +359,12 @@ async def get_media(
     response_model=MediaDeleteResponse,
     responses={
         404: {"model": MediaErrorResponse, "description": "Media not found"},
+        429: {"model": MediaErrorResponse, "description": "Too many requests"},
     },
 )
+@limiter.limit(RATE_LIMIT_MUTATE)
 async def delete_media_item(
+    request: Request,
     media_id: str,
     user: OptionalUser = None,
 ):

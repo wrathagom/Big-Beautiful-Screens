@@ -8,7 +8,9 @@
   "border_radius": "0.5rem",
   "rotation": {
     "enabled": true,
-    "interval": 8
+    "interval": 8,
+    "transition": "fade",
+    "transition_duration": 500
   },
   "pages": [
     {
@@ -78,6 +80,8 @@
     },
     {
       "name": "widgets",
+      "transition": "slide-left",
+      "transition_duration": 400,
       "content": [
         {
           "type": "markdown",

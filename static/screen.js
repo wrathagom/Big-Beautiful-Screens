@@ -72,6 +72,11 @@ let screenFontFamily = null;       // Screen-level font family
 let screenFontColor = null;        // Screen-level font color
 let screenHeadHtml = null;         // Custom HTML for <head> (e.g., Google Fonts)
 let screenDefaultLayout = null;    // Screen-level default layout
+let screenTransition = 'none';     // Screen-level transition type
+let screenTransitionDuration = 500; // Screen-level transition duration (ms)
+
+// Transition state
+let isTransitioning = false;       // Prevent overlapping transitions
 
 // Debug state
 let debugEnabled = false;
@@ -306,10 +311,12 @@ function handlePagesSync(newPages, rotation) {
         screenFontFamily = rotation.font_family || null;
         screenFontColor = rotation.font_color || null;
         screenDefaultLayout = rotation.default_layout || null;
+        screenTransition = rotation.transition || 'none';
+        screenTransitionDuration = rotation.transition_duration || 500;
         updateHeadHtml(rotation.head_html || null);
     }
 
-    // Render current page
+    // Render current page (no transition on initial load)
     renderCurrentPage();
 
     // Start/stop rotation based on settings
@@ -383,6 +390,8 @@ function handleRotationUpdate(rotation) {
     screenFontFamily = rotation.font_family || null;
     screenFontColor = rotation.font_color || null;
     screenDefaultLayout = rotation.default_layout || null;
+    screenTransition = rotation.transition || 'none';
+    screenTransitionDuration = rotation.transition_duration || 500;
     updateHeadHtml(rotation.head_html || null);
 
     // Re-render to apply new settings
@@ -464,14 +473,236 @@ function advanceToNextPage() {
         return;
     }
 
-    // Move to next page
-    currentPageIndex = (currentPageIndex + 1) % activePages.length;
+    // Prevent overlapping transitions
+    if (isTransitioning) {
+        startRotation();
+        return;
+    }
 
-    // Render the new page
-    renderCurrentPage();
+    // Calculate next page index
+    const nextPageIndex = (currentPageIndex + 1) % activePages.length;
+    const nextPage = activePages[nextPageIndex];
 
-    // Schedule next rotation
-    startRotation();
+    // Determine effective transition (page override or screen default)
+    const effectiveTransition = nextPage.transition || screenTransition || 'none';
+    const effectiveDuration = nextPage.transition_duration || screenTransitionDuration || 500;
+
+    if (effectiveTransition === 'none') {
+        // No transition - instant swap
+        currentPageIndex = nextPageIndex;
+        renderCurrentPage();
+        startRotation();
+    } else {
+        // Animate transition
+        transitionToPage(nextPageIndex, effectiveTransition, effectiveDuration);
+    }
+}
+
+function transitionToPage(nextPageIndex, transitionType, duration) {
+    isTransitioning = true;
+    const activePages = getActivePages();
+    const nextPage = activePages[nextPageIndex];
+
+    // Set CSS variable for duration
+    screenEl.style.setProperty('--transition-duration', `${duration}ms`);
+
+    // Capture current content as old content wrapper
+    const currentPanels = Array.from(screenEl.children);
+    const oldContentWrapper = document.createElement('div');
+    oldContentWrapper.className = 'screen__old-content';
+
+    // Copy current grid styles to old content wrapper (use getComputedStyle for CSS class-based layouts)
+    const computedStyle = getComputedStyle(screenEl);
+    oldContentWrapper.style.gridTemplateColumns = screenEl.style.gridTemplateColumns || computedStyle.gridTemplateColumns;
+    oldContentWrapper.style.gridTemplateRows = screenEl.style.gridTemplateRows || computedStyle.gridTemplateRows;
+    oldContentWrapper.style.gap = computedStyle.gap;
+
+    // Move current panels to old wrapper
+    currentPanels.forEach(panel => {
+        oldContentWrapper.appendChild(panel);
+    });
+
+    // Add transitioning class to screen
+    screenEl.classList.add('screen--transitioning');
+
+    // Re-insert old content wrapper
+    screenEl.appendChild(oldContentWrapper);
+
+    // Update page index and render new content
+    currentPageIndex = nextPageIndex;
+
+    // Determine layout for new page
+    const effectiveLayout = nextPage.layout || screenDefaultLayout || null;
+
+    // Create new content elements (similar to renderContent but creating a wrapper)
+    const newContentWrapper = document.createElement('div');
+    newContentWrapper.className = 'screen__new-content';
+
+    // Make it a grid to give panels proper dimensions
+    newContentWrapper.style.display = 'grid';
+    newContentWrapper.style.width = '100%';
+    newContentWrapper.style.height = '100%';
+
+    // Apply gap/padding
+    const effectiveGap = nextPage.gap || screenGap;
+    screenEl.style.gap = effectiveGap;
+    screenEl.style.padding = effectiveGap;
+
+    // Apply background
+    const effectiveBackgroundColor = nextPage.background_color || screenBackgroundColor;
+    if (effectiveBackgroundColor) {
+        document.body.style.background = effectiveBackgroundColor;
+        screenEl.style.background = effectiveBackgroundColor;
+    }
+
+    // Resolve and apply layout
+    const layoutConfig = resolveLayout(effectiveLayout, nextPage.content.length);
+    applyScreenLayout(screenEl, layoutConfig, nextPage.content.length);
+
+    // Copy grid template to new content wrapper
+    newContentWrapper.style.gridTemplateColumns = screenEl.style.gridTemplateColumns || getComputedStyle(screenEl).gridTemplateColumns;
+    newContentWrapper.style.gridTemplateRows = screenEl.style.gridTemplateRows || getComputedStyle(screenEl).gridTemplateRows;
+    newContentWrapper.style.gap = effectiveGap;
+
+    // Build new panels inside wrapper
+    buildPanelsInWrapper(newContentWrapper, nextPage, layoutConfig);
+
+    // Insert new content wrapper - hidden with opacity 0 for pre-scaling
+    // (opacity 0 maintains layout dimensions while being invisible)
+    newContentWrapper.style.opacity = '0';
+    screenEl.appendChild(newContentWrapper);
+
+    // Use double requestAnimationFrame to ensure layout is calculated before scaling
+    requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+            // Auto-scale while content is hidden (opacity 0 maintains dimensions)
+            autoScaleText();
+            autoScaleMarkdown();
+
+            // Apply animation classes - fade-in starts from opacity 0, so it takes over smoothly
+            // For slide, we need to remove opacity first since slide doesn't animate opacity
+            if (transitionType === 'fade') {
+                // Remove inline opacity - animation will control it from 0 to 1
+                newContentWrapper.style.opacity = '';
+                oldContentWrapper.classList.add('transition-fade-out');
+                newContentWrapper.classList.add('transition-fade-in');
+            } else if (transitionType === 'slide-left') {
+                // For slide, content should be visible, just positioned off-screen
+                newContentWrapper.style.opacity = '1';
+                oldContentWrapper.classList.add('transition-slide-out-left');
+                newContentWrapper.classList.add('transition-slide-in-right');
+            }
+        });
+    });
+
+    // After animation completes, clean up
+    setTimeout(() => {
+        // Remove old content wrapper
+        oldContentWrapper.remove();
+
+        // Move new panels out of wrapper to be direct children of screen
+        const newPanels = Array.from(newContentWrapper.children);
+        newPanels.forEach(panel => {
+            screenEl.appendChild(panel);
+        });
+        newContentWrapper.remove();
+
+        // Remove transitioning class
+        screenEl.classList.remove('screen--transitioning');
+
+        isTransitioning = false;
+
+        // Schedule next rotation
+        startRotation();
+    }, duration);
+}
+
+function buildPanelsInWrapper(wrapper, page, layoutConfig) {
+    const content = page.content;
+    const effectiveBorderRadius = page.border_radius || screenBorderRadius;
+    const effectivePanelShadow = page.panel_shadow || screenPanelShadow;
+    const effectivePanelColor = page.panel_color || screenPanelColor;
+    const effectiveFontFamily = page.font_family || screenFontFamily;
+    const effectiveFontColor = page.font_color || screenFontColor;
+
+    const headerRows = layoutConfig.header_rows || 0;
+    const footerRows = layoutConfig.footer_rows || 0;
+    const totalItems = content.length;
+
+    content.forEach((item, index) => {
+        const panel = document.createElement('div');
+        panel.className = 'panel';
+
+        panel.style.borderRadius = effectiveBorderRadius;
+
+        if (item.panel_shadow !== undefined && item.panel_shadow !== null) {
+            panel.style.boxShadow = item.panel_shadow === 'none' ? 'none' : item.panel_shadow;
+        } else if (effectivePanelShadow) {
+            panel.style.boxShadow = effectivePanelShadow;
+        }
+
+        if (item.panel_color) {
+            panel.style.background = item.panel_color;
+        } else if (effectivePanelColor) {
+            panel.style.background = effectivePanelColor;
+        }
+
+        if (item.font_family) {
+            panel.style.fontFamily = item.font_family;
+        }
+        if (item.font_color) {
+            panel.style.color = item.font_color;
+        }
+
+        if (item.grid_column) {
+            panel.style.gridColumn = item.grid_column;
+        } else if (layoutConfig.type === 'custom') {
+            if (headerRows > 0 && index < headerRows) {
+                panel.style.gridColumn = '1 / -1';
+            } else if (footerRows > 0 && index >= totalItems - footerRows) {
+                panel.style.gridColumn = '1 / -1';
+            }
+        }
+        if (item.grid_row) {
+            panel.style.gridRow = item.grid_row;
+        }
+
+        const contentWrapper = document.createElement('div');
+        contentWrapper.className = 'panel-content';
+
+        const isCoverMode = (item.type === 'image' || item.type === 'video') &&
+                           (item.image_mode === 'cover');
+        if (isCoverMode) {
+            panel.classList.add('panel-cover');
+        }
+
+        switch (item.type) {
+            case 'text':
+                contentWrapper.appendChild(createTextElement(item.value, item.wrap));
+                break;
+            case 'image':
+                contentWrapper.appendChild(createImageElement(item.url, item.image_mode));
+                break;
+            case 'video':
+                contentWrapper.appendChild(createVideoElement(item.url, item));
+                break;
+            case 'markdown':
+                contentWrapper.appendChild(createMarkdownElement(item.value, content.length));
+                break;
+            case 'widget':
+                const widgetEl = createWidgetElement(item, contentWrapper);
+                if (widgetEl) {
+                    contentWrapper.appendChild(widgetEl);
+                    activeWidgets.push(widgetEl);
+                }
+                break;
+            default:
+                contentWrapper.appendChild(createTextElement(item.value || item.url || '', content.length));
+        }
+
+        panel.appendChild(contentWrapper);
+        wrapper.appendChild(panel);
+    });
 }
 
 function renderContent(content, styles = {}) {

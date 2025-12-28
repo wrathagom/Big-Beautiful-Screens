@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from ..auth import OptionalUser, RequiredUser, can_modify_screen
@@ -38,6 +38,7 @@ from ..models import (
     ScreenUpdateRequest,
 )
 from ..quota import check_and_increment_quota, get_user_id_from_api_key
+from ..rate_limit import RATE_LIMIT_CREATE, RATE_LIMIT_MUTATE, limiter
 from ..themes import get_theme
 from ..utils import normalize_content, resolve_theme_settings
 
@@ -50,7 +51,8 @@ static_path = Path(__file__).parent.parent.parent / "static"
 
 
 @router.post("/api/v1/screens", response_model=ScreenResponse)
-async def create_new_screen(user: OptionalUser = None):
+@limiter.limit(RATE_LIMIT_CREATE)
+async def create_new_screen(request: Request, user: OptionalUser = None):
     """Create a new screen and return its ID and API key.
 
     In SaaS mode, requires authentication and sets the current user as owner.
@@ -227,7 +229,10 @@ async def get_screen(screen_id: str):
 
 
 @router.delete("/api/v1/screens/{screen_id}")
-async def delete_screen_endpoint(screen_id: str, x_api_key: str = Header(alias="X-API-Key")):
+@limiter.limit(RATE_LIMIT_MUTATE)
+async def delete_screen_endpoint(
+    request: Request, screen_id: str, x_api_key: str = Header(alias="X-API-Key")
+):
     """Delete a screen and its messages. Requires API key authentication."""
     screen = await get_screen_by_id(screen_id)
     if not screen:
@@ -324,6 +329,8 @@ async def update_screen(
         request.font_color if request.font_color is not None else theme_values.get("font_color")
     )
     head_html = request.head_html
+    transition = request.transition
+    transition_duration = request.transition_duration
 
     # Serialize default_layout if it's a LayoutConfig object
     default_layout = request.default_layout
@@ -347,6 +354,8 @@ async def update_screen(
         or font_color is not None
         or head_html is not None
         or default_layout is not None
+        or transition is not None
+        or transition_duration is not None
     )
 
     # Update name if provided
@@ -369,6 +378,8 @@ async def update_screen(
             theme=theme_name,
             head_html=head_html,
             default_layout=default_layout,
+            transition=transition,
+            transition_duration=transition_duration,
         )
 
         # Broadcast settings update to viewers (with theme values resolved)
@@ -506,6 +517,8 @@ async def create_or_update_page(
         "border_radius": request.border_radius,
         "panel_shadow": request.panel_shadow,
         "layout": layout_value,
+        "transition": request.transition,
+        "transition_duration": request.transition_duration,
     }
 
     # Convert expires_at to ISO string if provided
@@ -571,6 +584,8 @@ async def patch_page(
         duration=request.duration,
         expires_at=expires_at_str,
         layout=layout_value,
+        transition=request.transition,
+        transition_duration=request.transition_duration,
     )
 
     if not page_data:

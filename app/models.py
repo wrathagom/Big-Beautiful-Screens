@@ -247,6 +247,18 @@ class PageRequest(BaseModel):
         "Useful for temporary alerts.",
         examples=["2024-12-31T23:59:59Z"],
     )
+    transition: Literal["none", "fade", "slide-left"] | None = Field(
+        default=None,
+        description="Transition effect when entering this page (overrides screen default)",
+        examples=["fade", "slide-left"],
+    )
+    transition_duration: int | None = Field(
+        default=None,
+        description="Transition duration in milliseconds (overrides screen default)",
+        examples=[500, 300],
+        ge=0,
+        le=5000,
+    )
 
 
 class PageUpdateRequest(BaseModel):
@@ -265,6 +277,12 @@ class PageUpdateRequest(BaseModel):
     panel_shadow: str | None = Field(default=None, description="Panel shadow")
     duration: int | None = Field(default=None, description="Display duration in seconds", ge=1)
     expires_at: datetime | None = Field(default=None, description="Expiration time")
+    transition: Literal["none", "fade", "slide-left"] | None = Field(
+        default=None, description="Transition effect when entering this page"
+    )
+    transition_duration: int | None = Field(
+        default=None, description="Transition duration in milliseconds", ge=0, le=5000
+    )
 
 
 class RotationSettings(BaseModel):
@@ -316,6 +334,18 @@ class ScreenUpdateRequest(BaseModel):
         default=None,
         description="Default layout for all pages on this screen. Pages can override.",
         examples=["vertical", "grid-2x2", {"columns": 3, "header_rows": 1}],
+    )
+    transition: Literal["none", "fade", "slide-left"] | None = Field(
+        default=None,
+        description="Transition effect between pages during rotation",
+        examples=["fade", "slide-left", "none"],
+    )
+    transition_duration: int | None = Field(
+        default=None,
+        description="Transition duration in milliseconds",
+        examples=[500, 300, 1000],
+        ge=0,
+        le=5000,
     )
 
 

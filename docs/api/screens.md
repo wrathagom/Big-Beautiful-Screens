@@ -45,6 +45,8 @@ PATCH /api/v1/screens/{screen_id}
 | `name` | string | Display name for the screen |
 | `rotation_enabled` | boolean | Enable page rotation |
 | `rotation_interval` | integer | Seconds between page transitions |
+| `transition` | string | Transition effect between pages: `"none"`, `"fade"`, `"slide-left"` |
+| `transition_duration` | integer | Transition duration in milliseconds (0-5000) |
 | `gap` | string | Space between panels (e.g., `"1rem"`, `"0"`) |
 | `border_radius` | string | Panel corner rounding (e.g., `"1rem"`, `"0"`) |
 | `panel_shadow` | string | CSS box-shadow for panels |
@@ -64,6 +66,8 @@ curl -X PATCH http://localhost:8000/api/v1/screens/abc123def456 \
     "name": "Office Dashboard",
     "rotation_enabled": true,
     "rotation_interval": 30,
+    "transition": "fade",
+    "transition_duration": 500,
     "theme": "catppuccin-mocha"
   }'
 ```
@@ -77,6 +81,8 @@ curl -X PATCH http://localhost:8000/api/v1/screens/abc123def456 \
   "settings": {
     "enabled": true,
     "interval": 30,
+    "transition": "fade",
+    "transition_duration": 500,
     "gap": "1rem",
     "border_radius": "0.5rem",
     "panel_shadow": "0 4px 12px rgba(0,0,0,0.3)",

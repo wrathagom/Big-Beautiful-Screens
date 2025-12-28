@@ -120,6 +120,8 @@ async def update_rotation_settings(
     theme: str | None = None,
     head_html: str | None = None,
     default_layout: str | dict | None = None,
+    transition: str | None = None,
+    transition_duration: int | None = None,
 ) -> bool:
     """Update rotation/display settings. Returns True if updated."""
     db = get_database()
@@ -137,6 +139,8 @@ async def update_rotation_settings(
         theme,
         head_html,
         default_layout,
+        transition,
+        transition_duration,
     )
 
 
@@ -181,6 +185,8 @@ async def update_page(
     panel_shadow: str | None = None,
     duration: int | None = None,
     expires_at: str | None = None,
+    transition: str | None = None,
+    transition_duration: int | None = None,
 ) -> dict | None:
     """Partially update a page. Returns updated data or None."""
     db = get_database()
@@ -198,6 +204,8 @@ async def update_page(
         panel_shadow,
         duration,
         expires_at,
+        transition,
+        transition_duration,
     )
 
 

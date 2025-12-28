@@ -5,10 +5,13 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from .config import AppMode, get_settings
 from .database import init_db
 from .logging_middleware import UsageLoggingMiddleware, configure_usage_logging
+from .rate_limit import limiter
 from .routes.admin import router as admin_router
 from .routes.billing import router as billing_router
 from .routes.media import public_router as media_public_router
@@ -43,6 +46,10 @@ app = FastAPI(
     description="Real-time display screens for dashboards, status boards, and signage",
     openapi_tags=openapi_tags,
 )
+
+# Add rate limiting
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 def custom_openapi():

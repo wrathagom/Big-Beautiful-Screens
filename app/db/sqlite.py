@@ -57,7 +57,9 @@ class SQLiteBackend(DatabaseBackend):
                     font_color TEXT,
                     theme TEXT,
                     head_html TEXT,
-                    default_layout TEXT
+                    default_layout TEXT,
+                    transition TEXT DEFAULT 'none',
+                    transition_duration INTEGER DEFAULT 500
                 )
             """)
 
@@ -136,11 +138,20 @@ class SQLiteBackend(DatabaseBackend):
 
     async def _run_migrations(self, db) -> None:
         """Run schema migrations for existing databases."""
-        # Migration: Add default_layout column to screens table
         async with db.execute("PRAGMA table_info(screens)") as cursor:
             columns = [row[1] async for row in cursor]
+
+        # Migration: Add default_layout column to screens table
         if "default_layout" not in columns:
             await db.execute("ALTER TABLE screens ADD COLUMN default_layout TEXT")
+
+        # Migration: Add transition columns to screens table
+        if "transition" not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN transition TEXT DEFAULT 'none'")
+        if "transition_duration" not in columns:
+            await db.execute(
+                "ALTER TABLE screens ADD COLUMN transition_duration INTEGER DEFAULT 500"
+            )
 
     async def _seed_builtin_themes(self, db) -> None:
         """Seed the database with built-in themes if not already present."""
@@ -312,7 +323,7 @@ class SQLiteBackend(DatabaseBackend):
                 """
                 SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
                        background_color, panel_color, font_family, font_color, theme, head_html,
-                       default_layout
+                       default_layout, transition, transition_duration
                 FROM screens WHERE id = ?
             """,
                 (screen_id,),
@@ -345,6 +356,8 @@ class SQLiteBackend(DatabaseBackend):
                 "theme": row["theme"],
                 "head_html": row["head_html"],
                 "default_layout": default_layout,
+                "transition": row["transition"] or "none",
+                "transition_duration": row["transition_duration"] or 500,
             }
 
     async def update_rotation_settings(
@@ -362,6 +375,8 @@ class SQLiteBackend(DatabaseBackend):
         theme: str | None = None,
         head_html: str | None = None,
         default_layout: str | dict | None = None,
+        transition: str | None = None,
+        transition_duration: int | None = None,
     ) -> bool:
         """Update rotation/display settings."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -412,6 +427,12 @@ class SQLiteBackend(DatabaseBackend):
                     params.append(json.dumps(default_layout))
                 else:
                     params.append(default_layout)
+            if transition is not None:
+                updates.append("transition = ?")
+                params.append(transition)
+            if transition_duration is not None:
+                updates.append("transition_duration = ?")
+                params.append(transition_duration)
 
             if updates:
                 params.append(screen_id)
@@ -491,6 +512,8 @@ class SQLiteBackend(DatabaseBackend):
                 "gap": payload.get("gap"),
                 "border_radius": payload.get("border_radius"),
                 "panel_shadow": payload.get("panel_shadow"),
+                "transition": payload.get("transition"),
+                "transition_duration": payload.get("transition_duration"),
                 "display_order": display_order,
                 "duration": duration,
                 "expires_at": expires_at,
@@ -531,6 +554,8 @@ class SQLiteBackend(DatabaseBackend):
                         "gap": content_data.get("gap"),
                         "border_radius": content_data.get("border_radius"),
                         "panel_shadow": content_data.get("panel_shadow"),
+                        "transition": content_data.get("transition"),
+                        "transition_duration": content_data.get("transition_duration"),
                         "display_order": row["display_order"],
                         "duration": row["duration"],
                         "expires_at": row["expires_at"],
@@ -562,6 +587,8 @@ class SQLiteBackend(DatabaseBackend):
                 "gap": content_data.get("gap"),
                 "border_radius": content_data.get("border_radius"),
                 "panel_shadow": content_data.get("panel_shadow"),
+                "transition": content_data.get("transition"),
+                "transition_duration": content_data.get("transition_duration"),
                 "display_order": row["display_order"],
                 "duration": row["duration"],
                 "expires_at": row["expires_at"],
@@ -582,6 +609,8 @@ class SQLiteBackend(DatabaseBackend):
         panel_shadow: str | None = None,
         duration: int | None = None,
         expires_at: str | None = None,
+        transition: str | None = None,
+        transition_duration: int | None = None,
     ) -> dict | None:
         """Partially update a page."""
         now = datetime.now(UTC).isoformat()
@@ -616,6 +645,10 @@ class SQLiteBackend(DatabaseBackend):
                 existing_data["border_radius"] = border_radius
             if panel_shadow is not None:
                 existing_data["panel_shadow"] = panel_shadow
+            if transition is not None:
+                existing_data["transition"] = transition
+            if transition_duration is not None:
+                existing_data["transition_duration"] = transition_duration
 
             new_duration = duration if duration is not None else row["duration"]
             new_expires_at = expires_at if expires_at is not None else row["expires_at"]
@@ -642,6 +675,8 @@ class SQLiteBackend(DatabaseBackend):
                 "gap": existing_data.get("gap"),
                 "border_radius": existing_data.get("border_radius"),
                 "panel_shadow": existing_data.get("panel_shadow"),
+                "transition": existing_data.get("transition"),
+                "transition_duration": existing_data.get("transition_duration"),
                 "display_order": row["display_order"],
                 "duration": new_duration,
                 "expires_at": new_expires_at,

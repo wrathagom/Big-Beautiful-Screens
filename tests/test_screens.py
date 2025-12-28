@@ -699,6 +699,92 @@ class TestRotation:
         assert settings["font_color"] is not None
         assert settings["theme"] == "default"
 
+    def test_update_transition_setting(self, client, screen):
+        """Test updating transition setting."""
+        response = client.patch(
+            f"/api/v1/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"transition": "fade"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["transition"] == "fade"
+
+    def test_update_transition_duration(self, client, screen):
+        """Test updating transition duration setting."""
+        response = client.patch(
+            f"/api/v1/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"transition_duration": 800},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["transition_duration"] == 800
+
+    def test_update_transition_slide_left(self, client, screen):
+        """Test updating transition to slide-left."""
+        response = client.patch(
+            f"/api/v1/screens/{screen['screen_id']}",
+            headers={"X-API-Key": screen["api_key"]},
+            json={"transition": "slide-left", "transition_duration": 500},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["settings"]["transition"] == "slide-left"
+        assert data["settings"]["transition_duration"] == 500
+
+    def test_transition_default_value(self, client, screen):
+        """Test that transition defaults to 'none'."""
+        response = client.get(f"/api/v1/screens/{screen['screen_id']}")
+        assert response.status_code == 200
+        settings = response.json()["settings"]
+        assert settings["transition"] == "none"
+        assert settings["transition_duration"] == 500
+
+    def test_page_with_transition_override(self, client, screen):
+        """Test creating a page with transition override."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/pages/test_page",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": ["Test content"],
+                "transition": "slide-left",
+                "transition_duration": 300,
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["page"]["transition"] == "slide-left"
+        assert data["page"]["transition_duration"] == 300
+
+    def test_page_transition_override_persists(self, client, screen):
+        """Test that page transition override persists in pages list."""
+        # Create page with transition
+        client.post(
+            f"/api/v1/screens/{screen['screen_id']}/pages/persist_test",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": ["Test"],
+                "transition": "fade",
+                "transition_duration": 600,
+            },
+        )
+
+        # Get pages list
+        response = client.get(f"/api/v1/screens/{screen['screen_id']}/pages")
+        assert response.status_code == 200
+        pages = response.json()["pages"]
+
+        # Find the page we created
+        test_page = next((p for p in pages if p["name"] == "persist_test"), None)
+        assert test_page is not None
+        assert test_page["transition"] == "fade"
+        assert test_page["transition_duration"] == 600
+
 
 class TestWidgets:
     """Tests for widget content types."""

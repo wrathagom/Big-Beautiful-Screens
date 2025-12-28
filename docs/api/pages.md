@@ -65,6 +65,8 @@ POST /api/v1/screens/{screen_id}/pages/{page_name}
 | `content` | array | Content items (required) |
 | `duration` | integer | Seconds to display (overrides screen default) |
 | `expires_at` | string | ISO timestamp for auto-expiry |
+| `transition` | string | Transition effect when entering page: `"none"`, `"fade"`, `"slide-left"` |
+| `transition_duration` | integer | Transition duration in milliseconds (0-5000) |
 | `background_color` | string | Page background color |
 | `panel_color` | string | Page panel color |
 | `font_family` | string | Page font family |

@@ -89,7 +89,10 @@ class PostgresBackend(DatabaseBackend):
                     font_family TEXT,
                     font_color TEXT,
                     theme TEXT,
-                    head_html TEXT
+                    head_html TEXT,
+                    default_layout TEXT,
+                    transition TEXT DEFAULT 'none',
+                    transition_duration INTEGER DEFAULT 500
                 )
             """)
             await conn.execute("""
@@ -170,6 +173,17 @@ class PostgresBackend(DatabaseBackend):
             """)
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_users_stripe_customer ON users(stripe_customer_id)
+            """)
+
+            # Add transition columns to screens table
+            await conn.execute("""
+                ALTER TABLE screens ADD COLUMN IF NOT EXISTS default_layout TEXT
+            """)
+            await conn.execute("""
+                ALTER TABLE screens ADD COLUMN IF NOT EXISTS transition TEXT DEFAULT 'none'
+            """)
+            await conn.execute("""
+                ALTER TABLE screens ADD COLUMN IF NOT EXISTS transition_duration INTEGER DEFAULT 500
             """)
 
             # Media table
@@ -352,7 +366,8 @@ class PostgresBackend(DatabaseBackend):
             row = await conn.fetchrow(
                 """
                 SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
-                       background_color, panel_color, font_family, font_color, theme, head_html
+                       background_color, panel_color, font_family, font_color, theme, head_html,
+                       default_layout, transition, transition_duration
                 FROM screens WHERE id = $1
             """,
                 screen_id,
@@ -360,6 +375,14 @@ class PostgresBackend(DatabaseBackend):
 
             if not row:
                 return None
+
+            # Parse default_layout from JSON if present
+            default_layout = None
+            if row["default_layout"]:
+                try:
+                    default_layout = json.loads(row["default_layout"])
+                except (json.JSONDecodeError, TypeError):
+                    default_layout = row["default_layout"]  # Treat as preset name string
 
             return {
                 "enabled": row["rotation_enabled"] or False,
@@ -373,6 +396,9 @@ class PostgresBackend(DatabaseBackend):
                 "font_color": row["font_color"],
                 "theme": row["theme"],
                 "head_html": row["head_html"],
+                "default_layout": default_layout,
+                "transition": row["transition"] or "none",
+                "transition_duration": row["transition_duration"] or 500,
             }
 
     async def update_rotation_settings(
@@ -389,6 +415,9 @@ class PostgresBackend(DatabaseBackend):
         font_color: str | None = None,
         theme: str | None = None,
         head_html: str | None = None,
+        default_layout: str | dict | None = None,
+        transition: str | None = None,
+        transition_duration: int | None = None,
     ) -> bool:
         """Update rotation/display settings."""
         pool = await self._get_pool()
@@ -445,6 +474,22 @@ class PostgresBackend(DatabaseBackend):
             if head_html is not None:
                 updates.append(f"head_html = ${param_idx}")
                 params.append(head_html)
+                param_idx += 1
+            if default_layout is not None:
+                updates.append(f"default_layout = ${param_idx}")
+                # Store as JSON string if dict, otherwise as string (preset name)
+                if isinstance(default_layout, dict):
+                    params.append(json.dumps(default_layout))
+                else:
+                    params.append(default_layout)
+                param_idx += 1
+            if transition is not None:
+                updates.append(f"transition = ${param_idx}")
+                params.append(transition)
+                param_idx += 1
+            if transition_duration is not None:
+                updates.append(f"transition_duration = ${param_idx}")
+                params.append(transition_duration)
                 param_idx += 1
 
             if updates:
@@ -517,6 +562,7 @@ class PostgresBackend(DatabaseBackend):
             return {
                 "name": name,
                 "content": payload.get("content", []),
+                "layout": payload.get("layout"),
                 "background_color": payload.get("background_color"),
                 "panel_color": payload.get("panel_color"),
                 "font_family": payload.get("font_family"),
@@ -524,6 +570,8 @@ class PostgresBackend(DatabaseBackend):
                 "gap": payload.get("gap"),
                 "border_radius": payload.get("border_radius"),
                 "panel_shadow": payload.get("panel_shadow"),
+                "transition": payload.get("transition"),
+                "transition_duration": payload.get("transition_duration"),
                 "display_order": display_order,
                 "duration": duration,
                 "expires_at": expires_at,
@@ -560,6 +608,7 @@ class PostgresBackend(DatabaseBackend):
                     {
                         "name": row["name"],
                         "content": content_data.get("content", []),
+                        "layout": content_data.get("layout"),
                         "background_color": content_data.get("background_color"),
                         "panel_color": content_data.get("panel_color"),
                         "font_family": content_data.get("font_family"),
@@ -567,6 +616,8 @@ class PostgresBackend(DatabaseBackend):
                         "gap": content_data.get("gap"),
                         "border_radius": content_data.get("border_radius"),
                         "panel_shadow": content_data.get("panel_shadow"),
+                        "transition": content_data.get("transition"),
+                        "transition_duration": content_data.get("transition_duration"),
                         "display_order": row["display_order"],
                         "duration": row["duration"],
                         "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
@@ -591,6 +642,7 @@ class PostgresBackend(DatabaseBackend):
             return {
                 "name": row["name"],
                 "content": content_data.get("content", []),
+                "layout": content_data.get("layout"),
                 "background_color": content_data.get("background_color"),
                 "panel_color": content_data.get("panel_color"),
                 "font_family": content_data.get("font_family"),
@@ -598,6 +650,8 @@ class PostgresBackend(DatabaseBackend):
                 "gap": content_data.get("gap"),
                 "border_radius": content_data.get("border_radius"),
                 "panel_shadow": content_data.get("panel_shadow"),
+                "transition": content_data.get("transition"),
+                "transition_duration": content_data.get("transition_duration"),
                 "display_order": row["display_order"],
                 "duration": row["duration"],
                 "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
@@ -608,6 +662,7 @@ class PostgresBackend(DatabaseBackend):
         screen_id: str,
         name: str,
         content: list | None = None,
+        layout: str | dict | None = None,
         background_color: str | None = None,
         panel_color: str | None = None,
         font_family: str | None = None,
@@ -617,6 +672,8 @@ class PostgresBackend(DatabaseBackend):
         panel_shadow: str | None = None,
         duration: int | None = None,
         expires_at: str | None = None,
+        transition: str | None = None,
+        transition_duration: int | None = None,
     ) -> dict | None:
         """Partially update a page."""
         now = datetime.now(UTC)
@@ -636,6 +693,8 @@ class PostgresBackend(DatabaseBackend):
 
             if content is not None:
                 existing_data["content"] = content
+            if layout is not None:
+                existing_data["layout"] = layout
             if background_color is not None:
                 existing_data["background_color"] = background_color
             if panel_color is not None:
@@ -650,6 +709,10 @@ class PostgresBackend(DatabaseBackend):
                 existing_data["border_radius"] = border_radius
             if panel_shadow is not None:
                 existing_data["panel_shadow"] = panel_shadow
+            if transition is not None:
+                existing_data["transition"] = transition
+            if transition_duration is not None:
+                existing_data["transition_duration"] = transition_duration
 
             new_duration = duration if duration is not None else row["duration"]
             new_expires_at = expires_at if expires_at is not None else row["expires_at"]
@@ -672,6 +735,7 @@ class PostgresBackend(DatabaseBackend):
             return {
                 "name": name,
                 "content": existing_data.get("content", []),
+                "layout": existing_data.get("layout"),
                 "background_color": existing_data.get("background_color"),
                 "panel_color": existing_data.get("panel_color"),
                 "font_family": existing_data.get("font_family"),
@@ -679,6 +743,8 @@ class PostgresBackend(DatabaseBackend):
                 "gap": existing_data.get("gap"),
                 "border_radius": existing_data.get("border_radius"),
                 "panel_shadow": existing_data.get("panel_shadow"),
+                "transition": existing_data.get("transition"),
+                "transition_duration": existing_data.get("transition_duration"),
                 "display_order": row["display_order"],
                 "duration": new_duration,
                 "expires_at": new_expires_at.isoformat()
