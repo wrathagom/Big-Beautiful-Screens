@@ -555,6 +555,20 @@ function transitionToPage(nextPageIndex, transitionType, duration) {
         screenEl.style.background = effectiveBackgroundColor;
     }
 
+    // Apply font styles to screen (page overrides screen defaults)
+    const effectiveFontFamily = nextPage.font_family || screenFontFamily;
+    const effectiveFontColor = nextPage.font_color || screenFontColor;
+    if (effectiveFontFamily) {
+        screenEl.style.fontFamily = effectiveFontFamily;
+    } else {
+        screenEl.style.fontFamily = '';
+    }
+    if (effectiveFontColor) {
+        screenEl.style.color = effectiveFontColor;
+    } else {
+        screenEl.style.color = '';
+    }
+
     // Resolve and apply layout
     const layoutConfig = resolveLayout(effectiveLayout, nextPage.content.length);
     applyScreenLayout(screenEl, layoutConfig, nextPage.content.length);
@@ -563,6 +577,14 @@ function transitionToPage(nextPageIndex, transitionType, duration) {
     newContentWrapper.style.gridTemplateColumns = screenEl.style.gridTemplateColumns || getComputedStyle(screenEl).gridTemplateColumns;
     newContentWrapper.style.gridTemplateRows = screenEl.style.gridTemplateRows || getComputedStyle(screenEl).gridTemplateRows;
     newContentWrapper.style.gap = effectiveGap;
+
+    // Apply font styles to wrapper so panels inherit correctly
+    if (effectiveFontFamily) {
+        newContentWrapper.style.fontFamily = effectiveFontFamily;
+    }
+    if (effectiveFontColor) {
+        newContentWrapper.style.color = effectiveFontColor;
+    }
 
     // Build new panels inside wrapper
     buildPanelsInWrapper(newContentWrapper, nextPage, layoutConfig);
