@@ -614,29 +614,30 @@ function transitionToPage(nextPageIndex, transitionType, duration) {
                 oldContentWrapper.classList.add('transition-slide-out-left');
                 newContentWrapper.classList.add('transition-slide-in-right');
             }
+
+            // After animation completes, clean up
+            // (setTimeout starts here so it counts from when animations actually begin)
+            setTimeout(() => {
+                // Remove old content wrapper
+                oldContentWrapper.remove();
+
+                // Move new panels out of wrapper to be direct children of screen
+                const newPanels = Array.from(newContentWrapper.children);
+                newPanels.forEach(panel => {
+                    screenEl.appendChild(panel);
+                });
+                newContentWrapper.remove();
+
+                // Remove transitioning class
+                screenEl.classList.remove('screen--transitioning');
+
+                isTransitioning = false;
+
+                // Schedule next rotation
+                startRotation();
+            }, duration);
         });
     });
-
-    // After animation completes, clean up
-    setTimeout(() => {
-        // Remove old content wrapper
-        oldContentWrapper.remove();
-
-        // Move new panels out of wrapper to be direct children of screen
-        const newPanels = Array.from(newContentWrapper.children);
-        newPanels.forEach(panel => {
-            screenEl.appendChild(panel);
-        });
-        newContentWrapper.remove();
-
-        // Remove transitioning class
-        screenEl.classList.remove('screen--transitioning');
-
-        isTransitioning = false;
-
-        // Schedule next rotation
-        startRotation();
-    }, duration);
 }
 
 function buildPanelsInWrapper(wrapper, page, layoutConfig) {
