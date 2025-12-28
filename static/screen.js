@@ -703,11 +703,20 @@ function createMarkdownElement(markdown, panelCount) {
     el.className = 'content-markdown auto-scale-markdown';
 
     // Parse markdown using marked.js
+    let html;
     if (typeof marked !== 'undefined') {
-        el.innerHTML = marked.parse(markdown);
+        html = marked.parse(markdown);
     } else {
         // Fallback: simple markdown parsing
-        el.innerHTML = simpleMarkdown(markdown);
+        html = simpleMarkdown(markdown);
+    }
+
+    // Sanitize HTML to prevent XSS attacks
+    if (typeof DOMPurify !== 'undefined') {
+        el.innerHTML = DOMPurify.sanitize(html);
+    } else {
+        // Fallback: strip all tags if DOMPurify not loaded
+        el.textContent = html.replace(/<[^>]*>/g, '');
     }
 
     return el;
