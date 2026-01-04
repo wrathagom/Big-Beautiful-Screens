@@ -5,6 +5,7 @@ import './widgets/countdown.js';  // Register countdown widget
 import './widgets/chart.js';      // Register chart widget
 import './widgets/weather.js';    // Register weather widget
 import './widgets/stock.js';      // Register stock widget
+import './widgets/rss.js';        // Register RSS widget
 
 // ============== Layout Presets ==============
 const LAYOUT_PRESETS = {

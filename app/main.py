@@ -16,6 +16,7 @@ from .routes.admin import router as admin_router
 from .routes.billing import router as billing_router
 from .routes.media import public_router as media_public_router
 from .routes.media import router as media_router
+from .routes.proxy import router as proxy_router
 from .routes.screens import router as screens_router
 from .routes.themes import router as themes_router
 from .routes_me import router as me_router
@@ -94,6 +95,7 @@ app.include_router(screens_router)
 app.include_router(admin_router)
 app.include_router(media_router)
 app.include_router(media_public_router)
+app.include_router(proxy_router)
 
 # Include SaaS-only routers
 if settings.APP_MODE == AppMode.SAAS:
