@@ -80,14 +80,20 @@ let screenTransitionDuration = 500; // Screen-level transition duration (ms)
 // Transition state
 let isTransitioning = false;       // Prevent overlapping transitions
 
-// Debug state
-let debugEnabled = false;
+// Debug state (persisted in localStorage)
+let debugEnabled = localStorage.getItem('debugEnabled') === 'true';
 
 // Active widget elements for cleanup
 let activeWidgets = [];
 
 // Initialize
 connect();
+
+// Show debug panel on load if it was previously enabled
+if (debugEnabled) {
+    // Wait for DOM to be ready, then show debug panel
+    requestAnimationFrame(() => updateDebugDisplay());
+}
 
 function connect() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -145,8 +151,9 @@ function connect() {
                 break;
 
             case 'debug':
-                // Toggle debug mode
+                // Toggle debug mode (persist in localStorage)
                 debugEnabled = data.enabled;
+                localStorage.setItem('debugEnabled', debugEnabled ? 'true' : 'false');
                 updateDebugDisplay();
                 break;
         }
@@ -205,15 +212,118 @@ function updateHeadHtml(newHeadHtml) {
     }
 }
 
+// Debug pause state
+let debugPaused = false;
+
 function updateDebugDisplay() {
-    const debugEl = document.getElementById('debug-info');
+    let debugEl = document.getElementById('debug-info');
+
     if (debugEnabled) {
-        // Debug will be populated on next render
-        renderCurrentPage();
+        // Create debug panel if it doesn't exist
+        if (!debugEl) {
+            debugEl = document.createElement('div');
+            debugEl.id = 'debug-info';
+            debugEl.style.cssText = 'position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.9);color:#0f0;padding:15px;z-index:9999;font-size:14px;font-family:monospace;border-radius:8px;max-width:500px;line-height:1.6;';
+            document.body.appendChild(debugEl);
+        }
+
+        // Gather debug info
+        const activePages = getActivePages();
+        const currentPage = activePages[currentPageIndex] || null;
+        const panels = document.querySelectorAll('.panel');
+        const panelContents = document.querySelectorAll('.panel-content');
+
+        let html = '<strong style="color:#0ff;">Debug Panel</strong><br>';
+        html += `<span style="color:#ff0;">Screen:</span> ${window.innerWidth}x${window.innerHeight}<br>`;
+        html += `<span style="color:#ff0;">Pages:</span> ${activePages.length} active, index ${currentPageIndex}<br>`;
+        html += `<span style="color:#ff0;">Current:</span> ${currentPage ? currentPage.name : 'none'}<br>`;
+        html += `<span style="color:#ff0;">Panels:</span> ${panels.length}<br>`;
+        html += `<span style="color:#ff0;">Rotation:</span> ${rotationEnabled ? `${rotationInterval}s` : 'off'}${debugPaused ? ' <span style="color:#f00;">(PAUSED)</span>' : ''}<br>`;
+        html += `<span style="color:#ff0;">Layout:</span> ${screenDefaultLayout || 'auto'}<br>`;
+
+        // Navigation controls
+        html += '<br><div style="display:flex;gap:10px;align-items:center;margin:8px 0;">';
+        html += `<button id="debug-prev" style="background:#333;color:#fff;border:1px solid #666;padding:8px 16px;cursor:pointer;border-radius:4px;font-size:16px;" title="Previous page">&larr;</button>`;
+        html += `<button id="debug-pause" style="background:${debugPaused ? '#060' : '#333'};color:#fff;border:1px solid #666;padding:8px 16px;cursor:pointer;border-radius:4px;font-size:14px;" title="Pause/Resume rotation">${debugPaused ? '▶ Play' : '⏸ Pause'}</button>`;
+        html += `<button id="debug-next" style="background:#333;color:#fff;border:1px solid #666;padding:8px 16px;cursor:pointer;border-radius:4px;font-size:16px;" title="Next page">&rarr;</button>`;
+        html += '</div>';
+
+        // Panel dimensions
+        if (panelContents.length > 0) {
+            html += '<br><strong style="color:#0ff;">Panel Sizes:</strong><br>';
+            panelContents.forEach((pc, i) => {
+                html += `[${i}] ${pc.clientWidth}x${pc.clientHeight}<br>`;
+            });
+        }
+
+        debugEl.innerHTML = html;
+
+        // Attach event listeners
+        document.getElementById('debug-prev').addEventListener('click', debugPrevPage);
+        document.getElementById('debug-next').addEventListener('click', debugNextPage);
+        document.getElementById('debug-pause').addEventListener('click', debugTogglePause);
     } else if (debugEl) {
         // Remove debug element when disabled
         debugEl.remove();
+        // Resume rotation if it was paused when debug was disabled
+        if (debugPaused) {
+            debugPaused = false;
+            if (rotationEnabled && pages.length > 1) {
+                startRotation();
+            }
+        }
     }
+}
+
+function debugPrevPage() {
+    const activePages = getActivePages();
+    if (activePages.length <= 1) return;
+
+    // Stop current rotation timer
+    stopRotation();
+
+    // Go to previous page
+    currentPageIndex = (currentPageIndex - 1 + activePages.length) % activePages.length;
+    renderCurrentPage();
+
+    // Restart rotation if not paused
+    if (!debugPaused && rotationEnabled) {
+        startRotation();
+    }
+}
+
+function debugNextPage() {
+    const activePages = getActivePages();
+    if (activePages.length <= 1) return;
+
+    // Stop current rotation timer
+    stopRotation();
+
+    // Go to next page
+    currentPageIndex = (currentPageIndex + 1) % activePages.length;
+    renderCurrentPage();
+
+    // Restart rotation if not paused
+    if (!debugPaused && rotationEnabled) {
+        startRotation();
+    }
+}
+
+function debugTogglePause() {
+    debugPaused = !debugPaused;
+
+    if (debugPaused) {
+        // Stop rotation
+        stopRotation();
+    } else {
+        // Resume rotation if enabled
+        if (rotationEnabled && pages.length > 1) {
+            startRotation();
+        }
+    }
+
+    // Update display to show new pause state
+    updateDebugDisplay();
 }
 
 // ============== Layout Resolution ==============
@@ -882,6 +992,10 @@ function renderContent(content, styles = {}) {
     requestAnimationFrame(() => {
         autoScaleText();
         autoScaleMarkdown();
+        // Update debug display if enabled
+        if (debugEnabled) {
+            updateDebugDisplay();
+        }
     });
 }
 
@@ -1032,19 +1146,6 @@ function autoScaleText() {
         const maxWidth = Math.floor(parent.clientWidth * 0.95);
         const maxHeight = Math.floor(parent.clientHeight * 0.95);
 
-        // DEBUG: Show dimensions on screen if debug mode is enabled
-        let debugEl = document.getElementById('debug-info');
-        if (debugEnabled) {
-            if (!debugEl) {
-                debugEl = document.createElement('div');
-                debugEl.id = 'debug-info';
-                debugEl.style.cssText = 'position:fixed;top:10px;left:10px;background:rgba(0,0,0,0.8);color:#0f0;padding:15px;z-index:9999;font-size:14px;font-family:monospace;border-radius:8px;max-width:400px;';
-                document.body.appendChild(debugEl);
-            }
-            const textContent = el.textContent.substring(0, 30);
-            debugEl.innerHTML = `<strong>Debug Info</strong><br>parentW: ${parent.clientWidth}, parentH: ${parent.clientHeight}<br>maxW: ${maxWidth}, maxH: ${maxHeight}<br>panelCount: ${document.querySelectorAll('.panel').length}<br>text: "${textContent}"<br>scrollW: ${el.scrollWidth}, scrollH: ${el.scrollHeight}<br>wrap: ${el.dataset.wrap}`;
-        }
-
         const shouldWrap = el.dataset.wrap === 'true';
 
         // For wrapping text, constrain width so text can wrap at word boundaries
@@ -1062,7 +1163,6 @@ function autoScaleText() {
         let minSize = 16;
         let maxSize = 500;
         let optimalSize = minSize;
-        let debugLog = [];
 
         while (maxSize - minSize > 2) {
             const midSize = Math.floor((minSize + maxSize) / 2);
@@ -1075,23 +1175,12 @@ function autoScaleText() {
                 ? el.scrollHeight <= maxHeight + 1 && el.scrollWidth <= maxWidth + 1
                 : el.scrollWidth <= maxWidth + 1 && el.scrollHeight <= maxHeight + 1;
 
-            // DEBUG: Log first few iterations
-            if (debugEnabled && debugLog.length < 3) {
-                debugLog.push(`${midSize}px: ${el.scrollWidth}x${el.scrollHeight} fits=${fits}`);
-            }
-
             if (fits) {
                 optimalSize = midSize;
                 minSize = midSize;
             } else {
                 maxSize = midSize;
             }
-        }
-
-        // DEBUG: Show binary search progress and final font size
-        if (debugEnabled && debugEl) {
-            debugEl.innerHTML += `<br>search: ${debugLog.join(' | ')}`;
-            debugEl.innerHTML += `<br>fontSize: ${optimalSize}px`;
         }
 
         el.style.fontSize = `${optimalSize}px`;

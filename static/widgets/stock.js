@@ -45,8 +45,8 @@ const StockWidget = {
             height: 100%;
             font-family: inherit;
             color: inherit;
-            padding: 1rem;
             box-sizing: border-box;
+            overflow: hidden;
         `;
 
         if (!config.stocks || !Array.isArray(config.stocks) || config.stocks.length === 0) {
@@ -72,22 +72,34 @@ const StockWidget = {
         const stock = config.stocks[0];
         const changeColor = this._getChangeColor(stock.change, config);
 
+        // Calculate scale factor based on panel size
+        const scaleFactor = this._calculateScaleFactor(wrapper);
+
+        // Base font sizes (for ~300px container)
+        const symbolSize = Math.round(80 * scaleFactor);
+        const nameSize = Math.round(40 * scaleFactor);
+        const priceSize = Math.round(200 * scaleFactor);
+        const changeSize = Math.round(64 * scaleFactor);
+        const gapSize = Math.round(24 * scaleFactor);
+
         const container = document.createElement('div');
+        container.className = 'stock-single-container';
         container.style.cssText = `
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 0.5rem;
-            width: 100%;
+            justify-content: center;
+            gap: ${gapSize}px;
         `;
 
         // Symbol
         const symbolEl = document.createElement('div');
+        symbolEl.className = 'stock-symbol';
         symbolEl.style.cssText = `
-            font-size: 2rem;
             font-weight: 600;
             letter-spacing: 0.05em;
             opacity: 0.9;
+            font-size: ${symbolSize}px;
         `;
         symbolEl.textContent = stock.symbol;
         container.appendChild(symbolEl);
@@ -95,15 +107,17 @@ const StockWidget = {
         // Company name (if provided)
         if (stock.name) {
             const nameEl = document.createElement('div');
-            nameEl.style.cssText = 'font-size: 0.9rem; opacity: 0.6;';
+            nameEl.className = 'stock-name';
+            nameEl.style.cssText = `font-size: ${nameSize}px; opacity: 0.6;`;
             nameEl.textContent = stock.name;
             container.appendChild(nameEl);
         }
 
         // Price
         const priceEl = document.createElement('div');
+        priceEl.className = 'stock-price';
         priceEl.style.cssText = `
-            font-size: 4rem;
+            font-size: ${priceSize}px;
             font-weight: 300;
             line-height: 1;
             font-variant-numeric: tabular-nums;
@@ -114,11 +128,12 @@ const StockWidget = {
         // Change row
         if (config.show_change || config.show_percent) {
             const changeRow = document.createElement('div');
+            changeRow.className = 'stock-change';
             changeRow.style.cssText = `
                 display: flex;
                 align-items: baseline;
-                gap: 0.75rem;
-                font-size: 1.5rem;
+                gap: ${Math.round(gapSize * 0.5)}px;
+                font-size: ${changeSize}px;
                 color: ${changeColor};
             `;
 
@@ -138,50 +153,60 @@ const StockWidget = {
         }
 
         wrapper.appendChild(container);
-        this._autoScale(wrapper, 1);
     },
 
     _renderGrid(wrapper, config) {
         const stocks = config.stocks;
         const count = stocks.length;
 
+        // Calculate scale factor based on panel size
+        const scaleFactor = this._calculateScaleFactor(wrapper);
+
+        // Base font sizes (for ~300px container)
+        const symbolSize = Math.round(64 * scaleFactor);
+        const priceSize = Math.round(112 * scaleFactor);
+        const changeSize = Math.round(44 * scaleFactor);
+        const gapSize = Math.round(48 * scaleFactor);
+        const cellGap = Math.round(20 * scaleFactor);
+
         // Determine grid layout: 2x1 for 2, 2x2 for 3-4
         const cols = count <= 2 ? count : 2;
         const rows = Math.ceil(count / cols);
 
-        const grid = document.createElement('div');
-        grid.style.cssText = `
+        const container = document.createElement('div');
+        container.className = 'stock-grid-container';
+        container.style.cssText = `
             display: grid;
             grid-template-columns: repeat(${cols}, 1fr);
             grid-template-rows: repeat(${rows}, 1fr);
-            gap: 1.5rem;
-            width: 100%;
-            height: 100%;
-            padding: 1rem;
+            gap: ${gapSize}px;
+            align-items: center;
+            justify-items: center;
         `;
 
         stocks.forEach(stock => {
             const changeColor = this._getChangeColor(stock.change, config);
 
             const cell = document.createElement('div');
+            cell.className = 'stock-grid-cell';
             cell.style.cssText = `
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: 0.25rem;
+                gap: ${cellGap}px;
             `;
 
             // Symbol
             const symbolEl = document.createElement('div');
-            symbolEl.style.cssText = 'font-size: 1.2rem; font-weight: 600; opacity: 0.8;';
+            symbolEl.style.cssText = `font-weight: 600; opacity: 0.8; font-size: ${symbolSize}px;`;
             symbolEl.textContent = stock.symbol;
             cell.appendChild(symbolEl);
 
             // Price
             const priceEl = document.createElement('div');
             priceEl.style.cssText = `
-                font-size: 2rem;
+                font-size: ${priceSize}px;
                 font-weight: 300;
                 font-variant-numeric: tabular-nums;
             `;
@@ -193,7 +218,7 @@ const StockWidget = {
                 (config.show_percent && stock.change_percent !== undefined)) {
                 const changeEl = document.createElement('div');
                 changeEl.style.cssText = `
-                    font-size: 1rem;
+                    font-size: ${changeSize}px;
                     color: ${changeColor};
                 `;
 
@@ -208,44 +233,54 @@ const StockWidget = {
                 cell.appendChild(changeEl);
             }
 
-            grid.appendChild(cell);
+            container.appendChild(cell);
         });
 
-        wrapper.appendChild(grid);
-        this._autoScale(wrapper, count);
+        wrapper.appendChild(container);
     },
 
     _renderCompactList(wrapper, config) {
         const stocks = config.stocks;
 
-        const list = document.createElement('div');
-        list.style.cssText = `
+        // Calculate scale factor based on panel size
+        const scaleFactor = this._calculateScaleFactor(wrapper);
+
+        // Base font sizes (for ~300px container)
+        const rowSize = Math.round(56 * scaleFactor);
+        const nameSize = Math.round(48 * scaleFactor);
+        const changeSize = Math.round(48 * scaleFactor);
+        const rowGap = Math.round(24 * scaleFactor);
+        const colGap = Math.round(48 * scaleFactor);
+        const rowPadding = Math.round(16 * scaleFactor);
+
+        const container = document.createElement('div');
+        container.className = 'stock-list-container';
+        container.style.cssText = `
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
-            width: 100%;
-            max-height: 100%;
-            overflow-y: auto;
+            gap: ${rowGap}px;
+            justify-content: center;
         `;
 
         stocks.forEach(stock => {
             const changeColor = this._getChangeColor(stock.change, config);
 
             const row = document.createElement('div');
+            row.className = 'stock-list-row';
             row.style.cssText = `
                 display: flex;
                 align-items: center;
-                gap: 1rem;
-                padding: 0.5rem 0;
+                gap: ${colGap}px;
+                padding: ${rowPadding}px 0;
                 border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+                font-size: ${rowSize}px;
             `;
 
             // Symbol
             const symbolEl = document.createElement('div');
             symbolEl.style.cssText = `
                 font-weight: 600;
-                min-width: 4rem;
-                font-size: 1rem;
+                min-width: ${Math.round(rowSize * 4)}px;
             `;
             symbolEl.textContent = stock.symbol;
             row.appendChild(symbolEl);
@@ -255,7 +290,7 @@ const StockWidget = {
                 const nameEl = document.createElement('div');
                 nameEl.style.cssText = `
                     flex: 1;
-                    font-size: 0.85rem;
+                    font-size: ${nameSize}px;
                     opacity: 0.6;
                     white-space: nowrap;
                     overflow: hidden;
@@ -272,9 +307,8 @@ const StockWidget = {
             // Price
             const priceEl = document.createElement('div');
             priceEl.style.cssText = `
-                font-size: 1rem;
                 font-variant-numeric: tabular-nums;
-                min-width: 5rem;
+                min-width: ${Math.round(rowSize * 5)}px;
                 text-align: right;
             `;
             priceEl.textContent = this._formatPrice(stock.price);
@@ -285,9 +319,9 @@ const StockWidget = {
                 (config.show_percent && stock.change_percent !== undefined)) {
                 const changeEl = document.createElement('div');
                 changeEl.style.cssText = `
-                    font-size: 0.9rem;
+                    font-size: ${changeSize}px;
                     color: ${changeColor};
-                    min-width: 6rem;
+                    min-width: ${Math.round(changeSize * 6)}px;
                     text-align: right;
                 `;
 
@@ -302,10 +336,10 @@ const StockWidget = {
                 row.appendChild(changeEl);
             }
 
-            list.appendChild(row);
+            container.appendChild(row);
         });
 
-        wrapper.appendChild(list);
+        wrapper.appendChild(container);
     },
 
     _getChangeColor(change, config) {
@@ -336,22 +370,22 @@ const StockWidget = {
         return `(${sign}${percent.toFixed(2)}%)`;
     },
 
-    _autoScale(wrapper, stockCount) {
-        requestAnimationFrame(() => {
-            const parent = wrapper.closest('.panel-content');
-            if (!parent) return;
+    _calculateScaleFactor(wrapper) {
+        const parent = wrapper.closest('.panel-content');
+        if (!parent) {
+            return 1;
+        }
 
-            // Scale based on panel size and stock count
-            const baseScale = stockCount === 1 ? 300 : 400;
-            const scale = Math.min(
-                parent.clientWidth / baseScale,
-                parent.clientHeight / (stockCount === 1 ? 200 : 300)
-            );
+        const width = parent.clientWidth;
+        const height = parent.clientHeight;
+        const minDimension = Math.min(width, height);
 
-            if (scale > 1) {
-                wrapper.style.transform = `scale(${Math.min(scale, 2)})`;
-            }
-        });
+        // Scale based on container size
+        // Base sizes are for a ~300px container, scale proportionally
+        const scaleFactor = minDimension / 300;
+
+        // Clamp scale factor to reasonable bounds
+        return Math.max(0.5, Math.min(scaleFactor, 4));
     },
 
     update(element, config) {
