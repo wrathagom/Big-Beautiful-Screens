@@ -347,6 +347,10 @@ function resolveLayout(layout, contentCount) {
 
     // Object = full config (could be LayoutConfig model serialized)
     if (typeof layout === 'object') {
+        // Empty object = treat as no layout (auto)
+        if (Object.keys(layout).length === 0) {
+            return { type: 'auto', panelCount: Math.min(contentCount, 6) };
+        }
         // Check if it's using a preset
         if (layout.preset) {
             const preset = LAYOUT_PRESETS[layout.preset];

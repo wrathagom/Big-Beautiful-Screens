@@ -190,7 +190,7 @@ async def send_message(
     # Serialize layout if it's a LayoutConfig object
     layout_value = request.layout
     if layout_value is not None and hasattr(layout_value, "model_dump"):
-        layout_value = layout_value.model_dump(exclude_none=True)
+        layout_value = layout_value.model_dump(exclude_none=True) or None
 
     # Build full message payload with styling
     message_payload = {
@@ -355,7 +355,7 @@ async def update_screen(
     # Serialize default_layout if it's a LayoutConfig object
     default_layout = request.default_layout
     if default_layout is not None and hasattr(default_layout, "model_dump"):
-        default_layout = default_layout.model_dump(exclude_none=True)
+        default_layout = default_layout.model_dump(exclude_none=True) or None
 
     # Validate API key
     if screen["api_key"] != x_api_key:
@@ -525,7 +525,7 @@ async def create_or_update_page(
     # Serialize layout if it's a LayoutConfig object
     layout_value = request.layout
     if layout_value is not None and hasattr(layout_value, "model_dump"):
-        layout_value = layout_value.model_dump(exclude_none=True)
+        layout_value = layout_value.model_dump(exclude_none=True) or None
 
     message_payload = {
         "content": normalized_content,
@@ -585,7 +585,7 @@ async def patch_page(
     # Serialize layout if it's a LayoutConfig object
     layout_value = request.layout
     if layout_value is not None and hasattr(layout_value, "model_dump"):
-        layout_value = layout_value.model_dump(exclude_none=True)
+        layout_value = layout_value.model_dump(exclude_none=True) or None
 
     # Convert expires_at to ISO string if provided
     expires_at_str = request.expires_at.isoformat() if request.expires_at else None
