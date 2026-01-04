@@ -1,0 +1,15 @@
+{
+  "type": "user.created",
+  "data": {
+    "id": "user_noemail123",
+    "object": "user",
+    "email_addresses": [],
+    "primary_email_address_id": null,
+    "first_name": "No",
+    "last_name": "Email",
+    "created_at": 1704067200000,
+    "updated_at": 1704067200000
+  },
+  "object": "event",
+  "_comment": "Edge case: User created without email (e.g., phone-only auth)"
+}

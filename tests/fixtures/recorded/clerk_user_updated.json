@@ -1,0 +1,25 @@
+{
+  "type": "user.updated",
+  "data": {
+    "id": "user_existing123",
+    "object": "user",
+    "email_addresses": [
+      {
+        "id": "idn_email123",
+        "object": "email_address",
+        "email_address": "existing@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "primary_email_address_id": "idn_email123",
+    "first_name": "Existing",
+    "last_name": "User",
+    "profile_image_url": "https://example.com/avatar.jpg",
+    "created_at": 1700000000000,
+    "updated_at": 1704153600000
+  },
+  "object": "event"
+}

@@ -1,0 +1,22 @@
+{
+  "id": "evt_test123",
+  "object": "event",
+  "type": "checkout.session.completed",
+  "data": {
+    "object": {
+      "id": "cs_test_session123",
+      "object": "checkout.session",
+      "customer": "cus_test123",
+      "subscription": "sub_test123",
+      "payment_status": "paid",
+      "status": "complete",
+      "mode": "subscription",
+      "metadata": {
+        "user_id": "user_existing123",
+        "plan": "pro"
+      },
+      "customer_email": "existing@example.com"
+    }
+  },
+  "created": 1704153600
+}

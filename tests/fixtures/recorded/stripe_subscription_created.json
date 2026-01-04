@@ -1,0 +1,39 @@
+{
+  "id": "evt_sub_created123",
+  "object": "event",
+  "type": "customer.subscription.created",
+  "data": {
+    "object": {
+      "id": "sub_new123",
+      "object": "subscription",
+      "customer": "cus_test123",
+      "status": "active",
+      "items": {
+        "object": "list",
+        "data": [
+          {
+            "id": "si_item123",
+            "object": "subscription_item",
+            "price": {
+              "id": "price_pro_monthly",
+              "object": "price",
+              "product": "prod_pro",
+              "unit_amount": 999,
+              "currency": "usd",
+              "recurring": {
+                "interval": "month"
+              }
+            }
+          }
+        ]
+      },
+      "current_period_start": 1704153600,
+      "current_period_end": 1706832000,
+      "metadata": {
+        "user_id": "user_existing123",
+        "plan": "pro"
+      }
+    }
+  },
+  "created": 1704153600
+}

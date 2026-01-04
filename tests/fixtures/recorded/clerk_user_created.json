@@ -1,0 +1,24 @@
+{
+  "type": "user.created",
+  "data": {
+    "id": "user_2abc123def456",
+    "object": "user",
+    "email_addresses": [
+      {
+        "id": "idn_2xyz789",
+        "object": "email_address",
+        "email_address": "newuser@example.com",
+        "verification": {
+          "status": "verified",
+          "strategy": "email_code"
+        }
+      }
+    ],
+    "primary_email_address_id": "idn_2xyz789",
+    "first_name": "New",
+    "last_name": "User",
+    "created_at": 1704067200000,
+    "updated_at": 1704067200000
+  },
+  "object": "event"
+}

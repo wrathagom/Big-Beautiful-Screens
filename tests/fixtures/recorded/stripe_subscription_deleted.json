@@ -1,0 +1,28 @@
+{
+  "id": "evt_sub_deleted123",
+  "object": "event",
+  "type": "customer.subscription.deleted",
+  "data": {
+    "object": {
+      "id": "sub_canceled123",
+      "object": "subscription",
+      "customer": "cus_test123",
+      "status": "canceled",
+      "canceled_at": 1704240000,
+      "items": {
+        "object": "list",
+        "data": [
+          {
+            "id": "si_item123",
+            "object": "subscription_item",
+            "price": {
+              "id": "price_pro_monthly",
+              "object": "price"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "created": 1704240000
+}
