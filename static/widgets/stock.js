@@ -16,7 +16,7 @@
  * - compact: boolean (default: false) - Force compact list mode
  */
 
-import { registerWidget } from './registry.js';
+import { registerWidget, calculateScaleFactor } from './registry.js';
 
 const StockWidget = {
     name: 'stock',
@@ -56,31 +56,33 @@ const StockWidget = {
 
         const stockCount = config.stocks.length;
 
-        // Determine display mode based on count and config
-        if (config.compact || stockCount > 4) {
-            this._renderCompactList(wrapper, config);
-        } else if (stockCount === 1) {
-            this._renderSingleStock(wrapper, config);
-        } else {
-            this._renderGrid(wrapper, config);
-        }
+        // Defer rendering until wrapper is in DOM (so we can calculate scale factor)
+        requestAnimationFrame(() => {
+            const scaleFactor = calculateScaleFactor(wrapper);
+
+            // Determine display mode based on count and config
+            if (config.compact || stockCount > 4) {
+                this._renderCompactList(wrapper, config, scaleFactor);
+            } else if (stockCount === 1) {
+                this._renderSingleStock(wrapper, config, scaleFactor);
+            } else {
+                this._renderGrid(wrapper, config, scaleFactor);
+            }
+        });
 
         return wrapper;
     },
 
-    _renderSingleStock(wrapper, config) {
+    _renderSingleStock(wrapper, config, scaleFactor) {
         const stock = config.stocks[0];
         const changeColor = this._getChangeColor(stock.change, config);
 
-        // Calculate scale factor based on panel size
-        const scaleFactor = this._calculateScaleFactor(wrapper);
-
         // Base font sizes (for ~300px container)
-        const symbolSize = Math.round(80 * scaleFactor);
-        const nameSize = Math.round(40 * scaleFactor);
-        const priceSize = Math.round(200 * scaleFactor);
-        const changeSize = Math.round(64 * scaleFactor);
-        const gapSize = Math.round(24 * scaleFactor);
+        const symbolSize = Math.round(44 * scaleFactor);
+        const nameSize = Math.round(26 * scaleFactor);
+        const priceSize = Math.round(105 * scaleFactor);
+        const changeSize = Math.round(35 * scaleFactor);
+        const gapSize = 0;
 
         const container = document.createElement('div');
         container.className = 'stock-single-container';
@@ -155,19 +157,16 @@ const StockWidget = {
         wrapper.appendChild(container);
     },
 
-    _renderGrid(wrapper, config) {
+    _renderGrid(wrapper, config, scaleFactor) {
         const stocks = config.stocks;
         const count = stocks.length;
 
-        // Calculate scale factor based on panel size
-        const scaleFactor = this._calculateScaleFactor(wrapper);
-
         // Base font sizes (for ~300px container)
-        const symbolSize = Math.round(64 * scaleFactor);
-        const priceSize = Math.round(112 * scaleFactor);
-        const changeSize = Math.round(44 * scaleFactor);
+        const symbolSize = Math.round(28 * scaleFactor);
+        const priceSize = Math.round(53 * scaleFactor);
+        const changeSize = Math.round(18 * scaleFactor);
         const gapSize = Math.round(48 * scaleFactor);
-        const cellGap = Math.round(20 * scaleFactor);
+        const cellGap = Math.round(10 * scaleFactor);
 
         // Determine grid layout: 2x1 for 2, 2x2 for 3-4
         const cols = count <= 2 ? count : 2;
@@ -194,7 +193,7 @@ const StockWidget = {
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: ${cellGap}px;
+                gap: 0;
             `;
 
             // Symbol
@@ -239,19 +238,16 @@ const StockWidget = {
         wrapper.appendChild(container);
     },
 
-    _renderCompactList(wrapper, config) {
+    _renderCompactList(wrapper, config, scaleFactor) {
         const stocks = config.stocks;
 
-        // Calculate scale factor based on panel size
-        const scaleFactor = this._calculateScaleFactor(wrapper);
-
-        // Base font sizes (for ~300px container)
-        const rowSize = Math.round(56 * scaleFactor);
-        const nameSize = Math.round(48 * scaleFactor);
-        const changeSize = Math.round(48 * scaleFactor);
-        const rowGap = Math.round(24 * scaleFactor);
-        const colGap = Math.round(48 * scaleFactor);
-        const rowPadding = Math.round(16 * scaleFactor);
+        // Base font sizes (for ~300px container) - sized for 8+ items
+        const rowSize = Math.round(17 * scaleFactor);
+        const nameSize = Math.round(13 * scaleFactor);
+        const changeSize = Math.round(14 * scaleFactor);
+        const rowGap = Math.round(2 * scaleFactor);
+        const colGap = Math.round(9 * scaleFactor);
+        const rowPadding = Math.round(2 * scaleFactor);
 
         const container = document.createElement('div');
         container.className = 'stock-list-container';
@@ -281,6 +277,7 @@ const StockWidget = {
             symbolEl.style.cssText = `
                 font-weight: 600;
                 min-width: ${Math.round(rowSize * 4)}px;
+                flex-shrink: 0;
             `;
             symbolEl.textContent = stock.symbol;
             row.appendChild(symbolEl);
@@ -310,6 +307,7 @@ const StockWidget = {
                 font-variant-numeric: tabular-nums;
                 min-width: ${Math.round(rowSize * 5)}px;
                 text-align: right;
+                flex-shrink: 0;
             `;
             priceEl.textContent = this._formatPrice(stock.price);
             row.appendChild(priceEl);
@@ -321,8 +319,10 @@ const StockWidget = {
                 changeEl.style.cssText = `
                     font-size: ${changeSize}px;
                     color: ${changeColor};
-                    min-width: ${Math.round(changeSize * 6)}px;
+                    min-width: ${Math.round(changeSize * 10)}px;
                     text-align: right;
+                    font-variant-numeric: tabular-nums;
+                    flex-shrink: 0;
                 `;
 
                 const parts = [];
@@ -368,24 +368,6 @@ const StockWidget = {
         if (typeof percent !== 'number') return percent;
         const sign = percent > 0 ? '+' : '';
         return `(${sign}${percent.toFixed(2)}%)`;
-    },
-
-    _calculateScaleFactor(wrapper) {
-        const parent = wrapper.closest('.panel-content');
-        if (!parent) {
-            return 1;
-        }
-
-        const width = parent.clientWidth;
-        const height = parent.clientHeight;
-        const minDimension = Math.min(width, height);
-
-        // Scale based on container size
-        // Base sizes are for a ~300px container, scale proportionally
-        const scaleFactor = minDimension / 300;
-
-        // Clamp scale factor to reasonable bounds
-        return Math.max(0.5, Math.min(scaleFactor, 4));
     },
 
     update(element, config) {

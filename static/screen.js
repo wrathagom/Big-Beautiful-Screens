@@ -636,6 +636,11 @@ function transitionToPage(nextPageIndex, transitionType, duration) {
     const oldContentWrapper = document.createElement('div');
     oldContentWrapper.className = 'screen__old-content';
 
+    // Capture current styles for the old wrapper (before we change them)
+    const oldBackgroundColor = getComputedStyle(document.body).background;
+    const oldFontFamily = getComputedStyle(screenEl).fontFamily;
+    const oldFontColor = getComputedStyle(screenEl).color;
+
     // Copy current grid styles to old content wrapper (use getComputedStyle for CSS class-based layouts)
     const computedStyle = getComputedStyle(screenEl);
     oldContentWrapper.style.gridTemplateColumns = screenEl.style.gridTemplateColumns || computedStyle.gridTemplateColumns;
@@ -673,25 +678,46 @@ function transitionToPage(nextPageIndex, transitionType, duration) {
     screenEl.style.gap = effectiveGap;
     screenEl.style.padding = effectiveGap;
 
-    // Apply background
+    // Apply backgrounds to wrappers for smooth transitions
     const effectiveBackgroundColor = nextPage.background_color || screenBackgroundColor;
-    if (effectiveBackgroundColor) {
-        document.body.style.background = effectiveBackgroundColor;
-        screenEl.style.background = effectiveBackgroundColor;
+
+    // For slide transitions, each wrapper needs its own background
+    if (transitionType === 'slide-left') {
+        oldContentWrapper.style.background = oldBackgroundColor;
+        if (effectiveBackgroundColor) {
+            newContentWrapper.style.background = effectiveBackgroundColor;
+        }
+        // Body background will be updated after transition completes
+    } else {
+        // For fade and other transitions, update body immediately
+        if (effectiveBackgroundColor) {
+            document.body.style.background = effectiveBackgroundColor;
+            screenEl.style.background = effectiveBackgroundColor;
+        }
     }
 
-    // Apply font styles to screen (page overrides screen defaults)
+    // Apply font styles (page overrides screen defaults)
     const effectiveFontFamily = nextPage.font_family || screenFontFamily;
     const effectiveFontColor = nextPage.font_color || screenFontColor;
-    if (effectiveFontFamily) {
-        screenEl.style.fontFamily = effectiveFontFamily;
+
+    // For slide transitions, each wrapper needs its own font styles
+    if (transitionType === 'slide-left') {
+        // Apply old font styles to old wrapper
+        oldContentWrapper.style.fontFamily = oldFontFamily;
+        oldContentWrapper.style.color = oldFontColor;
+        // screenEl font styles will be updated after transition completes
     } else {
-        screenEl.style.fontFamily = '';
-    }
-    if (effectiveFontColor) {
-        screenEl.style.color = effectiveFontColor;
-    } else {
-        screenEl.style.color = '';
+        // For fade and other transitions, update screen immediately
+        if (effectiveFontFamily) {
+            screenEl.style.fontFamily = effectiveFontFamily;
+        } else {
+            screenEl.style.fontFamily = '';
+        }
+        if (effectiveFontColor) {
+            screenEl.style.color = effectiveFontColor;
+        } else {
+            screenEl.style.color = '';
+        }
     }
 
     // Resolve and apply layout
@@ -752,6 +778,25 @@ function transitionToPage(nextPageIndex, transitionType, duration) {
                     screenEl.appendChild(panel);
                 });
                 newContentWrapper.remove();
+
+                // For slide transitions, update body/screen styles now that transition is done
+                if (transitionType === 'slide-left') {
+                    if (effectiveBackgroundColor) {
+                        document.body.style.background = effectiveBackgroundColor;
+                        screenEl.style.background = effectiveBackgroundColor;
+                    }
+                    // Apply new font styles to screenEl
+                    if (effectiveFontFamily) {
+                        screenEl.style.fontFamily = effectiveFontFamily;
+                    } else {
+                        screenEl.style.fontFamily = '';
+                    }
+                    if (effectiveFontColor) {
+                        screenEl.style.color = effectiveFontColor;
+                    } else {
+                        screenEl.style.color = '';
+                    }
+                }
 
                 // Remove transitioning class
                 screenEl.classList.remove('screen--transitioning');

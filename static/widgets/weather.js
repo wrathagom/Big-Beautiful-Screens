@@ -13,7 +13,7 @@
  * - refresh_interval: number in ms (default: 1800000 = 30 min)
  */
 
-import { registerWidget } from './registry.js';
+import { registerWidget, calculateScaleFactor } from './registry.js';
 
 // Cache for geocoding results to avoid repeated lookups
 const geocodeCache = new Map();
@@ -233,15 +233,15 @@ const WeatherWidget = {
         const weatherInfo = WEATHER_CODES[current.weather_code] || { icon: 'unknown', description: 'Unknown' };
 
         // Calculate scale factor based on panel size
-        const scaleFactor = this._calculateScaleFactor(wrapper);
+        const scaleFactor = calculateScaleFactor(wrapper);
 
         // Base font sizes (for ~300px container)
-        const locationSize = Math.round(18 * scaleFactor);
-        const tempSize = Math.round(72 * scaleFactor);
-        const iconSize = Math.round(80 * scaleFactor);
-        const conditionSize = Math.round(16 * scaleFactor);
-        const detailsSize = Math.round(14 * scaleFactor);
-        const gapSize = Math.round(12 * scaleFactor);
+        const locationSize = Math.round(44 * scaleFactor);
+        const tempSize = Math.round(105 * scaleFactor);
+        const iconSize = Math.round(105 * scaleFactor);
+        const conditionSize = Math.round(35 * scaleFactor);
+        const detailsSize = Math.round(26 * scaleFactor);
+        const gapSize = 0;
 
         const container = document.createElement('div');
         container.className = 'weather-current-container';
@@ -326,16 +326,18 @@ const WeatherWidget = {
 
     _renderCurrentAndDaily(wrapper, data, config) {
         // Calculate scale factor based on panel size
-        const scaleFactor = this._calculateScaleFactor(wrapper);
+        const scaleFactor = calculateScaleFactor(wrapper);
 
         // Base font sizes (for ~300px container)
+        const locationSize = Math.round(35 * scaleFactor);
         const headerSize = Math.round(20 * scaleFactor);
         const headerIconSize = Math.round(24 * scaleFactor);
         const headerGap = Math.round(12 * scaleFactor);
         const rowSize = Math.round(18 * scaleFactor);
         const rowIconSize = Math.round(22 * scaleFactor);
         const rowGap = Math.round(16 * scaleFactor);
-        const sectionGap = Math.round(20 * scaleFactor);
+        const sectionGap = Math.round(10.5 * scaleFactor);
+        const dailyListGap = Math.round(5.3 * scaleFactor);
 
         const container = document.createElement('div');
         container.className = 'weather-daily-container';
@@ -351,6 +353,14 @@ const WeatherWidget = {
         const current = data.current;
         const weatherInfo = WEATHER_CODES[current.weather_code] || { icon: 'unknown', description: 'Unknown' };
 
+        // Location on its own line
+        const locationEl = document.createElement('div');
+        locationEl.className = 'weather-location';
+        locationEl.style.cssText = `opacity: 0.7; font-size: ${locationSize}px;`;
+        locationEl.textContent = data.location.name;
+        container.appendChild(locationEl);
+
+        // Current conditions row (icon, temp, details)
         const headerRow = document.createElement('div');
         headerRow.className = 'weather-header';
         headerRow.style.cssText = `
@@ -360,11 +370,6 @@ const WeatherWidget = {
             gap: ${headerGap}px;
             font-size: ${headerSize}px;
         `;
-
-        const locationEl = document.createElement('div');
-        locationEl.style.cssText = 'opacity: 0.7;';
-        locationEl.textContent = data.location.name;
-        headerRow.appendChild(locationEl);
 
         const iconEl = document.createElement('div');
         iconEl.style.cssText = `width: ${headerIconSize}px; height: ${headerIconSize}px;`;
@@ -392,7 +397,7 @@ const WeatherWidget = {
         dailyList.style.cssText = `
             display: flex;
             flex-direction: column;
-            gap: ${Math.round(rowGap * 0.5)}px;
+            gap: ${dailyListGap}px;
         `;
 
         for (let i = 0; i < Math.min(data.daily.time.length, config.days_to_show); i++) {
@@ -457,31 +462,162 @@ const WeatherWidget = {
     },
 
     _renderCurrentAndHourly(wrapper, data, config) {
-        // Similar structure - implement if needed
-        this._renderCurrent(wrapper, data, config);
+        // Calculate scale factor based on panel size
+        const scaleFactor = calculateScaleFactor(wrapper);
+
+        // Base font sizes (for ~300px container) - same as daily view
+        const locationSize = Math.round(35 * scaleFactor);
+        const headerSize = Math.round(20 * scaleFactor);
+        const headerIconSize = Math.round(24 * scaleFactor);
+        const headerGap = Math.round(12 * scaleFactor);
+        const rowSize = Math.round(18 * scaleFactor);
+        const rowIconSize = Math.round(22 * scaleFactor);
+        const rowGap = Math.round(16 * scaleFactor);
+        const sectionGap = Math.round(10.5 * scaleFactor);
+        const hourlyListGap = Math.round(5.3 * scaleFactor);
+
+        const container = document.createElement('div');
+        container.className = 'weather-hourly-container';
+        container.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: ${sectionGap}px;
+        `;
+
+        // Current conditions header
+        const current = data.current;
+        const weatherInfo = WEATHER_CODES[current.weather_code] || { icon: 'unknown', description: 'Unknown' };
+
+        // Location on its own line
+        const locationEl = document.createElement('div');
+        locationEl.className = 'weather-location';
+        locationEl.style.cssText = `opacity: 0.7; font-size: ${locationSize}px;`;
+        locationEl.textContent = data.location.name;
+        container.appendChild(locationEl);
+
+        // Current conditions row (icon, temp, details)
+        const headerRow = document.createElement('div');
+        headerRow.className = 'weather-header';
+        headerRow.style.cssText = `
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: ${headerGap}px;
+            font-size: ${headerSize}px;
+        `;
+
+        const iconEl = document.createElement('div');
+        iconEl.style.cssText = `width: ${headerIconSize}px; height: ${headerIconSize}px;`;
+        iconEl.innerHTML = WEATHER_ICONS[weatherInfo.icon] || WEATHER_ICONS['unknown'];
+        headerRow.appendChild(iconEl);
+
+        const tempEl = document.createElement('div');
+        tempEl.style.cssText = 'font-weight: 300;';
+        tempEl.textContent = `${Math.round(current.temperature_2m)}${data.units.temp}`;
+        headerRow.appendChild(tempEl);
+
+        const detailsEl = document.createElement('div');
+        detailsEl.style.cssText = 'opacity: 0.6;';
+        const details = [];
+        if (config.show_humidity) details.push(`${current.relative_humidity_2m}%`);
+        if (config.show_wind) details.push(`${Math.round(current.wind_speed_10m)} ${data.units.wind}`);
+        detailsEl.textContent = details.join(' · ');
+        headerRow.appendChild(detailsEl);
+
+        container.appendChild(headerRow);
+
+        // Hourly forecast list
+        const hourlyList = document.createElement('div');
+        hourlyList.className = 'weather-hourly-list';
+        hourlyList.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: ${hourlyListGap}px;
+        `;
+
+        // Find current hour index and show upcoming hours
+        const now = new Date();
+        const currentHour = now.getHours();
+        let startIndex = 0;
+
+        // Find the first hour that's >= current time
+        for (let i = 0; i < data.hourly.time.length; i++) {
+            const hourTime = new Date(data.hourly.time[i]);
+            if (hourTime >= now) {
+                startIndex = i;
+                break;
+            }
+        }
+
+        for (let i = startIndex; i < Math.min(startIndex + config.hours_to_show, data.hourly.time.length); i++) {
+            const hourEl = this._createHourlyRow(
+                data.hourly.time[i],
+                data.hourly.temperature_2m[i],
+                data.hourly.weather_code[i],
+                data.hourly.precipitation_probability[i],
+                config,
+                i === startIndex,
+                { rowSize, rowIconSize, rowGap }
+            );
+            hourlyList.appendChild(hourEl);
+        }
+
+        container.appendChild(hourlyList);
+        wrapper.appendChild(container);
+    },
+
+    _createHourlyRow(time, temp, weatherCode, precipProb, config, isNow, sizes) {
+        const weatherInfo = WEATHER_CODES[weatherCode] || { icon: 'unknown' };
+        const hourDate = new Date(time);
+        const { rowSize, rowIconSize, rowGap } = sizes;
+
+        const row = document.createElement('div');
+        row.className = 'weather-hour-row';
+        row.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: ${rowGap}px;
+            font-size: ${rowSize}px;
+            ${isNow ? 'opacity: 1; font-weight: 500;' : 'opacity: 0.85;'}
+        `;
+
+        // Time
+        const timeEl = document.createElement('div');
+        timeEl.style.cssText = `min-width: ${Math.round(rowSize * 3.5)}px;`;
+        if (isNow) {
+            timeEl.textContent = 'Now';
+        } else {
+            timeEl.textContent = hourDate.toLocaleTimeString([], { hour: 'numeric', hour12: true });
+        }
+        row.appendChild(timeEl);
+
+        // Icon
+        const iconEl = document.createElement('div');
+        iconEl.style.cssText = `width: ${rowIconSize}px; height: ${rowIconSize}px;`;
+        iconEl.innerHTML = WEATHER_ICONS[weatherInfo.icon] || WEATHER_ICONS['unknown'];
+        row.appendChild(iconEl);
+
+        // Precip probability
+        if (config.show_precipitation) {
+            const precipEl = document.createElement('div');
+            precipEl.style.cssText = `opacity: 0.6; min-width: ${Math.round(rowSize * 2.5)}px;`;
+            precipEl.textContent = precipProb > 10 ? `${precipProb}%` : '';
+            row.appendChild(precipEl);
+        }
+
+        // Temperature
+        const tempEl = document.createElement('div');
+        tempEl.textContent = `${Math.round(temp)}°`;
+        row.appendChild(tempEl);
+
+        return row;
     },
 
     _renderFull(wrapper, data, config) {
         // Similar structure - implement if needed
         this._renderCurrentAndDaily(wrapper, data, config);
-    },
-
-    _calculateScaleFactor(wrapper) {
-        const parent = wrapper.closest('.panel-content');
-        if (!parent) {
-            return 1;
-        }
-
-        const width = parent.clientWidth;
-        const height = parent.clientHeight;
-        const minDimension = Math.min(width, height);
-
-        // Scale based on container size
-        // Base sizes are for a ~300px container, scale proportionally
-        const scaleFactor = minDimension / 300;
-
-        // Clamp scale factor to reasonable bounds
-        return Math.max(0.5, Math.min(scaleFactor, 4));
     },
 
     update(element, config) {

@@ -19,7 +19,7 @@
  * - y_max: number - y-axis maximum
  */
 
-import { registerWidget } from './registry.js';
+import { registerWidget, calculateScaleFactor } from './registry.js';
 
 const ChartWidget = {
     name: 'chart',
@@ -253,29 +253,14 @@ const ChartWidget = {
     },
 
     _calculateFontSizes(wrapper) {
-        // Get container dimensions
-        const parent = wrapper.closest('.panel-content');
-        if (!parent) {
-            return { legend: 12, ticks: 11, axisTitle: 14, pointRadius: 3, lineWidth: 2 };
-        }
-
-        const width = parent.clientWidth;
-        const height = parent.clientHeight;
-        const minDimension = Math.min(width, height);
-
-        // Scale fonts based on container size
-        // Base sizes are for a ~300px container, scale proportionally
-        const scaleFactor = minDimension / 300;
-
-        // Clamp scale factor to reasonable bounds
-        const clampedScale = Math.max(0.5, Math.min(scaleFactor, 4));
+        const scaleFactor = calculateScaleFactor(wrapper);
 
         return {
-            legend: Math.round(12 * clampedScale),
-            ticks: Math.round(11 * clampedScale),
-            axisTitle: Math.round(14 * clampedScale),
-            pointRadius: Math.round(3 * clampedScale),
-            lineWidth: Math.round(2 * clampedScale)
+            legend: Math.round(12 * scaleFactor),
+            ticks: Math.round(11 * scaleFactor),
+            axisTitle: Math.round(14 * scaleFactor),
+            pointRadius: Math.round(3 * scaleFactor),
+            lineWidth: Math.round(2 * scaleFactor)
         };
     },
 

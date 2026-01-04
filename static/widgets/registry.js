@@ -157,3 +157,33 @@ export function getWidgetMetadata(type) {
         configSchema: widget.configSchema || {}
     };
 }
+
+/**
+ * Calculate scale factor based on container size.
+ * Use this in widgets to scale fonts/sizes proportionally to panel size.
+ * Base sizes should be designed for a ~300px container.
+ *
+ * @param {HTMLElement} container - Container element (should be in DOM already)
+ * @param {number} baseSize - Reference size for scale calculation (default: 300)
+ * @returns {number} Scale factor (clamped between 0.5 and 4)
+ */
+export function calculateScaleFactor(container, baseSize = 300) {
+    if (!container) return 1;
+
+    // Find the panel-content element (container might be it, or be inside it)
+    let panel = container.closest('.panel-content');
+    if (!panel && container.classList && container.classList.contains('panel-content')) {
+        panel = container;
+    }
+    if (!panel) return 1;
+
+    const width = panel.clientWidth;
+    const height = panel.clientHeight;
+    const minDimension = Math.min(width, height);
+
+    // Scale based on container size relative to base size
+    const scaleFactor = minDimension / baseSize;
+
+    // Clamp scale factor to reasonable bounds
+    return Math.max(0.5, Math.min(scaleFactor, 4));
+}
