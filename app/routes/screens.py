@@ -74,17 +74,21 @@ async def create_new_screen(request: Request, user: OptionalUser = None):
 
         # Ensure user exists in database (handles case where webhook didn't fire)
         db = get_database()
-        await db.create_or_update_user(
-            user_id=user.user_id,
-            email=user.email or "unknown@example.com",
-            name=user.name,
-            plan="free",
-        )
+        user_data = await db.get_user(user.user_id)
+
+        # Only create user if they don't exist AND we have a valid email
+        if not user_data and user.email:
+            await db.create_or_update_user(
+                user_id=user.user_id,
+                email=user.email,
+                name=user.name,
+                plan="free",
+            )
+            user_data = await db.get_user(user.user_id)
 
         # Check plan limits (free=3, pro=25, team=100 screens)
         from ..config import PLAN_LIMITS
 
-        user_data = await db.get_user(user.user_id)
         plan = user_data.get("plan", "free") if user_data else "free"
         limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
         screen_limit = limits.get("screens", 3)

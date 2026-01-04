@@ -190,6 +190,8 @@ async def get_subscription_status(user: RequiredUser):
         status: Subscription status (inactive, active, past_due, canceled)
         subscription_id: Stripe subscription ID (if active)
         customer_id: Stripe customer ID (if exists)
+        email: Email address on file
+        user_id: User ID
     """
     settings = get_settings()
 
@@ -199,6 +201,8 @@ async def get_subscription_status(user: RequiredUser):
             "status": "active",
             "subscription_id": None,
             "customer_id": None,
+            "email": None,
+            "user_id": None,
         }
 
     db = get_database()
@@ -210,6 +214,8 @@ async def get_subscription_status(user: RequiredUser):
             "status": "inactive",
             "subscription_id": None,
             "customer_id": None,
+            "email": user.email,
+            "user_id": user.user_id,
         }
 
     return {
@@ -217,4 +223,6 @@ async def get_subscription_status(user: RequiredUser):
         "status": user_data.get("subscription_status", "inactive"),
         "subscription_id": user_data.get("stripe_subscription_id"),
         "customer_id": user_data.get("stripe_customer_id"),
+        "email": user_data.get("email"),
+        "user_id": user.user_id,
     }

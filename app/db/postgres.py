@@ -1033,8 +1033,8 @@ class PostgresBackend(DatabaseBackend):
                 ON CONFLICT (id) DO UPDATE SET
                     email = EXCLUDED.email,
                     name = EXCLUDED.name,
-                    plan = EXCLUDED.plan,
                     updated_at = EXCLUDED.updated_at
+                -- NOTE: plan is intentionally NOT updated to preserve Stripe subscription
             """,
                 user_id,
                 email,
