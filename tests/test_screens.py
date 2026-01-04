@@ -1336,3 +1336,101 @@ class TestLayouts:
         )
         assert response.status_code == 200
         assert response.json()["page"]["layout"] == "horizontal"
+
+
+class TestDebugMode:
+    """Tests for debug mode functionality."""
+
+    def test_enable_debug(self, client, screen):
+        """Test enabling debug mode."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/debug?enabled=true",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["debug_enabled"] is True
+        assert "viewers" in data
+
+    def test_disable_debug(self, client, screen):
+        """Test disabling debug mode."""
+        # Enable first
+        client.post(
+            f"/api/v1/screens/{screen['screen_id']}/debug?enabled=true",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+
+        # Disable
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/debug?enabled=false",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["debug_enabled"] is False
+
+    def test_toggle_debug(self, client, screen):
+        """Test toggling debug mode."""
+        # First toggle (should enable)
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/debug?enabled=toggle",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+        assert response.status_code == 200
+        first_state = response.json()["debug_enabled"]
+
+        # Second toggle (should flip)
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/debug?enabled=toggle",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+        assert response.status_code == 200
+        second_state = response.json()["debug_enabled"]
+        assert second_state != first_state
+
+    def test_debug_state_persists(self, client, screen):
+        """Test that debug state is persisted in database."""
+        # Enable debug
+        client.post(
+            f"/api/v1/screens/{screen['screen_id']}/debug?enabled=true",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+
+        # Get screen data - debug_enabled should be in rotation settings
+        response = client.get(
+            f"/api/v1/screens/{screen['screen_id']}/pages",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["rotation"]["debug_enabled"] is True
+
+        # Disable and verify
+        client.post(
+            f"/api/v1/screens/{screen['screen_id']}/debug?enabled=false",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+
+        response = client.get(
+            f"/api/v1/screens/{screen['screen_id']}/pages",
+            headers={"X-API-Key": screen["api_key"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["rotation"]["debug_enabled"] is False
+
+    def test_debug_wrong_api_key(self, client, screen):
+        """Test that wrong API key is rejected for debug toggle."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/debug?enabled=true",
+            headers={"X-API-Key": "wrong_key"},
+        )
+        assert response.status_code == 401
+
+    def test_debug_nonexistent_screen(self, client):
+        """Test toggling debug on nonexistent screen."""
+        response = client.post(
+            "/api/v1/screens/nonexistent123/debug?enabled=true",
+            headers={"X-API-Key": "sk_fake_key"},
+        )
+        assert response.status_code == 404

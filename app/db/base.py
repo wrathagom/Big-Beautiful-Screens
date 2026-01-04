@@ -88,6 +88,10 @@ class DatabaseBackend(ABC):
         font_color: str | None = None,
         theme: str | None = None,
         head_html: str | None = None,
+        default_layout: str | dict | None = None,
+        transition: str | None = None,
+        transition_duration: int | None = None,
+        debug_enabled: bool | None = None,
     ) -> bool:
         """Update rotation/display settings. Returns True if updated."""
         pass

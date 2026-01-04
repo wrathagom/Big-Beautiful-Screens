@@ -185,6 +185,9 @@ class PostgresBackend(DatabaseBackend):
             await conn.execute("""
                 ALTER TABLE screens ADD COLUMN IF NOT EXISTS transition_duration INTEGER DEFAULT 500
             """)
+            await conn.execute("""
+                ALTER TABLE screens ADD COLUMN IF NOT EXISTS debug_enabled BOOLEAN DEFAULT FALSE
+            """)
 
             # Media table
             await conn.execute("""
@@ -367,7 +370,7 @@ class PostgresBackend(DatabaseBackend):
                 """
                 SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
                        background_color, panel_color, font_family, font_color, theme, head_html,
-                       default_layout, transition, transition_duration
+                       default_layout, transition, transition_duration, debug_enabled
                 FROM screens WHERE id = $1
             """,
                 screen_id,
@@ -399,6 +402,7 @@ class PostgresBackend(DatabaseBackend):
                 "default_layout": default_layout,
                 "transition": row["transition"] or "none",
                 "transition_duration": row["transition_duration"] or 500,
+                "debug_enabled": row["debug_enabled"] or False,
             }
 
     async def update_rotation_settings(
@@ -418,6 +422,7 @@ class PostgresBackend(DatabaseBackend):
         default_layout: str | dict | None = None,
         transition: str | None = None,
         transition_duration: int | None = None,
+        debug_enabled: bool | None = None,
     ) -> bool:
         """Update rotation/display settings."""
         pool = await self._get_pool()
@@ -490,6 +495,10 @@ class PostgresBackend(DatabaseBackend):
             if transition_duration is not None:
                 updates.append(f"transition_duration = ${param_idx}")
                 params.append(transition_duration)
+                param_idx += 1
+            if debug_enabled is not None:
+                updates.append(f"debug_enabled = ${param_idx}")
+                params.append(debug_enabled)
                 param_idx += 1
 
             if updates:

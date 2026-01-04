@@ -344,22 +344,16 @@ print(response.json())`;
             setTimeout(() => btn.textContent = 'Copy JSON', 1500);
         }
 
-        // Track debug state per screen
-        const debugState = {};
-
         async function toggleDebug(screenId, apiKey) {
-            // Toggle the state
-            debugState[screenId] = !debugState[screenId];
-            const enabled = debugState[screenId];
-
             try {
-                const response = await fetch(`/api/v1/screens/${screenId}/debug?enabled=${enabled}`, {
+                // Server handles state - just send toggle request
+                const response = await fetch(`/api/v1/screens/${screenId}/debug?enabled=toggle`, {
                     method: 'POST',
                     headers: { 'X-API-Key': apiKey }
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    alert(`Debug ${enabled ? 'enabled' : 'disabled'} for ${data.viewers} viewer(s)`);
+                    alert(`Debug ${data.debug_enabled ? 'enabled' : 'disabled'} for ${data.viewers} viewer(s)`);
                 } else {
                     alert('Failed to toggle debug: ' + (data.detail || 'Unknown error'));
                 }

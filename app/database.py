@@ -122,6 +122,7 @@ async def update_rotation_settings(
     default_layout: str | dict | None = None,
     transition: str | None = None,
     transition_duration: int | None = None,
+    debug_enabled: bool | None = None,
 ) -> bool:
     """Update rotation/display settings. Returns True if updated."""
     db = get_database()
@@ -141,6 +142,7 @@ async def update_rotation_settings(
         default_layout,
         transition,
         transition_duration,
+        debug_enabled,
     )
 
 

@@ -426,6 +426,19 @@ function handlePagesSync(newPages, rotation) {
         screenTransition = rotation.transition || 'none';
         screenTransitionDuration = rotation.transition_duration || 500;
         updateHeadHtml(rotation.head_html || null);
+
+        // Apply debug state from server (takes precedence over localStorage)
+        if (rotation.debug_enabled !== undefined) {
+            debugEnabled = rotation.debug_enabled;
+            localStorage.setItem('debugEnabled', debugEnabled ? 'true' : 'false');
+            if (debugEnabled) {
+                updateDebugDisplay();
+            } else {
+                // Remove debug panel if disabled
+                const debugEl = document.getElementById('debug-info');
+                if (debugEl) debugEl.remove();
+            }
+        }
     }
 
     // Render current page (no transition on initial load)

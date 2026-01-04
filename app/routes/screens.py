@@ -265,9 +265,13 @@ async def reload_screen(screen_id: str, x_api_key: str = Header(alias="X-API-Key
 
 @router.post("/api/v1/screens/{screen_id}/debug")
 async def toggle_debug(
-    screen_id: str, enabled: bool = True, x_api_key: str = Header(alias="X-API-Key")
+    screen_id: str, enabled: str = "toggle", x_api_key: str = Header(alias="X-API-Key")
 ):
-    """Toggle debug mode on all viewers of a screen. Requires API key authentication."""
+    """Toggle debug mode on all viewers of a screen. Requires API key authentication.
+
+    Args:
+        enabled: "toggle" to flip current state, "true"/"false" for explicit value
+    """
     screen = await get_screen_by_id(screen_id)
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
@@ -275,8 +279,20 @@ async def toggle_debug(
     if screen["api_key"] != x_api_key:
         raise HTTPException(status_code=401, detail="Invalid API key")
 
-    viewers = await manager.broadcast(screen_id, {"type": "debug", "enabled": enabled})
-    return {"success": True, "debug_enabled": enabled, "viewers": viewers}
+    # Determine new debug state
+    if enabled == "toggle":
+        # Get current state and flip it
+        rotation = await get_rotation_settings(screen_id)
+        new_state = not rotation.get("debug_enabled", False) if rotation else True
+    else:
+        new_state = enabled.lower() == "true"
+
+    # Persist to database
+    await update_rotation_settings(screen_id, debug_enabled=new_state)
+
+    # Broadcast to viewers
+    viewers = await manager.broadcast(screen_id, {"type": "debug", "enabled": new_state})
+    return {"success": True, "debug_enabled": new_state, "viewers": viewers}
 
 
 @router.patch("/api/v1/screens/{screen_id}")

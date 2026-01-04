@@ -153,6 +153,10 @@ class SQLiteBackend(DatabaseBackend):
                 "ALTER TABLE screens ADD COLUMN transition_duration INTEGER DEFAULT 500"
             )
 
+        # Migration: Add debug_enabled column to screens table
+        if "debug_enabled" not in columns:
+            await db.execute("ALTER TABLE screens ADD COLUMN debug_enabled INTEGER DEFAULT 0")
+
     async def _seed_builtin_themes(self, db) -> None:
         """Seed the database with built-in themes if not already present."""
         async with db.execute("SELECT COUNT(*) FROM themes WHERE is_builtin = 1") as cursor:
@@ -323,7 +327,7 @@ class SQLiteBackend(DatabaseBackend):
                 """
                 SELECT rotation_enabled, rotation_interval, gap, border_radius, panel_shadow,
                        background_color, panel_color, font_family, font_color, theme, head_html,
-                       default_layout, transition, transition_duration
+                       default_layout, transition, transition_duration, debug_enabled
                 FROM screens WHERE id = ?
             """,
                 (screen_id,),
@@ -358,6 +362,7 @@ class SQLiteBackend(DatabaseBackend):
                 "default_layout": default_layout,
                 "transition": row["transition"] or "none",
                 "transition_duration": row["transition_duration"] or 500,
+                "debug_enabled": bool(row["debug_enabled"]) if row["debug_enabled"] else False,
             }
 
     async def update_rotation_settings(
@@ -377,6 +382,7 @@ class SQLiteBackend(DatabaseBackend):
         default_layout: str | dict | None = None,
         transition: str | None = None,
         transition_duration: int | None = None,
+        debug_enabled: bool | None = None,
     ) -> bool:
         """Update rotation/display settings."""
         async with aiosqlite.connect(self.db_path) as db:
@@ -433,6 +439,9 @@ class SQLiteBackend(DatabaseBackend):
             if transition_duration is not None:
                 updates.append("transition_duration = ?")
                 params.append(transition_duration)
+            if debug_enabled is not None:
+                updates.append("debug_enabled = ?")
+                params.append(1 if debug_enabled else 0)
 
             if updates:
                 params.append(screen_id)
