@@ -16,6 +16,10 @@
 
 import { registerWidget, calculateScaleFactor } from './registry.js';
 
+// Cache for RSS feed data to avoid refetching on every page rotation
+// Key: feed URL, Value: { data: feedData, timestamp: Date.now() }
+const feedCache = new Map();
+
 const RssWidget = {
     name: 'rss',
     version: '1.0.0',
@@ -58,19 +62,21 @@ const RssWidget = {
         // Fetch and render
         this._fetchAndRender(wrapper, config);
 
-        // Set up auto-refresh
+        // Set up auto-refresh (force refresh when interval fires)
         if (config.refresh_interval > 0) {
             wrapper._refreshIntervalId = setInterval(() => {
-                this._fetchAndRender(wrapper, config);
+                this._fetchAndRender(wrapper, config, true);
             }, config.refresh_interval);
         }
 
         return wrapper;
     },
 
-    async _fetchAndRender(wrapper, config) {
+    async _fetchAndRender(wrapper, config, forceRefresh = false) {
         try {
-            const feed = await this._fetchFeed(config.url);
+            // Use 0 as refresh interval to force a fresh fetch
+            const refreshInterval = forceRefresh ? 0 : config.refresh_interval;
+            const feed = await this._fetchFeed(config.url, refreshInterval);
             wrapper._feedData = feed;
             wrapper.innerHTML = '';
 
@@ -100,9 +106,19 @@ const RssWidget = {
         }
     },
 
-    async _fetchFeed(url) {
+    async _fetchFeed(url, refreshInterval) {
+        // Check cache first
+        const cached = feedCache.get(url);
+        if (cached) {
+            const age = Date.now() - cached.timestamp;
+            if (age < refreshInterval) {
+                // Cache is still fresh, use it
+                return cached.data;
+            }
+        }
+
         // Use server proxy to avoid CORS issues
-        const proxyUrl = `/api/v1/proxy/rss?url=` + encodeURIComponent(url);
+        const proxyUrl = `/api/v1/proxy/rss?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
 
         if (!response.ok) {
@@ -110,7 +126,15 @@ const RssWidget = {
             throw new Error(error.detail || `HTTP ${response.status}`);
         }
 
-        return await response.json();
+        const data = await response.json();
+
+        // Store in cache
+        feedCache.set(url, {
+            data: data,
+            timestamp: Date.now()
+        });
+
+        return data;
     },
 
     _render(wrapper, feed, config, scaleFactor) {
