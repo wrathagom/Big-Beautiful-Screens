@@ -41,3 +41,9 @@ htmlcov/
 
 # Package managers
 uv.lock
+
+# Biome JS linter (temporarily ignored until we clean up existing warnings)
+# To set up: curl -L https://github.com/biomejs/biome/releases/latest/download/biome-linux-x64 -o biome && chmod +x biome
+# To run: ./biome lint
+biome
+biome.json
