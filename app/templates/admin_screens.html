@@ -129,6 +129,34 @@
     <script>
         const BASE_URL = window.location.origin;
 
+        // Toast notification system
+        function showToast(message, type = 'success', duration = 3000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            if (type === 'loading') {
+                toast.innerHTML = `<div class="toast-spinner"></div><span>${message}</span>`;
+            } else {
+                const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : '';
+                toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+            }
+
+            container.appendChild(toast);
+
+            // Return a function to dismiss this toast (for loading toasts)
+            const dismiss = () => {
+                toast.classList.add('hiding');
+                setTimeout(() => toast.remove(), 300);
+            };
+
+            if (type !== 'loading' && duration > 0) {
+                setTimeout(dismiss, duration);
+            }
+
+            return dismiss;
+        }
+
         // Helper to get Clerk session token for API calls (SaaS mode)
         // Returns empty headers in self-hosted mode where Clerk isn't loaded
         async function getAuthHeaders() {
@@ -157,15 +185,24 @@
         }
 
         document.getElementById('create-screen').addEventListener('click', async () => {
+            const btn = document.getElementById('create-screen');
+            const originalText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Creating...';
+
             const authHeaders = await getAuthHeaders();
             const response = await fetch('/api/v1/screens', {
                 method: 'POST',
                 headers: authHeaders,
                 credentials: 'include'
             });
+
+            btn.disabled = false;
+            btn.textContent = originalText;
+
             if (!response.ok) {
                 const error = await response.json().catch(() => ({}));
-                alert(error.detail || 'Failed to create screen. Please try refreshing the page.');
+                showToast(error.detail || 'Failed to create screen', 'error');
                 return;
             }
             const data = await response.json();
@@ -178,6 +215,7 @@
             const card = createScreenCard(data);
             screenList.insertBefore(card, screenList.firstChild);
             card.classList.add('expanded');
+            showToast('Screen created', 'success');
         });
 
         function createScreenCard(data) {
@@ -297,29 +335,34 @@ print(response.json())`;
         }
 
         async function reloadScreen(screenId, apiKey) {
+            const dismiss = showToast('Reloading viewers...', 'loading');
             try {
                 const response = await fetch(`/api/v1/screens/${screenId}/reload`, {
                     method: 'POST',
                     headers: { 'X-API-Key': apiKey }
                 });
+                dismiss();
                 const data = await response.json();
                 if (response.ok) {
-                    alert(`Reload sent to ${data.viewers_reloaded} viewer(s)`);
+                    showToast(`Reload sent to ${data.viewers_reloaded} viewer(s)`, 'success');
                 } else {
-                    alert('Failed to reload: ' + (data.detail || 'Unknown error'));
+                    showToast('Failed to reload: ' + (data.detail || 'Unknown error'), 'error');
                 }
             } catch (error) {
-                alert('Failed to reload: ' + error.message);
+                dismiss();
+                showToast('Failed to reload: ' + error.message, 'error');
             }
         }
 
         async function viewJson(screenId, apiKey) {
+            const dismiss = showToast('Loading JSON...', 'loading');
             try {
                 const response = await fetch(`/api/v1/screens/${screenId}/pages`, {
                     headers: { 'X-API-Key': apiKey }
                 });
+                dismiss();
                 if (!response.ok) {
-                    alert('Failed to fetch screen data');
+                    showToast('Failed to fetch screen data', 'error');
                     return;
                 }
                 const data = await response.json();
@@ -328,7 +371,8 @@ print(response.json())`;
                 content.textContent = JSON.stringify(data, null, 2);
                 modal.style.display = 'flex';
             } catch (error) {
-                alert('Failed to fetch: ' + error.message);
+                dismiss();
+                showToast('Failed to fetch: ' + error.message, 'error');
             }
         }
 
@@ -345,20 +389,23 @@ print(response.json())`;
         }
 
         async function toggleDebug(screenId, apiKey) {
+            const dismiss = showToast('Toggling debug...', 'loading');
             try {
                 // Server handles state - just send toggle request
                 const response = await fetch(`/api/v1/screens/${screenId}/debug?enabled=toggle`, {
                     method: 'POST',
                     headers: { 'X-API-Key': apiKey }
                 });
+                dismiss();
                 const data = await response.json();
                 if (response.ok) {
-                    alert(`Debug ${data.debug_enabled ? 'enabled' : 'disabled'} for ${data.viewers} viewer(s)`);
+                    showToast(`Debug ${data.debug_enabled ? 'enabled' : 'disabled'} for ${data.viewers} viewer(s)`, 'success');
                 } else {
-                    alert('Failed to toggle debug: ' + (data.detail || 'Unknown error'));
+                    showToast('Failed to toggle debug: ' + (data.detail || 'Unknown error'), 'error');
                 }
             } catch (error) {
-                alert('Failed to toggle debug: ' + error.message);
+                dismiss();
+                showToast('Failed to toggle debug: ' + error.message, 'error');
             }
         }
 
@@ -367,11 +414,13 @@ print(response.json())`;
                 return;
             }
 
+            const dismiss = showToast('Deleting screen...', 'loading');
             try {
                 const response = await fetch(`/api/v1/screens/${screenId}`, {
                     method: 'DELETE',
                     headers: { 'X-API-Key': apiKey }
                 });
+                dismiss();
                 if (response.ok) {
                     // Remove card from DOM
                     const card = document.querySelector(`[data-screen-id="${screenId}"]`);
@@ -383,12 +432,14 @@ print(response.json())`;
                             screenList.innerHTML = '<div class="empty">No screens yet. Create one to get started!</div>';
                         }
                     }
+                    showToast('Screen deleted', 'success');
                 } else {
                     const data = await response.json();
-                    alert('Failed to delete screen: ' + (data.detail || 'Unknown error'));
+                    showToast('Failed to delete: ' + (data.detail || 'Unknown error'), 'error');
                 }
             } catch (error) {
-                alert('Failed to delete screen: ' + error.message);
+                dismiss();
+                showToast('Failed to delete: ' + error.message, 'error');
             }
         }
 
@@ -413,18 +464,19 @@ print(response.json())`;
 
                 if (response.ok) {
                     btn.textContent = 'Saved!';
+                    showToast('Head HTML saved', 'success');
                     setTimeout(() => {
                         btn.textContent = 'Save Head HTML';
                         btn.disabled = false;
                     }, 1500);
                 } else {
                     const data = await response.json();
-                    alert('Failed to save: ' + (data.detail || 'Unknown error'));
+                    showToast('Failed to save: ' + (data.detail || 'Unknown error'), 'error');
                     btn.textContent = 'Save Head HTML';
                     btn.disabled = false;
                 }
             } catch (error) {
-                alert('Failed to save: ' + error.message);
+                showToast('Failed to save: ' + error.message, 'error');
                 btn.textContent = 'Save Head HTML';
                 btn.disabled = false;
             }
@@ -584,5 +636,57 @@ print(response.json())`;
         <span class="help-text">{{ help_text }}</span>
         <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
     </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <style>
+        #toast-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 10000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .toast {
+            background: #333;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: slideIn 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: 350px;
+        }
+        .toast.success { background: #22c55e; }
+        .toast.error { background: #ef4444; }
+        .toast.loading { background: #3b82f6; }
+        .toast-spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .toast.hiding {
+            animation: slideOut 0.3s ease forwards;
+        }
+    </style>
 </body>
 </html>
