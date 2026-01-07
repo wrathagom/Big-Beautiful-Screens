@@ -400,13 +400,23 @@ function applyScreenLayout(screenEl, layoutConfig, contentCount) {
             ? `repeat(${layoutConfig.rows}, 1fr)`
             : layoutConfig.rows;
         screenEl.style.gridTemplateRows = rows;
-    } else if (layoutConfig.columns && !layoutConfig.rows) {
+    }
+
+    // Auto-calculate missing dimension based on the other
+    if (layoutConfig.columns && !layoutConfig.rows) {
         // Auto rows based on content count and column count
         const cols = typeof layoutConfig.columns === 'number'
             ? layoutConfig.columns
             : layoutConfig.columns.split(' ').length;
         const rowCount = Math.ceil(contentCount / cols);
         screenEl.style.gridTemplateRows = `repeat(${rowCount}, 1fr)`;
+    } else if (layoutConfig.rows && !layoutConfig.columns) {
+        // Auto columns based on content count and row count
+        const rows = typeof layoutConfig.rows === 'number'
+            ? layoutConfig.rows
+            : layoutConfig.rows.split(' ').length;
+        const colCount = Math.ceil(contentCount / rows);
+        screenEl.style.gridTemplateColumns = `repeat(${colCount}, 1fr)`;
     }
 }
 
