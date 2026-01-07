@@ -11,6 +11,26 @@ from pathlib import Path
 
 import pytest
 import uvicorn
+from playwright.sync_api import Page
+
+
+def mock_javascript_time(page: Page, fixed_time: str = "2025-01-15T14:30:45Z"):
+    """Mock Date in JavaScript for deterministic clock/countdown screenshots.
+
+    Call this BEFORE navigating to a page with time-dependent widgets.
+    The time will show as 2:30:45 PM (or 14:30:45 in 24h format).
+    """
+    page.add_init_script(f"""
+        const mockDate = new Date('{fixed_time}');
+        const OriginalDate = Date;
+        window.Date = class extends OriginalDate {{
+            constructor(...args) {{
+                if (args.length === 0) return new OriginalDate(mockDate);
+                return new OriginalDate(...args);
+            }}
+            static now() {{ return mockDate.getTime(); }}
+        }};
+    """)
 
 
 def pytest_addoption(parser):
@@ -150,3 +170,38 @@ def page(browser, browser_context_args, app_server, request):
 
     page.close()
     context.close()  # This triggers video save
+
+
+@pytest.fixture
+def assert_snapshot(request):
+    """Fixture for visual snapshot comparison.
+
+    Usage:
+        def test_example(page, assert_snapshot):
+            assert_snapshot(page.screenshot(), "test_name.png")
+    """
+    screenshots_dir = Path(__file__).parent / "screenshots"
+    screenshots_dir.mkdir(exist_ok=True)
+
+    def _assert_snapshot(image_bytes: bytes, name: str):
+        """Compare screenshot against baseline or create new baseline."""
+        baseline_path = screenshots_dir / name
+
+        if baseline_path.exists():
+            # Compare against existing baseline
+            baseline_bytes = baseline_path.read_bytes()
+            if image_bytes != baseline_bytes:
+                # Save the new screenshot for comparison
+                new_path = screenshots_dir / f"new_{name}"
+                new_path.write_bytes(image_bytes)
+                pytest.fail(
+                    f"Screenshot '{name}' differs from baseline. "
+                    f"New screenshot saved to {new_path}. "
+                    f"If the change is expected, replace {baseline_path} with {new_path}."
+                )
+        else:
+            # Create new baseline
+            baseline_path.write_bytes(image_bytes)
+            print(f"Created new baseline screenshot: {baseline_path}")
+
+    return _assert_snapshot

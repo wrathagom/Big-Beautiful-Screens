@@ -521,3 +521,556 @@ class TestWidgets:
 
         # Should have regular text
         expect(page.locator("text=Regular Text Panel")).to_be_visible()
+
+
+# Import time mocking helper
+from tests.e2e.conftest import mock_javascript_time  # noqa: E402
+
+
+class TestHierarchyVisualRegression:
+    """Visual regression tests for style hierarchy (screen → page → panel)."""
+
+    @pytest.fixture
+    def screen_data(self, app_server: str):
+        """Create a test screen and return its data."""
+        with httpx.Client() as client:
+            response = client.post(f"{app_server}/api/v1/screens")
+            assert response.status_code == 200
+            return response.json()
+
+    def send_content(self, app_server: str, screen_id: str, api_key: str, **kwargs):
+        """Send content to a screen."""
+        with httpx.Client() as client:
+            response = client.post(
+                f"{app_server}/api/v1/screens/{screen_id}/message",
+                headers={"X-API-Key": api_key},
+                json=kwargs,
+            )
+            assert response.status_code == 200
+            return response.json()
+
+    def wait_for_stable_screen(self, page: Page):
+        """Wait for connection notification to disappear."""
+        page.wait_for_timeout(NOTIFICATION_HIDE_WAIT)
+
+    def test_panel_color_hierarchy(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test screen-level red, panel-level green override."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {"type": "text", "value": "Red (screen level)"},
+                {"type": "text", "value": "Green (override)", "panel_color": "#22cc22"},
+                {"type": "text", "value": "Red (screen level)"},
+                {"type": "text", "value": "Blue (override)", "panel_color": "#2222cc"},
+            ],
+            panel_color="#cc2222",
+            layout="grid-2x2",
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "hierarchy_panel_color.png")
+
+    def test_font_color_hierarchy(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test screen-level blue text, panel-level orange override."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {"type": "text", "value": "Blue Text (screen)"},
+                {"type": "text", "value": "Orange Text (override)", "font_color": "#ff8800"},
+                {"type": "text", "value": "Blue Text (screen)"},
+                {"type": "text", "value": "Green Text (override)", "font_color": "#00ff00"},
+            ],
+            font_color="#4444ff",
+            layout="grid-2x2",
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "hierarchy_font_color.png")
+
+    def test_mixed_hierarchy(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test multiple style overrides in same screen."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {"type": "text", "value": "Default Style"},
+                {"type": "text", "value": "Custom Color", "panel_color": "#663399"},
+                {
+                    "type": "text",
+                    "value": "Custom Font",
+                    "font_family": "monospace",
+                    "font_color": "#00ffff",
+                },
+                {
+                    "type": "text",
+                    "value": "Custom All",
+                    "panel_color": "#336633",
+                    "font_color": "#ffff00",
+                },
+            ],
+            panel_color="#333333",
+            font_color="#ffffff",
+            layout="grid-2x2",
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "hierarchy_mixed.png")
+
+    def test_shadow_hierarchy(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test screen shadow with panel override to none."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {"type": "text", "value": "With Shadow"},
+                {"type": "text", "value": "No Shadow", "panel_shadow": "none"},
+                {"type": "text", "value": "With Shadow"},
+                {"type": "text", "value": "Bigger Shadow", "panel_shadow": "10px 10px 30px black"},
+            ],
+            panel_shadow="5px 5px 15px rgba(0,0,0,0.5)",
+            layout="grid-2x2",
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "hierarchy_shadow.png")
+
+
+class TestWidgetVisualRegression:
+    """Visual regression tests for widgets."""
+
+    @pytest.fixture
+    def screen_data(self, app_server: str):
+        """Create a test screen and return its data."""
+        with httpx.Client() as client:
+            response = client.post(f"{app_server}/api/v1/screens")
+            assert response.status_code == 200
+            return response.json()
+
+    def send_content(self, app_server: str, screen_id: str, api_key: str, **kwargs):
+        """Send content to a screen."""
+        with httpx.Client() as client:
+            response = client.post(
+                f"{app_server}/api/v1/screens/{screen_id}/message",
+                headers={"X-API-Key": api_key},
+                json=kwargs,
+            )
+            assert response.status_code == 200
+            return response.json()
+
+    def wait_for_stable_screen(self, page: Page):
+        """Wait for connection notification to disappear."""
+        page.wait_for_timeout(NOTIFICATION_HIDE_WAIT)
+
+    def test_clock_digital(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test digital clock widget in 12h format."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "clock",
+                    "widget_config": {"style": "digital", "format": "12h", "show_seconds": True},
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_clock_digital_12h.png")
+
+    def test_clock_digital_24h(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test digital clock widget in 24h format."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "clock",
+                    "widget_config": {"style": "digital", "format": "24h", "show_seconds": True},
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_clock_digital_24h.png")
+
+    def test_clock_analog(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test analog clock widget."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "clock",
+                    "widget_config": {"style": "analog", "show_numbers": True},
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_clock_analog.png")
+
+    def test_clock_with_date(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test clock widget with date display."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "clock",
+                    "widget_config": {"style": "digital", "show_date": True},
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_clock_with_date.png")
+
+    def test_countdown_labeled(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test countdown widget with labeled style."""
+        # Target is 1 day, 2 hours, 30 minutes, 45 seconds from mock time
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "countdown",
+                    "widget_config": {
+                        "target": "2025-01-16T17:01:30Z",  # 1d 2h 30m 45s from mock time
+                        "style": "labeled",
+                    },
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_countdown_labeled.png")
+
+    def test_countdown_simple(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test countdown widget with simple style."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "countdown",
+                    "widget_config": {
+                        "target": "2025-01-16T17:01:30Z",
+                        "style": "simple",
+                    },
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_countdown_simple.png")
+
+    def test_countdown_expired(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test countdown widget showing expired text."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "countdown",
+                    "widget_config": {
+                        "target": "2025-01-01T00:00:00Z",  # In the past
+                        "expired_text": "Event Complete!",
+                    },
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_countdown_expired.png")
+
+    def test_chart_bar(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test bar chart widget."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "bar",
+                        "labels": ["Jan", "Feb", "Mar", "Apr", "May"],
+                        "values": [65, 59, 80, 81, 56],
+                        "label": "Monthly Sales",
+                        "color": "#4CAF50",
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_chart_bar.png")
+
+    def test_chart_line(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test line chart widget with fill."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "line",
+                        "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                        "values": [12, 19, 3, 5, 2, 3, 15],
+                        "label": "Daily Active Users",
+                        "color": "#2196F3",
+                        "fill": True,
+                        "tension": 0.3,
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_chart_line.png")
+
+    def test_stock_single(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test stock widget with single stock."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "stock",
+                    "widget_config": {
+                        "stocks": [
+                            {
+                                "symbol": "AAPL",
+                                "name": "Apple Inc.",
+                                "price": 185.92,
+                                "change": 2.47,
+                                "change_percent": 1.35,
+                            }
+                        ]
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_stock_single.png")
+
+    def test_stock_grid(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test stock widget with 4 stocks in grid."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "stock",
+                    "widget_config": {
+                        "stocks": [
+                            {
+                                "symbol": "AAPL",
+                                "price": 185.92,
+                                "change": 2.47,
+                                "change_percent": 1.35,
+                            },
+                            {
+                                "symbol": "GOOGL",
+                                "price": 141.80,
+                                "change": -1.20,
+                                "change_percent": -0.84,
+                            },
+                            {
+                                "symbol": "MSFT",
+                                "price": 378.91,
+                                "change": 5.23,
+                                "change_percent": 1.40,
+                            },
+                            {
+                                "symbol": "AMZN",
+                                "price": 178.25,
+                                "change": 0.00,
+                                "change_percent": 0.00,
+                            },
+                        ]
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_stock_grid.png")
+
+    def test_stock_list(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test stock widget with 6 stocks in list view."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "stock",
+                    "widget_config": {
+                        "stocks": [
+                            {
+                                "symbol": "AAPL",
+                                "price": 185.92,
+                                "change": 2.47,
+                                "change_percent": 1.35,
+                            },
+                            {
+                                "symbol": "GOOGL",
+                                "price": 141.80,
+                                "change": -1.20,
+                                "change_percent": -0.84,
+                            },
+                            {
+                                "symbol": "MSFT",
+                                "price": 378.91,
+                                "change": 5.23,
+                                "change_percent": 1.40,
+                            },
+                            {
+                                "symbol": "AMZN",
+                                "price": 178.25,
+                                "change": 0.00,
+                                "change_percent": 0.00,
+                            },
+                            {
+                                "symbol": "META",
+                                "price": 505.95,
+                                "change": 8.15,
+                                "change_percent": 1.64,
+                            },
+                            {
+                                "symbol": "NVDA",
+                                "price": 495.22,
+                                "change": -12.33,
+                                "change_percent": -2.43,
+                            },
+                        ]
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_stock_list.png")
+
+    def test_widget_grid_mixed(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test multiple widgets in a grid layout."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "clock",
+                    "widget_config": {"style": "digital", "format": "12h"},
+                },
+                {
+                    "type": "widget",
+                    "widget_type": "countdown",
+                    "widget_config": {"target": "2025-01-16T17:01:30Z", "style": "labeled"},
+                },
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "bar",
+                        "labels": ["A", "B", "C"],
+                        "values": [30, 50, 20],
+                    },
+                },
+                {"type": "text", "value": "Regular Text Panel"},
+            ],
+            layout="grid-2x2",
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page.screenshot(), "widget_grid_mixed.png")
