@@ -105,8 +105,10 @@ class TestScreenCardInteractions:
     def page_with_screen(self, page: Page, app_server: str):
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
+        initial_count = page.locator(".screen-card").count()
         page.locator("#create-screen").click()
-        page.locator(".screen-card").first.wait_for()
+        # Wait for a new screen card to appear (count increases)
+        expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         # Wait for toast to disappear
         page.wait_for_timeout(500)
         return page
@@ -178,8 +180,10 @@ class TestScreenNameEditing:
     def page_with_screen(self, page: Page, app_server: str):
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
+        initial_count = page.locator(".screen-card").count()
         page.locator("#create-screen").click()
-        page.locator(".screen-card").first.wait_for()
+        # Wait for a new screen card to appear (count increases)
+        expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         page.wait_for_timeout(500)
         return page
 
@@ -250,8 +254,10 @@ class TestScreenDeletion:
     def page_with_screen(self, page: Page, app_server: str):
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
+        initial_count = page.locator(".screen-card").count()
         page.locator("#create-screen").click()
-        page.locator(".screen-card").first.wait_for()
+        # Wait for a new screen card to appear (count increases)
+        expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         page.wait_for_timeout(500)
         return page
 
@@ -325,8 +331,10 @@ class TestScreenActions:
     def page_with_screen(self, page: Page, app_server: str):
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
+        initial_count = page.locator(".screen-card").count()
         page.locator("#create-screen").click()
-        page.locator(".screen-card").first.wait_for()
+        # Wait for a new screen card to appear (count increases)
+        expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         page.wait_for_timeout(500)
         return page
 
@@ -385,3 +393,107 @@ class TestScreenActions:
         # Close modal
         modal.locator('button:has-text("Close")').click()
         expect(modal).not_to_be_visible()
+
+
+class TestDuplicateScreen:
+    """Tests for duplicating screens."""
+
+    @pytest.fixture
+    def page_with_screen(self, page: Page, app_server: str):
+        """Set up a page with one screen created."""
+        page.goto(f"{app_server}/admin/screens")
+        initial_count = page.locator(".screen-card").count()
+        page.locator("#create-screen").click()
+        # Wait for a new screen card to appear (count increases)
+        expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
+        page.wait_for_timeout(500)
+        return page
+
+    def test_duplicate_screen_creates_copy(self, page_with_screen: Page):
+        """Test that duplicate screen creates a new screen card."""
+        # Wait for any existing toasts to disappear
+        page_with_screen.wait_for_timeout(3500)
+
+        initial_count = page_with_screen.locator(".screen-card").count()
+        card = page_with_screen.locator(".screen-card").first
+
+        # Open dropdown
+        card.locator('button:has-text("Screen Actions")').click()
+
+        # Click duplicate
+        card.locator('button:has-text("Duplicate Screen")').click()
+
+        # Should show success toast
+        toast = page_with_screen.locator(".toast.success:has-text('duplicated')")
+        expect(toast).to_be_visible()
+
+        # Should have one more screen
+        expect(page_with_screen.locator(".screen-card")).to_have_count(initial_count + 1)
+
+    def test_duplicate_screen_has_copy_name(self, page_with_screen: Page):
+        """Test that duplicated screen has (Copy) in its name."""
+        # Wait for any existing toasts to disappear
+        page_with_screen.wait_for_timeout(3500)
+
+        card = page_with_screen.locator(".screen-card").first
+
+        # Name the original screen first
+        card.locator(".screen-name").click()
+        name_input = card.locator(".name-input")
+        name_input.fill("Original Screen")
+        name_input.press("Enter")
+
+        # Wait for name to be saved and displayed
+        expect(card.locator(".screen-name")).to_have_text("Original Screen")
+
+        # Open dropdown and duplicate
+        card.locator('button:has-text("Screen Actions")').click()
+        card.locator('button:has-text("Duplicate Screen")').click()
+
+        # Wait for duplication success toast
+        toast = page_with_screen.locator(".toast.success:has-text('duplicated')")
+        expect(toast).to_be_visible()
+
+        # The duplicate should be first and have (Copy) in name
+        duplicate_card = page_with_screen.locator(".screen-card").first
+        expect(duplicate_card.locator(".screen-name")).to_have_text(re.compile(r"\(Copy\)"))
+
+    def test_duplicated_screen_actions_work(self, page_with_screen: Page):
+        """Test that action buttons work on the duplicated screen card."""
+        # Wait for any existing toasts to disappear
+        page_with_screen.wait_for_timeout(3500)
+
+        card = page_with_screen.locator(".screen-card").first
+
+        # Duplicate the screen
+        card.locator('button:has-text("Screen Actions")').click()
+        card.locator('button:has-text("Duplicate Screen")').click()
+
+        # Wait for new card
+        page_with_screen.wait_for_timeout(500)
+
+        # Wait for duplicate toast to disappear
+        page_with_screen.wait_for_timeout(3500)
+
+        # The duplicate is now the first card
+        duplicate_card = page_with_screen.locator(".screen-card").first
+
+        # Open dropdown on the DUPLICATE and click View JSON
+        duplicate_card.locator('button:has-text("Screen Actions")').click()
+        duplicate_card.locator('button:has-text("View JSON")').click()
+
+        # Modal should open
+        modal = page_with_screen.locator("#json-modal")
+        expect(modal).to_be_visible()
+
+        # Close modal
+        modal.locator('button:has-text("Close")').click()
+
+        # Now test Toggle Debug on the duplicate
+        page_with_screen.wait_for_timeout(500)
+        duplicate_card.locator('button:has-text("Screen Actions")').click()
+        duplicate_card.locator('button:has-text("Toggle Debug")').click()
+
+        # Should show toast
+        toast = page_with_screen.locator(".toast.success:has-text('Debug')")
+        expect(toast).to_be_visible()

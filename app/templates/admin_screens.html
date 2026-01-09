@@ -102,6 +102,7 @@
                                         <button onclick="viewJson('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">View JSON</button>
                                         <button class="btn-debug" onclick="toggleDebug('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Toggle Debug</button>
                                         <button class="btn-reload" onclick="reloadScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Reload Viewers</button>
+                                        <button class="btn-duplicate" onclick="duplicateScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Duplicate Screen</button>
                                         <button class="btn-delete" onclick="deleteScreen('{{ screen.id }}', '{{ screen.api_key }}'); event.stopPropagation();">Delete Screen</button>
                                     </div>
                                 </div>
@@ -238,6 +239,13 @@
             card.querySelector('.api-url').textContent = data.api_url;
             card.querySelector('.created-time').textContent = now;
 
+            // Set screen name if provided
+            const nameEl = card.querySelector('.screen-name');
+            if (data.name && data.name !== 'Unnamed Screen') {
+                nameEl.textContent = data.name;
+                nameEl.classList.remove('unnamed');
+            }
+
             // Update onclick handlers with actual values
             card.querySelector('.copy-api-key').onclick = function() { copyValue(this, data.api_key); };
             card.querySelector('.copy-api-url').onclick = function() { copyValue(this, BASE_URL + data.api_url); };
@@ -245,6 +253,7 @@
             card.querySelector('.btn-view-json').onclick = function(e) { e.stopPropagation(); viewJson(data.screen_id, data.api_key); };
             card.querySelector('.btn-debug').onclick = function(e) { e.stopPropagation(); toggleDebug(data.screen_id, data.api_key); };
             card.querySelector('.btn-reload').onclick = function(e) { e.stopPropagation(); reloadScreen(data.screen_id, data.api_key); };
+            card.querySelector('.btn-duplicate').onclick = function(e) { e.stopPropagation(); duplicateScreen(data.screen_id, data.api_key); };
             card.querySelector('.btn-delete').onclick = function(e) { e.stopPropagation(); deleteScreen(data.screen_id, data.api_key); };
 
             return card;
@@ -443,6 +452,31 @@ print(response.json())`;
             }
         }
 
+        async function duplicateScreen(screenId, apiKey) {
+            const dismiss = showToast('Duplicating screen...', 'loading');
+            try {
+                const response = await fetch(`/api/v1/screens/${screenId}/duplicate`, {
+                    method: 'POST',
+                    headers: { 'X-API-Key': apiKey }
+                });
+                dismiss();
+                const data = await response.json();
+                if (response.ok) {
+                    // Create and insert new screen card
+                    const screenList = document.querySelector('.screen-list');
+                    const card = createScreenCard(data);
+                    screenList.insertBefore(card, screenList.firstChild);
+                    card.classList.add('expanded');
+                    showToast('Screen duplicated', 'success');
+                } else {
+                    showToast('Failed to duplicate: ' + (data.detail || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                dismiss();
+                showToast('Failed to duplicate: ' + error.message, 'error');
+            }
+        }
+
         async function saveHeadHtml(screenId, btn) {
             const card = btn.closest('.screen-card');
             const apiKey = card.dataset.apiKey;
@@ -587,7 +621,7 @@ print(response.json())`;
                     <textarea class="head-html-input" placeholder="<link rel=&quot;preconnect&quot; href=&quot;https://fonts.googleapis.com&quot;>
 <link href=&quot;https://fonts.googleapis.com/css2?family=...&quot; rel=&quot;stylesheet&quot;>" onclick="event.stopPropagation()"></textarea>
                     <p class="warning-text">Warning: Custom HTML including scripts is injected directly into your screen. Only add code from sources you trust.</p>
-                    <button class="btn-secondary btn-save-head" onclick="event.stopPropagation();">Save Head HTML</button>
+                    <button class="btn-secondary btn-save-head">Save Head HTML</button>
                 </div>
                 <div class="detail-footer">
                     <div class="detail-timestamps">
@@ -605,10 +639,11 @@ print(response.json())`;
                         <div class="action-dropdown">
                             <button class="btn-secondary" onclick="toggleDropdown(this); event.stopPropagation();">Screen Actions ▾</button>
                             <div class="dropdown-menu dropdown-menu-right">
-                                <button class="btn-view-json" onclick="event.stopPropagation();">View JSON</button>
-                                <button class="btn-debug" onclick="event.stopPropagation();">Toggle Debug</button>
-                                <button class="btn-reload" onclick="event.stopPropagation();">Reload Viewers</button>
-                                <button class="btn-delete" onclick="event.stopPropagation();">Delete Screen</button>
+                                <button class="btn-view-json">View JSON</button>
+                                <button class="btn-debug">Toggle Debug</button>
+                                <button class="btn-reload">Reload Viewers</button>
+                                <button class="btn-duplicate">Duplicate Screen</button>
+                                <button class="btn-delete">Delete Screen</button>
                             </div>
                         </div>
                     </div>

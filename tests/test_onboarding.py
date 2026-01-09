@@ -1,11 +1,25 @@
 """Tests for onboarding functionality."""
 
+import asyncio
+import concurrent.futures
 import os
 import tempfile
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+
+
+def run_async(coro):
+    """Run an async coroutine, handling the case where an event loop is already running."""
+    try:
+        asyncio.get_running_loop()
+        # If we're in a running loop, run in a separate thread
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            return executor.submit(asyncio.run, coro).result()
+    except RuntimeError:
+        # No running loop, safe to use asyncio.run()
+        return asyncio.run(coro)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -23,12 +37,10 @@ def setup_test_db():
 
         reset_database()
 
-        import asyncio
-
         import app.database as db_module
         from app.main import app
 
-        asyncio.get_event_loop().run_until_complete(db_module.init_db())
+        run_async(db_module.init_db())
 
         yield app
 
@@ -83,11 +95,9 @@ class TestOnboardingModule:
 
     def test_create_demo_screen(self, setup_test_db):
         """Test creating a demo screen."""
-        import asyncio
-
         from app.onboarding import create_demo_screen
 
-        result = asyncio.get_event_loop().run_until_complete(create_demo_screen())
+        result = run_async(create_demo_screen())
 
         assert "screen_id" in result
         assert "api_key" in result
@@ -97,11 +107,9 @@ class TestOnboardingModule:
 
     def test_demo_screen_has_content(self, client, setup_test_db):
         """Test that created demo screen has proper content."""
-        import asyncio
-
         from app.onboarding import create_demo_screen
 
-        result = asyncio.get_event_loop().run_until_complete(create_demo_screen())
+        result = run_async(create_demo_screen())
 
         # Verify screen exists and is viewable
         response = client.get(f"/screen/{result['screen_id']}")
@@ -109,25 +117,19 @@ class TestOnboardingModule:
 
     def test_demo_screen_with_owner(self, setup_test_db):
         """Test creating a demo screen with an owner ID."""
-        import asyncio
-
         from app.onboarding import create_demo_screen
 
-        result = asyncio.get_event_loop().run_until_complete(
-            create_demo_screen(owner_id="test_user_123")
-        )
+        result = run_async(create_demo_screen(owner_id="test_user_123"))
 
         assert "screen_id" in result
         assert "api_key" in result
 
     def test_demo_screen_appears_in_admin(self, client, setup_test_db):
         """Test that demo screen appears in admin page."""
-        import asyncio
-
         from app.onboarding import _load_demo_config, create_demo_screen
 
         config = _load_demo_config()
-        result = asyncio.get_event_loop().run_until_complete(create_demo_screen())
+        result = run_async(create_demo_screen())
 
         response = client.get("/admin/screens")
         assert response.status_code == 200

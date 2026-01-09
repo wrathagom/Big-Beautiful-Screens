@@ -370,6 +370,7 @@ class ScreenResponse(BaseModel):
         description="API endpoint for sending messages",
         examples=["/api/screens/abc123def456/message"],
     )
+    name: str | None = Field(default=None, description="Screen name (optional)")
 
 
 class MessageResponse(BaseModel):

@@ -188,9 +188,9 @@ class TestClerkWebhooks:
 
         # CRITICAL ASSERTION: Plan must still be pro!
         user = db.users.get("user_existing123")
-        assert user["plan"] == "pro", (
-            f"user.updated webhook overwrote paid plan! " f"Expected 'pro', got '{user['plan']}'"
-        )
+        assert (
+            user["plan"] == "pro"
+        ), f"user.updated webhook overwrote paid plan! Expected 'pro', got '{user['plan']}'"
         assert user["stripe_subscription_id"] == "sub_test123"
 
     def test_user_updated_preserves_team_plan(self, saas_client):

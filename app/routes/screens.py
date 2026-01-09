@@ -249,6 +249,121 @@ async def delete_screen_endpoint(
     return {"success": True, "message": "Screen deleted"}
 
 
+@router.post("/api/v1/screens/{screen_id}/duplicate", response_model=ScreenResponse)
+@limiter.limit(RATE_LIMIT_CREATE)
+async def duplicate_screen(
+    request: Request,
+    screen_id: str,
+    x_api_key: str = Header(alias="X-API-Key"),
+    user: OptionalUser = None,
+):
+    """Duplicate a screen with all its pages and settings. Requires API key authentication.
+
+    Creates a new screen with a copy of all pages, rotation settings, and styling.
+    The new screen gets a new ID and API key.
+    """
+    # Validate source screen exists and API key matches
+    source_screen = await get_screen_by_id(screen_id)
+    if not source_screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    if source_screen["api_key"] != x_api_key:
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    settings = get_settings()
+
+    # In SaaS mode, check plan limits
+    owner_id = source_screen.get("owner_id")
+    org_id = source_screen.get("org_id")
+
+    if settings.APP_MODE == AppMode.SAAS and owner_id:
+        from ..config import PLAN_LIMITS
+
+        db = get_database()
+        user_data = await db.get_user(owner_id)
+        plan = user_data.get("plan", "free") if user_data else "free"
+        limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
+        screen_limit = limits.get("screens", 3)
+
+        current_count = await get_screens_count(owner_id=owner_id)
+        if current_count >= screen_limit:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Screen limit reached ({screen_limit} screens on {plan} plan). Upgrade to create more.",
+            )
+
+    # Generate new screen ID and API key
+    new_screen_id = uuid.uuid4().hex[:12]
+    new_api_key = f"sk_{secrets.token_urlsafe(24)}"
+    created_at = datetime.now(UTC).isoformat()
+    new_name = f"{source_screen.get('name') or 'Screen'} (Copy)"
+
+    # Create the new screen with same ownership
+    await create_screen(
+        new_screen_id,
+        new_api_key,
+        created_at,
+        name=new_name,
+        owner_id=owner_id,
+        org_id=org_id,
+    )
+
+    # Copy rotation/display settings
+    rotation = await get_rotation_settings(screen_id)
+    if rotation:
+        await update_rotation_settings(
+            new_screen_id,
+            enabled=rotation.get("enabled"),
+            interval=rotation.get("interval"),
+            gap=rotation.get("gap"),
+            border_radius=rotation.get("border_radius"),
+            panel_shadow=rotation.get("panel_shadow"),
+            background_color=rotation.get("background_color"),
+            panel_color=rotation.get("panel_color"),
+            font_family=rotation.get("font_family"),
+            font_color=rotation.get("font_color"),
+            theme=rotation.get("theme"),
+            head_html=rotation.get("head_html"),
+            default_layout=rotation.get("default_layout"),
+            transition=rotation.get("transition"),
+            transition_duration=rotation.get("transition_duration"),
+            debug_enabled=rotation.get("debug_enabled"),
+        )
+
+    # Copy all pages
+    pages = await get_all_pages(screen_id, include_expired=False)
+    for page in pages:
+        page_payload = {
+            "content": page.get("content", []),
+            "layout": page.get("layout"),
+            "background_color": page.get("background_color"),
+            "panel_color": page.get("panel_color"),
+            "font_family": page.get("font_family"),
+            "font_color": page.get("font_color"),
+            "gap": page.get("gap"),
+            "border_radius": page.get("border_radius"),
+            "panel_shadow": page.get("panel_shadow"),
+            "transition": page.get("transition"),
+            "transition_duration": page.get("transition_duration"),
+            "display_order": page.get("display_order", 0),
+        }
+        await upsert_page(
+            new_screen_id,
+            page["name"],
+            page_payload,
+            duration=page.get("duration"),
+            expires_at=None,  # Don't copy expiration - new screen gets fresh pages
+        )
+
+    return ScreenResponse(
+        screen_id=new_screen_id,
+        api_key=new_api_key,
+        screen_url=f"/screen/{new_screen_id}",
+        api_url=f"/api/v1/screens/{new_screen_id}/message",
+        name=new_name,
+    )
+
+
 @router.post("/api/v1/screens/{screen_id}/reload")
 async def reload_screen(screen_id: str, x_api_key: str = Header(alias="X-API-Key")):
     """Send reload command to all viewers of a screen. Requires API key authentication."""

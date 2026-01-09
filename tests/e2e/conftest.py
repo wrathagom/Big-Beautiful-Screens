@@ -116,7 +116,7 @@ def app_server():
         server_thread = ServerThread(app, "127.0.0.1", port)
         server_thread.start()
 
-        # Wait for server to be ready
+        # Wait for server to be ready and demo screen to be created
         base_url = f"http://127.0.0.1:{port}"
         for _ in range(50):  # Wait up to 5 seconds
             try:
@@ -125,7 +125,12 @@ def app_server():
                 with httpx.Client() as client:
                     response = client.get(f"{base_url}/admin/screens")
                     if response.status_code == 200:
-                        break
+                        # Also check that startup event completed (demo screen exists)
+                        api_response = client.get(f"{base_url}/api/v1/screens")
+                        if api_response.status_code == 200:
+                            screens = api_response.json().get("screens", [])
+                            if any(s.get("name") == "Welcome Demo" for s in screens):
+                                break
             except Exception:
                 pass
             time.sleep(0.1)

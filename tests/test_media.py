@@ -40,11 +40,20 @@ def setup_test_environment():
 
         # Initialize the database
         import asyncio
+        import concurrent.futures
 
         import app.database as db_module
         from app.main import app
 
-        asyncio.get_event_loop().run_until_complete(db_module.init_db())
+        # Handle case where event loop may or may not be running
+        try:
+            asyncio.get_running_loop()
+            # If we're in a running loop, run in a separate thread
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                executor.submit(asyncio.run, db_module.init_db()).result()
+        except RuntimeError:
+            # No running loop, safe to use asyncio.run()
+            asyncio.run(db_module.init_db())
 
         yield app
 

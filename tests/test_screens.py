@@ -30,11 +30,20 @@ def setup_test_db():
 
         # Initialize the database
         import asyncio
+        import concurrent.futures
 
         import app.database as db_module
         from app.main import app
 
-        asyncio.get_event_loop().run_until_complete(db_module.init_db())
+        # Handle case where event loop may or may not be running
+        try:
+            asyncio.get_running_loop()
+            # If we're in a running loop, run in a separate thread
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                executor.submit(asyncio.run, db_module.init_db()).result()
+        except RuntimeError:
+            # No running loop, safe to use asyncio.run()
+            asyncio.run(db_module.init_db())
 
         yield app
 
@@ -1138,8 +1147,8 @@ class TestThemes:
         assert response.status_code == 200
         settings = response.json()["settings"]
         assert settings["theme"] == "catppuccin-mocha"
-        assert settings["background_color"] == "#1e1e2e"
-        assert settings["panel_color"] == "#313244"
+        assert "1e1e2e" in settings["background_color"]  # Now uses gradient
+        assert "49, 50, 68" in settings["panel_color"]  # Now uses gradient
         assert settings["font_color"] == "#cdd6f4"
 
     def test_apply_theme_with_override(self, client, screen):
@@ -1153,7 +1162,7 @@ class TestThemes:
         settings = response.json()["settings"]
         assert settings["theme"] == "catppuccin-mocha"
         # Theme values applied
-        assert settings["background_color"] == "#1e1e2e"
+        assert "1e1e2e" in settings["background_color"]  # Now uses gradient
         # Override values used
         assert settings["gap"] == "0"
         assert settings["border_radius"] == "0"
