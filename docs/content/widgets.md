@@ -48,6 +48,12 @@ Display a live clock in digital or analog format.
 }
 ```
 
+![Digital Clock Widget - 12h format](../../tests/e2e/screenshots/widget_clock_digital_12h.png)
+
+![Digital Clock Widget - 24h format](../../tests/e2e/screenshots/widget_clock_digital_24h.png)
+
+![Digital Clock Widget - with date](../../tests/e2e/screenshots/widget_clock_with_date.png)
+
 ### Analog Clock
 
 ```json
@@ -60,6 +66,8 @@ Display a live clock in digital or analog format.
   }
 }
 ```
+
+![Analog Clock Widget](../../tests/e2e/screenshots/widget_clock_analog.png)
 
 ### Configuration Options
 
@@ -134,6 +142,10 @@ Display a countdown timer to a target date/time.
 }
 ```
 
+![Countdown Widget - Simple Style](../../tests/e2e/screenshots/widget_countdown_simple.png)
+
+![Countdown Widget - Labeled Style](../../tests/e2e/screenshots/widget_countdown_labeled.png)
+
 ### Countdown with Custom Expired Text
 
 ```json
@@ -147,6 +159,8 @@ Display a countdown timer to a target date/time.
   }
 }
 ```
+
+![Countdown Widget - Expired](../../tests/e2e/screenshots/widget_countdown_expired.png)
 
 ### Configuration Options
 
@@ -235,6 +249,8 @@ Display line or bar charts using Chart.js.
 }
 ```
 
+![Chart Widget - Line Chart](../../tests/e2e/screenshots/widget_chart_line.png)
+
 ### Bar Chart
 
 ```json
@@ -249,6 +265,8 @@ Display line or bar charts using Chart.js.
   }
 }
 ```
+
+![Chart Widget - Bar Chart](../../tests/e2e/screenshots/widget_chart_bar.png)
 
 ### Multi-Series Chart
 
@@ -503,6 +521,8 @@ Display stock tickers with adaptive layouts. This is a static display widget—y
 }
 ```
 
+![Stock Widget - Single Stock](../../tests/e2e/screenshots/widget_stock_single.png)
+
 ### Multiple Stocks (Grid)
 
 ```json
@@ -519,6 +539,8 @@ Display stock tickers with adaptive layouts. This is a static display widget—y
   }
 }
 ```
+
+![Stock Widget - Grid Layout](../../tests/e2e/screenshots/widget_stock_grid.png)
 
 ### Compact List (5+ Stocks)
 
@@ -538,6 +560,8 @@ Display stock tickers with adaptive layouts. This is a static display widget—y
   }
 }
 ```
+
+![Stock Widget - List Layout](../../tests/e2e/screenshots/widget_stock_list.png)
 
 ### Configuration Options
 
