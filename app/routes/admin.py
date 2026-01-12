@@ -252,6 +252,22 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
             print(f"Failed to parse Clerk handshake: {e}")
 
     # Fallback: just redirect (user may need to sign in again)
+    has_clerk_cookies = any(
+        name.startswith(("__session", "__refresh", "__client_uat", "__clerk"))
+        for name in request.cookies
+    )
+    if has_clerk_cookies:
+        print("Clerk cookies present without auth params, rendering callback page")
+        return templates.TemplateResponse(
+            request=request,
+            name="clerk_callback.html",
+            context={
+                "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+                "redirect_url": redirect_url,
+                "sign_in_url": get_clerk_sign_in_url(redirect_url, request=request),
+            },
+        )
+
     print("No auth params found, falling back to redirect")
     return RedirectResponse(url=redirect_url, status_code=302)
 
