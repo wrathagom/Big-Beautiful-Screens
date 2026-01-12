@@ -130,15 +130,34 @@ async def logout(request: Request):
     """
     response = HTMLResponse(content=html)
 
-    # Clear all Clerk cookies with matching parameters
-    response.delete_cookie("__session", path="/", secure=True, samesite="none")
-    response.delete_cookie("__client_uat", path="/", secure=True, samesite="none")
-    response.delete_cookie("__clerk_handshake", path="/", secure=True, samesite="none")
+    # Clear all Clerk cookies with matching parameters.
+    host = request.url.hostname
+    domain_candidates = [None]
+    if host:
+        domain_candidates.append(host)
+        parts = host.split(".")
+        if len(parts) >= 3:
+            domain_candidates.append("." + ".".join(parts[-2:]))
+
+    def clear_cookie(name: str) -> None:
+        for domain in domain_candidates:
+            response.delete_cookie(
+                name,
+                path="/",
+                secure=True,
+                samesite="none",
+                domain=domain,
+            )
+
+    clear_cookie("__session")
+    clear_cookie("__client_uat")
+    clear_cookie("__clerk_handshake")
+    clear_cookie("__refresh")
 
     # Best-effort cleanup of any Clerk cookies the frontend set.
     for cookie_name in request.cookies:
-        if cookie_name.startswith("__clerk"):
-            response.delete_cookie(cookie_name, path="/", secure=True, samesite="none")
+        if cookie_name.startswith(("__clerk", "__session", "__refresh", "__client_uat")):
+            clear_cookie(cookie_name)
 
     return response
 
