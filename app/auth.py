@@ -68,14 +68,25 @@ class AuthUser:
     org_role: str | None = None
 
 
+def _get_session_cookie(request: Request) -> tuple[str | None, str | None]:
+    """Return the session cookie name/value, supporting Clerk instance suffixes."""
+    if "__session" in request.cookies:
+        return "__session", request.cookies.get("__session")
+    for name, value in request.cookies.items():
+        if name.startswith("__session"):
+            return name, value
+    return None, None
+
+
 def has_session_cookie(request: Request) -> bool:
     """Check if the request has a session cookie (even if expired)."""
-    return bool(request.cookies.get("__session"))
+    name, value = _get_session_cookie(request)
+    return bool(name and value)
 
 
 def _has_clerk_token(request: Request) -> bool:
     """Check if request has any Clerk token (cookie, header, or query param)."""
-    if request.cookies.get("__session"):
+    if has_session_cookie(request):
         return True
     if request.query_params.get("__clerk_db_jwt"):
         return True
@@ -98,7 +109,10 @@ async def get_current_user(request: Request) -> AuthUser | None:
     # Debug: log what we're working with
     print("=== GET_CURRENT_USER DEBUG ===")
     print(f"Cookies: {list(request.cookies.keys())}")
-    print(f"Has __session: {request.cookies.get('__session') is not None}")
+    session_name, session_value = _get_session_cookie(request)
+    print(f"Has __session: {session_value is not None}")
+    if session_name and session_name != "__session":
+        print(f"Session cookie name: {session_name}")
     print(f"Has __clerk_db_jwt param: {request.query_params.get('__clerk_db_jwt') is not None}")
 
     # Check if there's any token to verify
