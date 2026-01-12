@@ -83,8 +83,15 @@ async def get_current_user(request: Request) -> AuthUser | None:
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return None
 
+    # Debug: log what we're working with
+    print("=== GET_CURRENT_USER DEBUG ===")
+    print(f"Cookies: {list(request.cookies.keys())}")
+    print(f"Has __session: {request.cookies.get('__session') is not None}")
+    print(f"Has __clerk_db_jwt param: {request.query_params.get('__clerk_db_jwt') is not None}")
+
     # Check if there's any token to verify
     if not _has_clerk_token(request):
+        print("No Clerk token found, returning None")
         return None
 
     try:
@@ -129,11 +136,18 @@ async def get_current_user(request: Request) -> AuthUser | None:
                 print(f"Clerk dev token verification failed: {e}")
 
         # Standard flow: use authenticate_request for cookies/headers
+        print(
+            f"Calling authenticate_request with authorized_parties: {[settings.APP_URL.rstrip('/')]}"
+        )
         request_state = clerk.authenticate_request(
             request,
             AuthenticateRequestOptions(
                 authorized_parties=[settings.APP_URL.rstrip("/")],
             ),
+        )
+
+        print(
+            f"authenticate_request result: is_signed_in={request_state.is_signed_in}, reason={request_state.reason}"
         )
 
         if not request_state.is_signed_in:
