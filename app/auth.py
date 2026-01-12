@@ -84,11 +84,24 @@ def has_session_cookie(request: Request) -> bool:
     return bool(name and value)
 
 
+def _get_clerk_db_jwt(request: Request) -> str | None:
+    """Return Clerk dev browser token from query or cookies."""
+    db_jwt = request.query_params.get("__clerk_db_jwt")
+    if db_jwt:
+        return db_jwt
+    if "__clerk_db_jwt" in request.cookies:
+        return request.cookies.get("__clerk_db_jwt")
+    for name, value in request.cookies.items():
+        if name.startswith("__clerk_db_jwt"):
+            return value
+    return None
+
+
 def _has_clerk_token(request: Request) -> bool:
     """Check if request has any Clerk token (cookie, header, or query param)."""
     if has_session_cookie(request):
         return True
-    if request.query_params.get("__clerk_db_jwt"):
+    if _get_clerk_db_jwt(request):
         return True
     auth_header = request.headers.get("Authorization", "")
     return bool(auth_header.startswith("Bearer "))
@@ -113,7 +126,8 @@ async def get_current_user(request: Request) -> AuthUser | None:
     print(f"Has __session: {session_value is not None}")
     if session_name and session_name != "__session":
         print(f"Session cookie name: {session_name}")
-    print(f"Has __clerk_db_jwt param: {request.query_params.get('__clerk_db_jwt') is not None}")
+    db_jwt = _get_clerk_db_jwt(request)
+    print(f"Has __clerk_db_jwt param: {db_jwt is not None}")
 
     # Check if there's any token to verify
     if not _has_clerk_token(request):
@@ -125,7 +139,7 @@ async def get_current_user(request: Request) -> AuthUser | None:
 
         # In dev mode, Clerk uses __clerk_db_jwt query param instead of cookies
         # We need to verify this token via the Clerk API
-        db_jwt = request.query_params.get("__clerk_db_jwt")
+        db_jwt = _get_clerk_db_jwt(request)
         if db_jwt:
             # Verify the dev browser token via Clerk API
             try:
