@@ -66,6 +66,13 @@ async def root(request: Request):
         )
 
         if has_auth_params:
+            has_session_cookie = any(name.startswith("__session") for name in request.cookies)
+            has_dev_token_cookie = any(
+                name.startswith("__clerk_db_jwt") for name in request.cookies
+            )
+            if has_session_cookie or has_dev_token_cookie:
+                return RedirectResponse(url="/admin/screens", status_code=302)
+
             query_params = dict(request.query_params)
             query_params.setdefault("redirect_url", "/admin/screens")
             target = f"/auth/callback?{urlencode(query_params)}"
