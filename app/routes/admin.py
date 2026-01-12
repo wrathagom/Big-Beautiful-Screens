@@ -5,6 +5,7 @@ import contextlib
 import json
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -65,15 +66,10 @@ async def root(request: Request):
         )
 
         if has_auth_params:
-            return templates.TemplateResponse(
-                request=request,
-                name="clerk_callback.html",
-                context={
-                    "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
-                    "redirect_url": "/admin/screens",
-                    "sign_in_url": get_clerk_sign_in_url("/admin/screens", request=request),
-                },
-            )
+            query_params = dict(request.query_params)
+            query_params.setdefault("redirect_url", "/admin/screens")
+            target = f"/auth/callback?{urlencode(query_params)}"
+            return RedirectResponse(url=target, status_code=302)
 
     # Default: redirect to admin screens
     return RedirectResponse(url="/admin/screens", status_code=302)
