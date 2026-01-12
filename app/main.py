@@ -14,6 +14,7 @@ from .logging_middleware import UsageLoggingMiddleware, configure_usage_logging
 from .rate_limit import limiter
 from .routes.admin import router as admin_router
 from .routes.billing import router as billing_router
+from .routes.clerk_proxy import router as clerk_proxy_router
 from .routes.media import public_router as media_public_router
 from .routes.media import router as media_router
 from .routes.proxy import router as proxy_router
@@ -102,6 +103,7 @@ if settings.APP_MODE == AppMode.SAAS:
     app.include_router(webhooks_router)
     app.include_router(me_router)
     app.include_router(billing_router)
+    app.include_router(clerk_proxy_router)
 
 # Add usage logging middleware in SaaS mode
 if settings.APP_MODE == AppMode.SAAS:

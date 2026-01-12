@@ -26,7 +26,18 @@ def _get_clerk() -> Clerk:
     return _clerk_client
 
 
-def get_clerk_sign_in_url(redirect_url: str) -> str:
+def _get_request_origin(request: Request) -> str | None:
+    """Build request origin, honoring proxy headers if present."""
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    forwarded_host = request.headers.get("x-forwarded-host")
+    host = forwarded_host or request.headers.get("host")
+    scheme = forwarded_proto or request.url.scheme
+    if not host:
+        return None
+    return f"{scheme}://{host}".rstrip("/")
+
+
+def get_clerk_sign_in_url(redirect_url: str, request: Request | None = None) -> str:
     """Get the Clerk sign-in URL with redirect.
 
     The redirect goes through /auth/callback first to set session cookies,
@@ -37,7 +48,8 @@ def get_clerk_sign_in_url(redirect_url: str) -> str:
     if not settings.CLERK_SIGN_IN_URL:
         return f"/sign-in?redirect_url={redirect_url}"
 
-    app_url = settings.APP_URL.rstrip("/")
+    request_origin = _get_request_origin(request) if request else None
+    app_url = (request_origin or settings.APP_URL).rstrip("/")
     # Redirect to auth/callback first, which will then redirect to the final URL
     callback_url = f"{app_url}/auth/callback?redirect_url={quote(redirect_url)}"
     sign_in_base = settings.CLERK_SIGN_IN_URL.rstrip("/")
@@ -136,13 +148,16 @@ async def get_current_user(request: Request) -> AuthUser | None:
                 print(f"Clerk dev token verification failed: {e}")
 
         # Standard flow: use authenticate_request for cookies/headers
-        print(
-            f"Calling authenticate_request with authorized_parties: {[settings.APP_URL.rstrip('/')]}"
-        )
+        authorized_parties = [settings.APP_URL.rstrip("/")]
+        request_origin = _get_request_origin(request)
+        if request_origin and request_origin not in authorized_parties:
+            authorized_parties.append(request_origin)
+
+        print(f"Calling authenticate_request with authorized_parties: {authorized_parties}")
         request_state = clerk.authenticate_request(
             request,
             AuthenticateRequestOptions(
-                authorized_parties=[settings.APP_URL.rstrip("/")],
+                authorized_parties=authorized_parties,
             ),
         )
 

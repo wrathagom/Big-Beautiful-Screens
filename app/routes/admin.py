@@ -71,7 +71,7 @@ async def root(request: Request):
                 context={
                     "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
                     "redirect_url": "/admin/screens",
-                    "sign_in_url": get_clerk_sign_in_url("/admin/screens"),
+                    "sign_in_url": get_clerk_sign_in_url("/admin/screens", request=request),
                 },
             )
 
@@ -163,7 +163,7 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
             context={
                 "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
                 "redirect_url": redirect_url,
-                "sign_in_url": get_clerk_sign_in_url(redirect_url),
+                "sign_in_url": get_clerk_sign_in_url(redirect_url, request=request),
             },
         )
 
@@ -262,7 +262,9 @@ async def admin_screens(request: Request, page: int = 1):
     if settings.APP_MODE == AppMode.SAAS:
         user = await get_current_user(request)
         if not user:
-            return RedirectResponse(url=get_clerk_sign_in_url("/admin/screens"), status_code=302)
+            return RedirectResponse(
+                url=get_clerk_sign_in_url("/admin/screens", request=request), status_code=302
+            )
 
     per_page = 10
     offset = (page - 1) * per_page
@@ -328,7 +330,9 @@ async def admin_themes(request: Request, page: int = 1):
     if settings.APP_MODE == AppMode.SAAS:
         user = await get_current_user(request)
         if not user:
-            return RedirectResponse(url=get_clerk_sign_in_url("/admin/themes"), status_code=302)
+            return RedirectResponse(
+                url=get_clerk_sign_in_url("/admin/themes", request=request), status_code=302
+            )
 
     per_page = 10
     offset = (page - 1) * per_page
@@ -388,7 +392,9 @@ async def admin_usage(request: Request, checkout: str | None = None):
 
     user = await get_current_user(request)
     if not user:
-        return RedirectResponse(url=get_clerk_sign_in_url("/admin/usage"), status_code=302)
+        return RedirectResponse(
+            url=get_clerk_sign_in_url("/admin/usage", request=request), status_code=302
+        )
 
     db = get_database()
     user_data = await db.get_user(user.user_id)
@@ -449,7 +455,9 @@ async def admin_pricing(request: Request):
 
     user = await get_current_user(request)
     if not user:
-        return RedirectResponse(url=get_clerk_sign_in_url("/admin/pricing"), status_code=302)
+        return RedirectResponse(
+            url=get_clerk_sign_in_url("/admin/pricing", request=request), status_code=302
+        )
 
     # Check if Stripe pricing table is configured
     if not settings.STRIPE_PUBLISHABLE_KEY or not settings.STRIPE_PRICING_TABLE_ID:
@@ -497,7 +505,9 @@ async def admin_media(request: Request, page: int = 1, content_type: str | None 
     if settings.APP_MODE == AppMode.SAAS:
         user = await get_current_user(request)
         if not user:
-            return RedirectResponse(url=get_clerk_sign_in_url("/admin/media"), status_code=302)
+            return RedirectResponse(
+                url=get_clerk_sign_in_url("/admin/media", request=request), status_code=302
+            )
 
         # Check if media is enabled for this plan
         db = get_database()
