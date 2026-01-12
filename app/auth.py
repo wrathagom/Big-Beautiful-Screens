@@ -27,18 +27,22 @@ def _get_clerk() -> Clerk:
 
 
 def get_clerk_sign_in_url(redirect_url: str) -> str:
-    """Get the Clerk sign-in URL with redirect."""
+    """Get the Clerk sign-in URL with redirect.
+
+    The redirect goes through /auth/callback first to set session cookies,
+    then to the final destination.
+    """
     settings = get_settings()
 
     if not settings.CLERK_SIGN_IN_URL:
         return f"/sign-in?redirect_url={redirect_url}"
 
     app_url = settings.APP_URL.rstrip("/")
-    # Redirect back to our app after sign-in
-    final_redirect = f"{app_url}{redirect_url}"
+    # Redirect to auth/callback first, which will then redirect to the final URL
+    callback_url = f"{app_url}/auth/callback?redirect_url={quote(redirect_url)}"
     sign_in_base = settings.CLERK_SIGN_IN_URL.rstrip("/")
 
-    return f"{sign_in_base}?redirect_url={quote(final_redirect)}"
+    return f"{sign_in_base}?redirect_url={quote(callback_url)}"
 
 
 @dataclass
