@@ -4,54 +4,16 @@ Handles Clerk webhooks for user and organization sync.
 Handles Stripe webhooks for subscription management.
 """
 
-import hashlib
-import hmac
 import json
 
 import stripe
 from fastapi import APIRouter, Header, HTTPException, Request
+from svix.webhooks import Webhook, WebhookVerificationError
 
 from .config import AppMode, get_settings
 from .db import get_database
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
-
-
-def _verify_clerk_signature(payload: bytes, signature: str, timestamp: str, secret: str) -> bool:
-    """Verify Clerk webhook signature using Svix."""
-    # Clerk uses Svix for webhooks
-    # Signature format: v1,<signature>
-    try:
-        # Create the signed payload
-        signed_payload = f"{timestamp}.{payload.decode('utf-8')}"
-
-        # Parse the signature (format: v1,base64signature)
-        parts = signature.split(",")
-        signatures = []
-        for part in parts:
-            if part.startswith("v1,"):
-                signatures.append(part[3:])
-            elif "," not in part and len(parts) == 1:
-                # Handle simple signature format
-                signatures.append(part)
-
-        if not signatures:
-            return False
-
-        # Compute expected signature
-        import base64
-
-        expected = hmac.new(
-            secret.encode("utf-8"), signed_payload.encode("utf-8"), hashlib.sha256
-        ).digest()
-        expected_b64 = base64.b64encode(expected).decode("utf-8")
-
-        # Check if any signature matches
-        return any(hmac.compare_digest(expected_b64, sig) for sig in signatures)
-
-    except Exception as e:
-        print(f"Signature verification error: {e}")
-        return False
 
 
 @router.post("/clerk")
@@ -87,16 +49,25 @@ async def clerk_webhook(
         if not svix_id or not svix_timestamp or not svix_signature:
             raise HTTPException(status_code=400, detail="Missing webhook headers")
 
-        if not _verify_clerk_signature(
-            body, svix_signature, svix_timestamp, settings.CLERK_WEBHOOK_SECRET
-        ):
-            raise HTTPException(status_code=401, detail="Invalid signature")
-
-    # Parse the event
-    try:
-        event = json.loads(body)
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail="Invalid JSON") from e
+        try:
+            wh = Webhook(settings.CLERK_WEBHOOK_SECRET)
+            event = wh.verify(
+                body,
+                {
+                    "svix-id": svix_id,
+                    "svix-timestamp": svix_timestamp,
+                    "svix-signature": svix_signature,
+                },
+            )
+        except WebhookVerificationError as e:
+            print(f"Clerk webhook verification failed: {e}")
+            raise HTTPException(status_code=401, detail="Invalid signature") from e
+    else:
+        # No secret configured, just parse the JSON
+        try:
+            event = json.loads(body)
+        except json.JSONDecodeError as e:
+            raise HTTPException(status_code=400, detail="Invalid JSON") from e
 
     event_type = event.get("type")
     data = event.get("data", {})

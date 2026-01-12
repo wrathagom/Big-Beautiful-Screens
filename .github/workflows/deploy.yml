@@ -1,0 +1,217 @@
+name: Deploy & E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_e2e:
+        description: 'Skip E2E tests'
+        required: false
+        default: 'false'
+        type: boolean
+      deploy_prod:
+        description: 'Deploy to production (after E2E pass)'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  # ============================================
+  # Job 1: Lint and Unit Tests (fast feedback)
+  # ============================================
+  lint-and-test:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run ruff check
+        run: ruff check app/ tests/
+
+      - name: Run ruff format check
+        run: ruff format --check app/ tests/
+
+      - name: Run unit tests
+        run: pytest tests/ --ignore=tests/e2e -v --tb=short
+
+  # ============================================
+  # Job 2: Deploy to Dev Environment
+  # ============================================
+  deploy-dev:
+    name: Deploy to Dev
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    environment: humble-light / development
+    outputs:
+      deploy_url: ${{ steps.get-url.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway Dev
+        run: railway up --service ${{ secrets.RAILWAY_DEV_SERVICE_ID }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Get deployment URL
+        id: get-url
+        run: |
+          # Get the deployment URL from Railway
+          # This assumes you have a consistent URL pattern
+          echo "url=${{ secrets.E2E_BASE_URL }}" >> $GITHUB_OUTPUT
+
+      - name: Wait for deployment to be ready
+        run: |
+          echo "Waiting for deployment to be healthy..."
+          for i in {1..30}; do
+            # Check if the root endpoint responds (may redirect, which is OK)
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.E2E_BASE_URL }}/")
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "307" ]; then
+              echo "Deployment is ready! (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+            echo "Attempt $i/30 - got HTTP $HTTP_CODE, waiting 10s..."
+            sleep 10
+          done
+          echo "Deployment did not become ready in time"
+          exit 1
+
+  # ============================================
+  # Job 3: E2E Tests against Dev
+  # ============================================
+  e2e-tests:
+    name: E2E Tests (SaaS)
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    if: github.event.inputs.skip_e2e != 'true'
+    environment: humble-light / development
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest-playwright
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Run E2E tests
+        run: |
+          pytest tests/e2e/saas/ -v \
+            --tb=short \
+            --timeout=120 \
+            --screenshot=only-on-failure \
+            --output=test-results
+        env:
+          E2E_BASE_URL: ${{ secrets.E2E_BASE_URL }}
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            test-results/
+            tests/e2e/saas/screenshots/
+          retention-days: 7
+
+  # ============================================
+  # Job 4: Local E2E Tests (self-hosted mode)
+  # ============================================
+  e2e-local:
+    name: E2E Tests (Local/Self-Hosted)
+    needs: lint-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pytest-playwright
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Run local E2E tests
+        run: |
+          pytest tests/e2e/ --ignore=tests/e2e/saas/ -v \
+            --tb=short \
+            --timeout=60
+        env:
+          TESTING: "1"
+
+  # ============================================
+  # Job 5: Deploy to Production (manual approval)
+  # ============================================
+  deploy-prod:
+    name: Deploy to Production
+    needs: [e2e-tests, e2e-local]
+    runs-on: ubuntu-latest
+    if: |
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' || github.event.inputs.deploy_prod == 'true')
+    environment: humble-light / production  # Requires manual approval in GitHub
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy to Railway Production
+        run: railway up --service ${{ secrets.RAILWAY_PROD_SERVICE_ID }}
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Wait for production deployment
+        run: |
+          echo "Waiting for production deployment to be healthy..."
+          for i in {1..30}; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.PROD_URL }}/")
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "302" ] || [ "$HTTP_CODE" = "307" ]; then
+              echo "Production deployment is ready! (HTTP $HTTP_CODE)"
+              exit 0
+            fi
+            echo "Attempt $i/30 - got HTTP $HTTP_CODE, waiting 10s..."
+            sleep 10
+          done
+          echo "Production deployment did not become ready in time"
+          exit 1
+
+      - name: Notify deployment success
+        run: |
+          echo "Successfully deployed to production!"
+          echo "URL: ${{ secrets.PROD_URL }}"

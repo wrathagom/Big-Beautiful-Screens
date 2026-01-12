@@ -16,6 +16,7 @@ aioboto3>=12.0.0  # Optional: for S3/R2 storage backends
 # Authentication (SaaS mode)
 clerk-backend-api>=1.0.0
 httpx>=0.24.0
+svix>=1.4.0
 
 # Billing (SaaS mode)
 stripe>=7.0.0
