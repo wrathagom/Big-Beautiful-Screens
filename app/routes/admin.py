@@ -167,8 +167,10 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
             },
         )
 
-    # Get the handshake JWT from query params
+    # Get the handshake JWT from query params (or cookie fallback)
     handshake_jwt = request.query_params.get("__clerk_handshake")
+    if not handshake_jwt:
+        handshake_jwt = request.cookies.get("__clerk_handshake")
 
     if handshake_jwt:
         print(f"Found __clerk_handshake: {handshake_jwt[:50]}...")
