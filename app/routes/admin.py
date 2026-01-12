@@ -182,7 +182,7 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
     db_jwt = request.query_params.get("__clerk_db_jwt")
     if db_jwt:
         print("Found __clerk_db_jwt, rendering callback page")
-        return templates.TemplateResponse(
+        response = templates.TemplateResponse(
             request=request,
             name="clerk_callback.html",
             context={
@@ -191,6 +191,15 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
                 "sign_in_url": get_clerk_sign_in_url(redirect_url, request=request),
             },
         )
+        # In dev mode, persist the token so backend auth can verify it.
+        response.set_cookie(
+            "__clerk_db_jwt",
+            db_jwt,
+            path="/",
+            secure=True,
+            samesite="none",
+        )
+        return response
 
     # Get the handshake JWT from query params (or cookie fallback)
     handshake_jwt = request.query_params.get("__clerk_handshake")
