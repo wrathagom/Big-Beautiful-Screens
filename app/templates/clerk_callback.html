@@ -46,6 +46,22 @@
     <script>
         const redirectUrl = '{{ redirect_url }}';
 
+        async function waitForSession(clerk, maxMs = 3000) {
+            const start = Date.now();
+            while (Date.now() - start < maxMs) {
+                if (clerk.session) {
+                    try {
+                        const token = await clerk.session.getToken({ skipCache: true });
+                        if (token) return true;
+                    } catch (e) {
+                        // Ignore and retry until timeout.
+                    }
+                }
+                await new Promise(r => setTimeout(r, 200));
+            }
+            return false;
+        }
+
         async function init() {
             // Check if we're returning from Clerk auth (has auth params)
             const urlParams = new URLSearchParams(window.location.search);
@@ -79,8 +95,8 @@
                     }
                 }
 
-                // Wait for session to sync
-                await new Promise(r => setTimeout(r, 500));
+                // Wait for session to be ready before redirecting
+                await waitForSession(clerk, 4000);
 
                 // Redirect to target - session cookies should be set
                 window.location.href = redirectUrl || '/admin/screens';
@@ -90,13 +106,7 @@
             // No auth params - check if already signed in
             if (clerk.session) {
                 // Force token refresh before redirecting
-                try {
-                    await clerk.session.getToken({ skipCache: true });
-                    // Wait a moment for cookie to be set
-                    await new Promise(r => setTimeout(r, 200));
-                } catch (e) {
-                    console.log('Token refresh failed:', e.message);
-                }
+                await waitForSession(clerk, 2000);
                 window.location.href = redirectUrl || '/admin/screens';
                 return;
             }
