@@ -133,6 +133,12 @@ async def logout(request: Request):
     # Clear all Clerk cookies with matching parameters
     response.delete_cookie("__session", path="/", secure=True, samesite="none")
     response.delete_cookie("__client_uat", path="/", secure=True, samesite="none")
+    response.delete_cookie("__clerk_handshake", path="/", secure=True, samesite="none")
+
+    # Best-effort cleanup of any Clerk cookies the frontend set.
+    for cookie_name in request.cookies:
+        if cookie_name.startswith("__clerk"):
+            response.delete_cookie(cookie_name, path="/", secure=True, samesite="none")
 
     return response
 
