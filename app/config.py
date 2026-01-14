@@ -41,10 +41,10 @@ class Settings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str | None = None
     STRIPE_PUBLISHABLE_KEY: str | None = None
     STRIPE_PRICING_TABLE_ID: str | None = None
-    STRIPE_PRICE_PRO_MONTHLY: str | None = None
-    STRIPE_PRICE_PRO_YEARLY: str | None = None
-    STRIPE_PRICE_TEAM_MONTHLY: str | None = None
-    STRIPE_PRICE_TEAM_YEARLY: str | None = None
+    STRIPE_PRICE_STARTER_MONTHLY: str | None = None
+    STRIPE_PRICE_STARTER_YEARLY: str | None = None
+    STRIPE_PRICE_PREMIUM_MONTHLY: str | None = None
+    STRIPE_PRICE_PREMIUM_YEARLY: str | None = None
 
     # Usage logging
     USAGE_LOG_DESTINATION: str = "stdout"  # stdout, file, or external
@@ -120,7 +120,7 @@ PLAN_LIMITS = {
         "media_enabled": False,
         "storage_bytes": 0,
     },
-    "pro": {
+    "starter": {
         "screens": 25,
         "themes": 200,
         "pages_per_screen": 50,
@@ -128,7 +128,7 @@ PLAN_LIMITS = {
         "media_enabled": True,
         "storage_bytes": 1073741824,  # 1GB
     },
-    "team": {
+    "premium": {
         "screens": 100,
         "themes": 200,
         "pages_per_screen": 100,

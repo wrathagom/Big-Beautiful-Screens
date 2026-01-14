@@ -75,7 +75,10 @@ async def _check_media_enabled(user: OptionalUser) -> tuple[bool, str | None]:
     limits = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])
 
     if not limits.get("media_enabled", False):
-        return False, f"Media library is not available on the {plan} plan. Upgrade to Pro or Team."
+        return (
+            False,
+            f"Media library is not available on the {plan} plan. Upgrade to Starter or Premium.",
+        )
 
     return True, None
 

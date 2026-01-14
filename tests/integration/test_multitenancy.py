@@ -224,30 +224,30 @@ def mock_db():
     """Create a fresh mock database for each test with all necessary mocks."""
     db = MockScreenDatabase()
 
-    # Pre-create users with pro plan (to bypass plan limits)
+    # Pre-create users with starter plan (to bypass plan limits)
     db.users["user_alice"] = {
         "id": "user_alice",
         "email": "alice@example.com",
         "name": "Alice",
-        "plan": "pro",
+        "plan": "starter",
     }
     db.users["user_bob"] = {
         "id": "user_bob",
         "email": "bob@example.com",
         "name": "Bob",
-        "plan": "pro",
+        "plan": "starter",
     }
     db.users["user_charlie"] = {
         "id": "user_charlie",
         "email": "charlie@example.com",
         "name": "Charlie",
-        "plan": "pro",
+        "plan": "starter",
     }
     db.users["user_diana"] = {
         "id": "user_diana",
         "email": "diana@example.com",
         "name": "Diana",
-        "plan": "pro",
+        "plan": "starter",
     }
 
     return db

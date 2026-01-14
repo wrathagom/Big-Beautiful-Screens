@@ -133,7 +133,7 @@ class TestUsagePage:
         # Look for plan name, usage stats, or upgrade button
         has_plan_info = (
             page.locator(
-                ':has-text("Free"), :has-text("Pro"), :has-text("Team"), '
+                ':has-text("Free"), :has-text("Starter"), :has-text("Premium"), '
                 ':has-text("plan"), :has-text("Plan")'
             ).count()
             > 0

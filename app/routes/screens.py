@@ -86,7 +86,7 @@ async def create_new_screen(request: Request, user: OptionalUser = None):
             )
             user_data = await db.get_user(user.user_id)
 
-        # Check plan limits (free=3, pro=25, team=100 screens)
+        # Check plan limits (free=3, starter=25, premium=100 screens)
         from ..config import PLAN_LIMITS
 
         plan = user_data.get("plan", "free") if user_data else "free"

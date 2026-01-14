@@ -162,19 +162,19 @@ class TestClerkWebhooks:
         """
         client, db = saas_client
 
-        # Setup: Create user with pro plan (simulating existing subscriber)
+        # Setup: Create user with starter plan (simulating existing subscriber)
         db.users["user_existing123"] = {
             "id": "user_existing123",
             "email": "existing@example.com",
             "name": "Existing User",
-            "plan": "pro",  # Paid plan!
+            "plan": "starter",  # Paid plan!
             "stripe_customer_id": "cus_test123",
             "stripe_subscription_id": "sub_test123",
             "subscription_status": "active",
         }
 
         # Verify setup
-        assert db.users["user_existing123"]["plan"] == "pro"
+        assert db.users["user_existing123"]["plan"] == "starter"
 
         # Simulate Clerk user.updated webhook (happens on login)
         payload = load_fixture("recorded/clerk_user_updated.json")
@@ -186,23 +186,23 @@ class TestClerkWebhooks:
 
         assert response.status_code == 200
 
-        # CRITICAL ASSERTION: Plan must still be pro!
+        # CRITICAL ASSERTION: Plan must still be starter!
         user = db.users.get("user_existing123")
         assert (
-            user["plan"] == "pro"
-        ), f"user.updated webhook overwrote paid plan! Expected 'pro', got '{user['plan']}'"
+            user["plan"] == "starter"
+        ), f"user.updated webhook overwrote paid plan! Expected 'starter', got '{user['plan']}'"
         assert user["stripe_subscription_id"] == "sub_test123"
 
-    def test_user_updated_preserves_team_plan(self, saas_client):
-        """Team plan should also be preserved on user.updated."""
+    def test_user_updated_preserves_premium_plan(self, saas_client):
+        """Premium plan should also be preserved on user.updated."""
         client, db = saas_client
 
-        # Setup: Create user with team plan
+        # Setup: Create user with premium plan
         db.users["user_existing123"] = {
             "id": "user_existing123",
             "email": "existing@example.com",
             "name": "Existing User",
-            "plan": "team",
+            "plan": "premium",
             "stripe_customer_id": "cus_test123",
             "stripe_subscription_id": "sub_team123",
             "subscription_status": "active",
@@ -220,7 +220,7 @@ class TestClerkWebhooks:
 
         # Verify plan preserved
         user = db.users.get("user_existing123")
-        assert user["plan"] == "team"
+        assert user["plan"] == "premium"
 
     def test_user_no_email_skips_creation(self, saas_client):
         """User without email should not be created (edge case)."""
@@ -247,12 +247,12 @@ class TestStripeWebhooks:
         """Canceled subscription should downgrade user to free plan."""
         from app.main import app
 
-        # Setup: Create user with pro plan
+        # Setup: Create user with starter plan
         mock_db.users["user_existing123"] = {
             "id": "user_existing123",
             "email": "existing@example.com",
             "name": "Existing User",
-            "plan": "pro",
+            "plan": "starter",
             "stripe_customer_id": "cus_test123",
             "stripe_subscription_id": "sub_canceled123",
             "subscription_status": "active",
@@ -312,7 +312,7 @@ class TestWebhookIdempotency:
             "id": "user_existing123",
             "email": "existing@example.com",
             "name": "Existing User",
-            "plan": "pro",
+            "plan": "starter",
             "stripe_customer_id": "cus_test123",
             "stripe_subscription_id": "sub_test123",
             "subscription_status": "active",
@@ -325,6 +325,6 @@ class TestWebhookIdempotency:
             response = client.post("/webhooks/clerk", json=payload)
             assert response.status_code == 200
 
-        # Plan should STILL be pro after all those webhooks
+        # Plan should STILL be starter after all those webhooks
         user = db.users.get("user_existing123")
-        assert user["plan"] == "pro"
+        assert user["plan"] == "starter"

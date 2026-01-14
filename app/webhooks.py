@@ -158,12 +158,12 @@ def _get_plan_from_price(price_id: str) -> str:
     """Map Stripe price ID to plan name."""
     settings = get_settings()
     price_to_plan = {
-        settings.STRIPE_PRICE_PRO_MONTHLY: "pro",
-        settings.STRIPE_PRICE_PRO_YEARLY: "pro",
-        settings.STRIPE_PRICE_TEAM_MONTHLY: "team",
-        settings.STRIPE_PRICE_TEAM_YEARLY: "team",
+        settings.STRIPE_PRICE_STARTER_MONTHLY: "starter",
+        settings.STRIPE_PRICE_STARTER_YEARLY: "starter",
+        settings.STRIPE_PRICE_PREMIUM_MONTHLY: "premium",
+        settings.STRIPE_PRICE_PREMIUM_YEARLY: "premium",
     }
-    return price_to_plan.get(price_id, "pro")  # Default to pro if unknown
+    return price_to_plan.get(price_id, "starter")  # Default to starter if unknown
 
 
 @router.post("/stripe")
@@ -241,7 +241,7 @@ async def stripe_webhook(
                         price_id = items[0].get("price", {}).get("id")
                         if price_id:
                             plan = _get_plan_from_price(price_id)
-                plan = plan or "pro"
+                plan = plan or "starter"
 
                 await db.update_user_plan(
                     user_id=user["id"],
@@ -261,7 +261,7 @@ async def stripe_webhook(
             if user:
                 # Get plan from subscription items
                 items = data.get("items", {}).get("data", [])
-                plan = "pro"  # Default
+                plan = "starter"  # Default
                 if items:
                     price_id = items[0].get("price", {}).get("id")
                     if price_id:
@@ -295,7 +295,7 @@ async def stripe_webhook(
         if user:
             # Get plan from subscription items
             items = data.get("items", {}).get("data", [])
-            plan = "pro"  # Default
+            plan = "starter"  # Default
             if items:
                 price_id = items[0].get("price", {}).get("id")
                 if price_id:

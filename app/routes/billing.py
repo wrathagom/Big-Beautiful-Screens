@@ -26,10 +26,10 @@ def get_price_id(plan: str, interval: str) -> str | None:
     """Get Stripe price ID for a plan and billing interval."""
     settings = get_settings()
     price_map = {
-        ("pro", "monthly"): settings.STRIPE_PRICE_PRO_MONTHLY,
-        ("pro", "yearly"): settings.STRIPE_PRICE_PRO_YEARLY,
-        ("team", "monthly"): settings.STRIPE_PRICE_TEAM_MONTHLY,
-        ("team", "yearly"): settings.STRIPE_PRICE_TEAM_YEARLY,
+        ("starter", "monthly"): settings.STRIPE_PRICE_STARTER_MONTHLY,
+        ("starter", "yearly"): settings.STRIPE_PRICE_STARTER_YEARLY,
+        ("premium", "monthly"): settings.STRIPE_PRICE_PREMIUM_MONTHLY,
+        ("premium", "yearly"): settings.STRIPE_PRICE_PREMIUM_YEARLY,
     }
     return price_map.get((plan, interval))
 
@@ -37,13 +37,13 @@ def get_price_id(plan: str, interval: str) -> str | None:
 @router.post("/checkout")
 async def create_checkout_session(
     user: RequiredUser,
-    plan: str = "pro",
+    plan: str = "starter",
     interval: str = "monthly",
 ):
     """Create a Stripe Checkout session for plan upgrade.
 
     Args:
-        plan: Target plan ("pro" or "team")
+        plan: Target plan ("starter" or "premium")
         interval: Billing interval ("monthly" or "yearly")
 
     Returns:
@@ -58,8 +58,8 @@ async def create_checkout_session(
     db = get_database()
 
     # Validate plan and interval
-    if plan not in ("pro", "team"):
-        raise HTTPException(status_code=400, detail="Invalid plan. Must be 'pro' or 'team'")
+    if plan not in ("starter", "premium"):
+        raise HTTPException(status_code=400, detail="Invalid plan. Must be 'starter' or 'premium'")
     if interval not in ("monthly", "yearly"):
         raise HTTPException(
             status_code=400, detail="Invalid interval. Must be 'monthly' or 'yearly'"
@@ -186,7 +186,7 @@ async def get_subscription_status(user: RequiredUser):
     """Get current subscription status for the user.
 
     Returns:
-        plan: Current plan (free, pro, team)
+        plan: Current plan (free, starter, premium)
         status: Subscription status (inactive, active, past_due, canceled)
         subscription_id: Stripe subscription ID (if active)
         customer_id: Stripe customer ID (if exists)

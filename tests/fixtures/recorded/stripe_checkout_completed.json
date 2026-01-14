@@ -13,7 +13,7 @@
       "mode": "subscription",
       "metadata": {
         "user_id": "user_existing123",
-        "plan": "pro"
+        "plan": "starter"
       },
       "customer_email": "existing@example.com"
     }

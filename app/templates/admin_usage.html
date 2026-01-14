@@ -57,12 +57,12 @@
             color: #888;
         }
 
-        .plan-badge.pro {
+        .plan-badge.starter {
             background: #1e3a5f;
             color: #4a9eff;
         }
 
-        .plan-badge.team {
+        .plan-badge.premium {
             background: #2d1f3d;
             color: #9b59b6;
         }
@@ -372,7 +372,7 @@
                         {% endif %}
                     </div>
                     <div class="plan-actions">
-                        {% if plan != 'team' and plan != 'unlimited' %}
+                        {% if plan != 'premium' and plan != 'unlimited' %}
                         <a href="/admin/pricing" class="btn-upgrade">Upgrade Plan</a>
                         {% endif %}
                         {% if has_subscription %}
