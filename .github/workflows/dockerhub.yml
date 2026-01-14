@@ -29,3 +29,10 @@ jobs:
           push: true
           tags: |
             calebmkeller/big-beautiful-screens:latest
+
+      - name: Update Docker Hub description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: calebmkeller/big-beautiful-screens
