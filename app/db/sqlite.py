@@ -128,6 +128,31 @@ class SQLiteBackend(DatabaseBackend):
                 CREATE INDEX IF NOT EXISTS idx_media_org ON media(org_id)
             """)
 
+            # Templates table
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS templates (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    category TEXT NOT NULL,
+                    thumbnail_url TEXT,
+                    type TEXT NOT NULL CHECK (type IN ('system', 'user')),
+                    user_id TEXT,
+                    configuration TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_templates_user ON templates(user_id)
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_templates_type ON templates(type)
+            """)
+            await db.execute("""
+                CREATE INDEX IF NOT EXISTS idx_templates_category ON templates(category)
+            """)
+
             # Seed built-in themes if table is empty
             await self._seed_builtin_themes(db)
 
@@ -1106,3 +1131,206 @@ class SQLiteBackend(DatabaseBackend):
             await db.commit()
 
             return media_data
+
+    # ============== Template Methods ==============
+
+    async def create_template(
+        self,
+        template_id: str,
+        name: str,
+        description: str | None,
+        category: str,
+        template_type: str,
+        configuration: dict,
+        user_id: str | None = None,
+        thumbnail_url: str | None = None,
+    ) -> dict:
+        """Create a new template."""
+        now = datetime.now(UTC).isoformat()
+
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute(
+                """
+                INSERT INTO templates (id, name, description, category, thumbnail_url,
+                                       type, user_id, configuration, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    template_id,
+                    name,
+                    description,
+                    category,
+                    thumbnail_url,
+                    template_type,
+                    user_id,
+                    json.dumps(configuration),
+                    now,
+                    now,
+                ),
+            )
+            await db.commit()
+
+        return {
+            "id": template_id,
+            "name": name,
+            "description": description,
+            "category": category,
+            "thumbnail_url": thumbnail_url,
+            "type": template_type,
+            "user_id": user_id,
+            "configuration": configuration,
+            "created_at": now,
+            "updated_at": now,
+        }
+
+    async def get_template(self, template_id: str) -> dict | None:
+        """Get a template by ID."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+            async with db.execute("SELECT * FROM templates WHERE id = ?", (template_id,)) as cursor:
+                row = await cursor.fetchone()
+
+            if not row:
+                return None
+
+            result = dict(row)
+            # Parse configuration from JSON string
+            if result.get("configuration"):
+                result["configuration"] = json.loads(result["configuration"])
+            return result
+
+    async def get_all_templates(
+        self,
+        template_type: str | None = None,
+        category: str | None = None,
+        user_id: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict]:
+        """Get templates with optional filtering and pagination."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+
+            conditions = []
+            params = []
+
+            # Filter by type
+            if template_type is not None:
+                conditions.append("type = ?")
+                params.append(template_type)
+
+            # Filter by category
+            if category is not None:
+                conditions.append("category = ?")
+                params.append(category)
+
+            # Filter by user: show system templates + user's own templates
+            if user_id is not None:
+                conditions.append("(type = 'system' OR user_id = ?)")
+                params.append(user_id)
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+            # Select without configuration for list efficiency
+            query = f"""
+                SELECT id, name, description, category, thumbnail_url, type, user_id,
+                       created_at, updated_at
+                FROM templates
+                {where_clause}
+                ORDER BY type DESC, created_at DESC
+            """
+
+            if limit:
+                query += f" LIMIT {limit} OFFSET {offset}"
+
+            async with db.execute(query, params) as cursor:
+                rows = await cursor.fetchall()
+                return [dict(row) for row in rows]
+
+    async def get_templates_count(
+        self,
+        template_type: str | None = None,
+        category: str | None = None,
+        user_id: str | None = None,
+    ) -> int:
+        """Get total count of templates matching the filters."""
+        async with aiosqlite.connect(self.db_path) as db:
+            conditions = []
+            params = []
+
+            if template_type is not None:
+                conditions.append("type = ?")
+                params.append(template_type)
+
+            if category is not None:
+                conditions.append("category = ?")
+                params.append(category)
+
+            if user_id is not None:
+                conditions.append("(type = 'system' OR user_id = ?)")
+                params.append(user_id)
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+            query = f"SELECT COUNT(*) FROM templates {where_clause}"
+
+            async with db.execute(query, params) as cursor:
+                row = await cursor.fetchone()
+                return row[0] if row else 0
+
+    async def update_template(
+        self,
+        template_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        category: str | None = None,
+        thumbnail_url: str | None = None,
+    ) -> dict | None:
+        """Update template metadata."""
+        async with aiosqlite.connect(self.db_path) as db:
+            db.row_factory = aiosqlite.Row
+
+            # Check if template exists
+            async with db.execute(
+                "SELECT id FROM templates WHERE id = ?", (template_id,)
+            ) as cursor:
+                if not await cursor.fetchone():
+                    return None
+
+            updates = []
+            params = []
+
+            if name is not None:
+                updates.append("name = ?")
+                params.append(name)
+            if description is not None:
+                updates.append("description = ?")
+                params.append(description)
+            if category is not None:
+                updates.append("category = ?")
+                params.append(category)
+            if thumbnail_url is not None:
+                updates.append("thumbnail_url = ?")
+                params.append(thumbnail_url)
+
+            if updates:
+                updates.append("updated_at = ?")
+                params.append(datetime.now(UTC).isoformat())
+                params.append(template_id)
+                await db.execute(f"UPDATE templates SET {', '.join(updates)} WHERE id = ?", params)
+                await db.commit()
+
+            # Return updated template
+            return await self.get_template(template_id)
+
+    async def delete_template(self, template_id: str) -> bool:
+        """Delete a template."""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute(
+                "SELECT id FROM templates WHERE id = ?", (template_id,)
+            ) as cursor:
+                if not await cursor.fetchone():
+                    return False
+
+            await db.execute("DELETE FROM templates WHERE id = ?", (template_id,))
+            await db.commit()
+            return True

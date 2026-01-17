@@ -330,3 +330,107 @@ class DatabaseBackend(ABC):
         Returns the deleted media data (for storage cleanup) or None if not found.
         """
         pass
+
+    # ============== Template Methods ==============
+
+    @abstractmethod
+    async def create_template(
+        self,
+        template_id: str,
+        name: str,
+        description: str | None,
+        category: str,
+        template_type: str,
+        configuration: dict,
+        user_id: str | None = None,
+        thumbnail_url: str | None = None,
+    ) -> dict:
+        """
+        Create a new template.
+
+        Args:
+            template_id: Unique template identifier
+            name: Human-readable template name
+            description: Optional description
+            category: Use-case category (restaurant, it_tech, etc.)
+            template_type: 'system' or 'user'
+            configuration: Screen configuration JSON
+            user_id: Owner user ID (None for system templates)
+            thumbnail_url: Optional preview image URL
+
+        Returns:
+            The created template record
+        """
+        pass
+
+    @abstractmethod
+    async def get_template(self, template_id: str) -> dict | None:
+        """Get a template by ID. Returns None if not found."""
+        pass
+
+    @abstractmethod
+    async def get_all_templates(
+        self,
+        template_type: str | None = None,
+        category: str | None = None,
+        user_id: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict]:
+        """
+        Get templates with optional filtering and pagination.
+
+        Args:
+            template_type: Filter by 'system' or 'user' (None for all)
+            category: Filter by category (None for all)
+            user_id: For user templates, filter by owner. Also includes system templates.
+            limit: Maximum number of results
+            offset: Number of results to skip
+
+        Returns:
+            List of template records (without configuration for efficiency)
+        """
+        pass
+
+    @abstractmethod
+    async def get_templates_count(
+        self,
+        template_type: str | None = None,
+        category: str | None = None,
+        user_id: str | None = None,
+    ) -> int:
+        """Get total count of templates matching the filters."""
+        pass
+
+    @abstractmethod
+    async def update_template(
+        self,
+        template_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        category: str | None = None,
+        thumbnail_url: str | None = None,
+    ) -> dict | None:
+        """
+        Update template metadata.
+
+        Args:
+            template_id: Template to update
+            name: New name (if provided)
+            description: New description (if provided)
+            category: New category (if provided)
+            thumbnail_url: New thumbnail URL (if provided)
+
+        Returns:
+            Updated template record, or None if not found
+        """
+        pass
+
+    @abstractmethod
+    async def delete_template(self, template_id: str) -> bool:
+        """
+        Delete a template.
+
+        Returns True if deleted, False if not found.
+        """
+        pass

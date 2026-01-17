@@ -14,6 +14,7 @@ Big Beautiful Screens is a lightweight service that lets you push content to dis
 - **Theming** - 13+ pre-defined themes or fully custom styling
 - **Multi-page rotation** - cycle through pages automatically
 - **Ephemeral pages** - temporary content that auto-expires
+- **Screen templates** - start from pre-built layouts or save your own
 
 ## Quick Example
 

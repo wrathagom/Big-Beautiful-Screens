@@ -40,6 +40,13 @@ Thumbs.db
 htmlcov/
 tests/e2e/videos/
 
+# Docs - screenshots are copied from tests/e2e/screenshots/ at build time
+docs/images/screenshots/
+site/
+
+# Task tracking
+.taskmaster/
+
 # Package managers
 uv.lock
 
@@ -48,3 +55,26 @@ uv.lock
 # To run: ./biome lint
 biome
 biome.json
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dev-debug.log
+# Dependency directories
+node_modules/
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+# OS specific
+
+# Task files
+# tasks.json
+# tasks/ 

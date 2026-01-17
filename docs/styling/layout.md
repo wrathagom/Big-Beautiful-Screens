@@ -47,7 +47,7 @@ Perfect for menus, schedules, or lists.
 }
 ```
 
-![Vertical Layout](../../tests/e2e/screenshots/vertical_layout.png)
+![Vertical Layout](../images/screenshots/vertical_layout.png)
 
 #### Horizontal (Single Row)
 
@@ -57,7 +57,7 @@ Perfect for menus, schedules, or lists.
 | `horizontal-4` | Single row, 4 fixed columns |
 | `horizontal-6` | Single row, 6 fixed columns |
 
-![Horizontal Layout](../../tests/e2e/screenshots/horizontal_layout.png)
+![Horizontal Layout](../images/screenshots/horizontal_layout.png)
 
 #### Standard Grids
 
@@ -77,11 +77,11 @@ Perfect for menus, schedules, or lists.
 }
 ```
 
-![Grid 2x2 Layout](../../tests/e2e/screenshots/grid_2x2_layout.png)
+![Grid 2x2 Layout](../images/screenshots/grid_2x2_layout.png)
 
-![Grid 3x3 Layout](../../tests/e2e/screenshots/grid_3x3_layout.png)
+![Grid 3x3 Layout](../images/screenshots/grid_3x3_layout.png)
 
-![Grid 4x4 Layout](../../tests/e2e/screenshots/layout_grid_4x4.png)
+![Grid 4x4 Layout](../images/screenshots/layout_grid_4x4.png)
 
 #### Dashboard Layouts
 
@@ -105,9 +105,9 @@ Layouts with full-width header and/or footer rows:
 }
 ```
 
-![Dashboard Header Layout](../../tests/e2e/screenshots/dashboard_header_layout.png)
+![Dashboard Header Layout](../images/screenshots/dashboard_header_layout.png)
 
-![Dashboard Footer Layout](../../tests/e2e/screenshots/layout_dashboard_footer.png)
+![Dashboard Footer Layout](../images/screenshots/layout_dashboard_footer.png)
 
 #### Menu/Schedule Layouts
 
@@ -128,7 +128,7 @@ Layouts with full-width header and/or footer rows:
 }
 ```
 
-![Menu Board Layout](../../tests/e2e/screenshots/menu_board_layout.png)
+![Menu Board Layout](../images/screenshots/menu_board_layout.png)
 
 #### Sidebar Layouts
 
@@ -138,11 +138,11 @@ Layouts with full-width header and/or footer rows:
 | `sidebar-right` | 75% main content + 25% right sidebar |
 | `featured-top` | Large top panel (2fr), smaller panels below (1fr) |
 
-![Sidebar Left Layout](../../tests/e2e/screenshots/sidebar_left_layout.png)
+![Sidebar Left Layout](../images/screenshots/sidebar_left_layout.png)
 
-![Sidebar Right Layout](../../tests/e2e/screenshots/layout_sidebar_right.png)
+![Sidebar Right Layout](../images/screenshots/layout_sidebar_right.png)
 
-![Featured Top Layout](../../tests/e2e/screenshots/layout_featured_top.png)
+![Featured Top Layout](../images/screenshots/layout_featured_top.png)
 
 ## Custom Layouts
 
@@ -173,9 +173,9 @@ Use CSS grid-template syntax for flexible sizing:
 }
 ```
 
-![Custom Columns Layout](../../tests/e2e/screenshots/layout_custom_columns.png)
+![Custom Columns Layout](../images/screenshots/layout_custom_columns.png)
 
-![Custom Rows Layout](../../tests/e2e/screenshots/layout_custom_rows.png)
+![Custom Rows Layout](../images/screenshots/layout_custom_rows.png)
 
 ### CSS Grid Unit Reference
 

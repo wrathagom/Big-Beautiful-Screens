@@ -64,10 +64,12 @@ nav:
     - Screens: api/screens.md
     - Pages: api/pages.md
     - Messages: api/messages.md
+    - Templates: api/templates.md
     - Themes: api/themes.md
   - Content:
     - Content Types: content/types.md
     - Widgets: content/widgets.md
+    - Templates: content/templates.md
   - Styling:
     - Colors & Fonts: styling/colors.md
     - Themes: styling/themes.md

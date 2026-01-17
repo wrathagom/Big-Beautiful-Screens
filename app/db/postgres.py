@@ -212,6 +212,31 @@ class PostgresBackend(DatabaseBackend):
                 CREATE INDEX IF NOT EXISTS idx_media_org ON media(org_id)
             """)
 
+            # Templates table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS templates (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    description TEXT,
+                    category TEXT NOT NULL,
+                    thumbnail_url TEXT,
+                    type TEXT NOT NULL CHECK (type IN ('system', 'user')),
+                    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+                    configuration JSONB NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL,
+                    updated_at TIMESTAMPTZ NOT NULL
+                )
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_templates_user ON templates(user_id)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_templates_type ON templates(type)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_templates_category ON templates(category)
+            """)
+
             # Seed built-in themes
             await self._seed_builtin_themes(conn)
 
@@ -1417,3 +1442,220 @@ class PostgresBackend(DatabaseBackend):
             await conn.execute("DELETE FROM media WHERE id = $1", media_id)
 
             return media_data
+
+    # ============== Template Methods ==============
+
+    async def create_template(
+        self,
+        template_id: str,
+        name: str,
+        description: str | None,
+        category: str,
+        template_type: str,
+        configuration: dict,
+        user_id: str | None = None,
+        thumbnail_url: str | None = None,
+    ) -> dict:
+        """Create a new template."""
+        now = datetime.now(UTC)
+        pool = await self._get_pool()
+
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO templates (id, name, description, category, thumbnail_url,
+                                       type, user_id, configuration, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)
+            """,
+                template_id,
+                name,
+                description,
+                category,
+                thumbnail_url,
+                template_type,
+                user_id,
+                json.dumps(configuration),
+                now,
+            )
+
+        return {
+            "id": template_id,
+            "name": name,
+            "description": description,
+            "category": category,
+            "thumbnail_url": thumbnail_url,
+            "type": template_type,
+            "user_id": user_id,
+            "configuration": configuration,
+            "created_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+        }
+
+    async def get_template(self, template_id: str) -> dict | None:
+        """Get a template by ID."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT * FROM templates WHERE id = $1", template_id)
+
+            if not row:
+                return None
+
+            result = dict(row)
+            # JSONB is returned as dict, but may be string if stored as text
+            if result.get("configuration") and isinstance(result["configuration"], str):
+                result["configuration"] = json.loads(result["configuration"])
+            # Convert timestamps to ISO strings
+            if result.get("created_at"):
+                result["created_at"] = result["created_at"].isoformat()
+            if result.get("updated_at"):
+                result["updated_at"] = result["updated_at"].isoformat()
+            return result
+
+    async def get_all_templates(
+        self,
+        template_type: str | None = None,
+        category: str | None = None,
+        user_id: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[dict]:
+        """Get templates with optional filtering and pagination."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            conditions = []
+            params = []
+            param_idx = 1
+
+            # Filter by type
+            if template_type is not None:
+                conditions.append(f"type = ${param_idx}")
+                params.append(template_type)
+                param_idx += 1
+
+            # Filter by category
+            if category is not None:
+                conditions.append(f"category = ${param_idx}")
+                params.append(category)
+                param_idx += 1
+
+            # Filter by user: show system templates + user's own templates
+            if user_id is not None:
+                conditions.append(f"(type = 'system' OR user_id = ${param_idx})")
+                params.append(user_id)
+                param_idx += 1
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+
+            # Select without configuration for list efficiency
+            query = f"""
+                SELECT id, name, description, category, thumbnail_url, type, user_id,
+                       created_at, updated_at
+                FROM templates
+                {where_clause}
+                ORDER BY type DESC, created_at DESC
+            """
+
+            if limit:
+                query += f" LIMIT {limit} OFFSET {offset}"
+
+            rows = await conn.fetch(query, *params)
+
+            results = []
+            for row in rows:
+                result = dict(row)
+                if result.get("created_at"):
+                    result["created_at"] = result["created_at"].isoformat()
+                if result.get("updated_at"):
+                    result["updated_at"] = result["updated_at"].isoformat()
+                results.append(result)
+            return results
+
+    async def get_templates_count(
+        self,
+        template_type: str | None = None,
+        category: str | None = None,
+        user_id: str | None = None,
+    ) -> int:
+        """Get total count of templates matching the filters."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            conditions = []
+            params = []
+            param_idx = 1
+
+            if template_type is not None:
+                conditions.append(f"type = ${param_idx}")
+                params.append(template_type)
+                param_idx += 1
+
+            if category is not None:
+                conditions.append(f"category = ${param_idx}")
+                params.append(category)
+                param_idx += 1
+
+            if user_id is not None:
+                conditions.append(f"(type = 'system' OR user_id = ${param_idx})")
+                params.append(user_id)
+                param_idx += 1
+
+            where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+            query = f"SELECT COUNT(*) FROM templates {where_clause}"
+
+            return await conn.fetchval(query, *params)
+
+    async def update_template(
+        self,
+        template_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        category: str | None = None,
+        thumbnail_url: str | None = None,
+    ) -> dict | None:
+        """Update template metadata."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            # Check if template exists
+            exists = await conn.fetchval("SELECT 1 FROM templates WHERE id = $1", template_id)
+            if not exists:
+                return None
+
+            updates = []
+            params = []
+            param_idx = 1
+
+            if name is not None:
+                updates.append(f"name = ${param_idx}")
+                params.append(name)
+                param_idx += 1
+            if description is not None:
+                updates.append(f"description = ${param_idx}")
+                params.append(description)
+                param_idx += 1
+            if category is not None:
+                updates.append(f"category = ${param_idx}")
+                params.append(category)
+                param_idx += 1
+            if thumbnail_url is not None:
+                updates.append(f"thumbnail_url = ${param_idx}")
+                params.append(thumbnail_url)
+                param_idx += 1
+
+            if updates:
+                updates.append(f"updated_at = ${param_idx}")
+                params.append(datetime.now(UTC))
+                param_idx += 1
+                params.append(template_id)
+                await conn.execute(
+                    f"UPDATE templates SET {', '.join(updates)} WHERE id = ${param_idx}",
+                    *params,
+                )
+
+            # Return updated template
+            return await self.get_template(template_id)
+
+    async def delete_template(self, template_id: str) -> bool:
+        """Delete a template."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute("DELETE FROM templates WHERE id = $1", template_id)
+            return result == "DELETE 1"

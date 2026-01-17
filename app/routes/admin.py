@@ -17,10 +17,12 @@ from ..connection_manager import manager
 from ..database import (
     get_all_media,
     get_all_screens,
+    get_all_templates,
     get_all_themes,
     get_media_count,
     get_screens_count,
     get_storage_used,
+    get_templates_count,
     get_theme_usage_counts,
     get_themes_count,
 )
@@ -648,6 +650,98 @@ async def admin_media(request: Request, page: int = 1, content_type: str | None 
             "storage_quota_display": storage_quota_display,
             "storage_percent": storage_percent,
             "max_upload_size_mb": settings.MAX_UPLOAD_SIZE_MB,
+            "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY
+            if settings.APP_MODE == AppMode.SAAS
+            else None,
+            "help_url": settings.HELP_URL,
+            "help_text": _get_help_text(),
+        },
+    )
+
+
+@router.get("/admin/templates", response_class=HTMLResponse)
+async def admin_templates(request: Request, page: int = 1, category: str | None = None):
+    """Admin page for managing user templates.
+
+    In SaaS mode, requires authentication and shows only user's templates.
+    In self-hosted mode, shows all user templates without authentication.
+    """
+    settings = get_settings()
+    user = None
+
+    # In SaaS mode, require authentication
+    if settings.APP_MODE == AppMode.SAAS:
+        user = await get_current_user(request)
+        if not user:
+            return RedirectResponse(
+                url=get_clerk_sign_in_url("/admin/templates", request=request), status_code=302
+            )
+
+    per_page = 12
+    offset = (page - 1) * per_page
+
+    # Get user templates (not system templates)
+    user_id = user.user_id if user and settings.APP_MODE == AppMode.SAAS else None
+
+    # In self-hosted mode, show all user templates
+    # In SaaS mode, show only templates for the current user
+    if settings.APP_MODE == AppMode.SAAS and user:
+        total_count = await get_templates_count(template_type="user", user_id=user_id)
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        user_templates = await get_all_templates(
+            template_type="user",
+            user_id=user_id,
+            category=category,
+            limit=per_page,
+            offset=offset,
+        )
+    else:
+        # Self-hosted: show all user templates
+        total_count = await get_templates_count(template_type="user")
+        total_pages = (total_count + per_page - 1) // per_page if total_count > 0 else 1
+        page = max(1, min(page, total_pages))
+        user_templates = await get_all_templates(
+            template_type="user",
+            category=category,
+            limit=per_page,
+            offset=offset,
+        )
+
+    # Enrich template data for display
+    enriched_templates = []
+    for tmpl in user_templates:
+        config = tmpl.get("configuration", {})
+        pages_count = len(config.get("pages", [])) if isinstance(config, dict) else 0
+        enriched_templates.append(
+            {
+                **tmpl,
+                "pages_count": pages_count,
+                "created_display": _format_datetime(tmpl.get("created_at")),
+                "updated_display": _format_datetime(tmpl.get("updated_at")),
+            }
+        )
+
+    # Categories for filter dropdown
+    categories = [
+        {"value": "restaurant", "label": "Restaurant"},
+        {"value": "it_tech", "label": "IT/Tech"},
+        {"value": "small_business", "label": "Small Business"},
+        {"value": "education", "label": "Education"},
+        {"value": "healthcare", "label": "Healthcare"},
+        {"value": "custom", "label": "Custom"},
+    ]
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_templates.html",
+        context={
+            "templates": enriched_templates,
+            "page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "categories": categories,
+            "current_category": category,
             "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY
             if settings.APP_MODE == AppMode.SAAS
             else None,

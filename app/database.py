@@ -40,6 +40,13 @@ __all__ = [
     "get_media_count",
     "get_storage_used",
     "delete_media",
+    # Template functions
+    "create_template",
+    "get_template",
+    "get_all_templates",
+    "get_templates_count",
+    "update_template",
+    "delete_template",
 ]
 
 
@@ -387,3 +394,76 @@ async def delete_media(media_id: str) -> dict | None:
     """Delete a media record. Returns the deleted data for storage cleanup."""
     db = get_database()
     return await db.delete_media(media_id)
+
+
+# ============== Template Functions ==============
+
+
+async def create_template(
+    template_id: str,
+    name: str,
+    description: str | None,
+    category: str,
+    template_type: str,
+    configuration: dict,
+    user_id: str | None = None,
+    thumbnail_url: str | None = None,
+) -> dict:
+    """Create a new template."""
+    db = get_database()
+    return await db.create_template(
+        template_id,
+        name,
+        description,
+        category,
+        template_type,
+        configuration,
+        user_id,
+        thumbnail_url,
+    )
+
+
+async def get_template(template_id: str) -> dict | None:
+    """Get a template by ID."""
+    db = get_database()
+    return await db.get_template(template_id)
+
+
+async def get_all_templates(
+    template_type: str | None = None,
+    category: str | None = None,
+    user_id: str | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> list[dict]:
+    """Get templates with optional filtering and pagination."""
+    db = get_database()
+    return await db.get_all_templates(template_type, category, user_id, limit, offset)
+
+
+async def get_templates_count(
+    template_type: str | None = None,
+    category: str | None = None,
+    user_id: str | None = None,
+) -> int:
+    """Get total count of templates matching the filters."""
+    db = get_database()
+    return await db.get_templates_count(template_type, category, user_id)
+
+
+async def update_template(
+    template_id: str,
+    name: str | None = None,
+    description: str | None = None,
+    category: str | None = None,
+    thumbnail_url: str | None = None,
+) -> dict | None:
+    """Update template metadata. Returns None if not found."""
+    db = get_database()
+    return await db.update_template(template_id, name, description, category, thumbnail_url)
+
+
+async def delete_template(template_id: str) -> bool:
+    """Delete a template. Returns True if deleted."""
+    db = get_database()
+    return await db.delete_template(template_id)

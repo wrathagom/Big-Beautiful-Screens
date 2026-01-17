@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Templates - Big Beautiful Screens</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <link rel="stylesheet" href="/static/admin.css">
+    {% if clerk_publishable_key %}
+    <script
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        async
+    ></script>
+    {% endif %}
+    <style>
+        .template-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .template-card {
+            background: var(--card-bg, #2a2a3e);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .template-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .template-thumbnail {
+            width: 100%;
+            height: 140px;
+            background: var(--bg-secondary, #1a1a2e);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .template-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .template-thumbnail .placeholder {
+            font-size: 3rem;
+            opacity: 0.5;
+        }
+
+        .template-info {
+            padding: 1rem;
+        }
+
+        .template-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: var(--text-primary, #fff);
+        }
+
+        .template-description {
+            font-size: 0.85rem;
+            color: var(--text-secondary, #888);
+            margin-bottom: 0.75rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .template-meta {
+            display: flex;
+            gap: 0.75rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary, #888);
+            margin-bottom: 1rem;
+        }
+
+        .template-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .category-badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            background: var(--accent-bg, #3a3a5e);
+            border-radius: 4px;
+            font-size: 0.75rem;
+            text-transform: capitalize;
+        }
+
+        .template-actions {
+            display: flex;
+            gap: 0.5rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid var(--border-color, #3a3a5e);
+        }
+
+        .template-actions button {
+            flex: 1;
+            padding: 0.5rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+        }
+
+        .btn-use {
+            background: var(--primary-color, #6366f1);
+            color: white;
+        }
+
+        .btn-use:hover {
+            background: var(--primary-hover, #5558e3);
+        }
+
+        .btn-edit {
+            background: var(--bg-secondary, #3a3a5e);
+            color: var(--text-primary, #fff);
+        }
+
+        .btn-edit:hover {
+            background: var(--bg-tertiary, #4a4a6e);
+        }
+
+        .btn-delete {
+            background: transparent;
+            color: #ef4444;
+            border: 1px solid #ef4444 !important;
+        }
+
+        .btn-delete:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        .filter-bar {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .filter-bar select {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: 1px solid var(--border-color, #3a3a5e);
+            background: var(--card-bg, #2a2a3e);
+            color: var(--text-primary, #fff);
+            font-size: 0.9rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-secondary, #888);
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary, #fff);
+        }
+
+        .empty-state p {
+            margin-bottom: 1.5rem;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--card-bg, #2a2a3e);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color, #3a3a5e);
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-secondary, #888);
+        }
+
+        .modal-close:hover {
+            color: var(--text-primary, #fff);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border-color, #3a3a5e);
+            border-radius: 6px;
+            background: var(--bg-secondary, #1a1a2e);
+            color: var(--text-primary, #fff);
+            font-size: 1rem;
+        }
+
+        .form-group textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border-color, #3a3a5e);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="admin-header">
+            <div class="header-title">
+                <img src="/static/logo.png" alt="BBS Logo" class="header-logo">
+                <div>
+                    <h1>My Templates</h1>
+                    <p class="subtitle">Manage your saved screen templates</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <a href="/admin/screens" class="btn-primary">+ Create New Screen</a>
+            <div class="nav-links">
+                <a href="/admin/screens" class="nav-link">Screens</a>
+                <a href="/admin/themes" class="nav-link">Themes</a>
+                <a href="/admin/media" class="nav-link">Media</a>
+                {% if clerk_publishable_key %}
+                <a href="/admin/usage" class="nav-link">Usage & Billing</a>
+                <a href="#" class="nav-link" onclick="signOut(); return false;">Sign Out</a>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if templates %}
+        <div class="filter-bar">
+            <span>Filter by category:</span>
+            <select id="category-filter" onchange="filterByCategory(this.value)">
+                <option value="">All Categories</option>
+                {% for cat in categories %}
+                <option value="{{ cat.value }}" {% if current_category == cat.value %}selected{% endif %}>{{ cat.label }}</option>
+                {% endfor %}
+            </select>
+            <span style="margin-left: auto; color: var(--text-secondary);">{{ total_count }} template{{ 's' if total_count != 1 else '' }}</span>
+        </div>
+        {% endif %}
+
+        {% if templates %}
+        <div class="template-grid">
+            {% for template in templates %}
+            <div class="template-card" data-template-id="{{ template.id }}">
+                <div class="template-thumbnail">
+                    {% if template.thumbnail_url %}
+                    <img src="{{ template.thumbnail_url }}" alt="{{ template.name }}">
+                    {% else %}
+                    <span class="placeholder">📄</span>
+                    {% endif %}
+                </div>
+                <div class="template-info">
+                    <div class="template-name">{{ template.name }}</div>
+                    <div class="template-description">{{ template.description or 'No description' }}</div>
+                    <div class="template-meta">
+                        <span class="category-badge">{{ template.category | replace('_', ' ') }}</span>
+                        <span>{{ template.pages_count }} page{{ 's' if template.pages_count != 1 else '' }}</span>
+                    </div>
+                    <div class="template-actions">
+                        <button class="btn-use" onclick="useTemplate('{{ template.id }}')">Use</button>
+                        <button class="btn-edit" onclick="editTemplate('{{ template.id }}', '{{ template.name | e }}', '{{ template.description | e if template.description else '' }}', '{{ template.category }}')">Edit</button>
+                        <button class="btn-delete" onclick="deleteTemplate('{{ template.id }}', '{{ template.name | e }}')">Delete</button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if total_pages > 1 %}
+        <div class="pagination">
+            <span class="page-info">Page {{ page }} of {{ total_pages }}</span>
+            <div class="page-controls">
+                <a href="?page={{ page - 1 }}{% if current_category %}&category={{ current_category }}{% endif %}" class="btn-secondary{{ ' disabled' if page <= 1 else '' }}">← Previous</a>
+                <a href="?page={{ page + 1 }}{% if current_category %}&category={{ current_category }}{% endif %}" class="btn-secondary{{ ' disabled' if page >= total_pages else '' }}">Next →</a>
+            </div>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="empty-state">
+            <h3>No templates yet</h3>
+            <p>Save your screen configurations as templates to reuse them later.</p>
+            <p>To create a template, go to any screen's settings and click "Save as Template".</p>
+            <a href="/admin/screens" class="btn-primary">Go to Screens</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Edit Template Modal -->
+    <div id="edit-modal" class="modal" onclick="if(event.target === this) closeEditModal()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Template</h2>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="edit-template-id">
+                <div class="form-group">
+                    <label for="edit-name">Name</label>
+                    <input type="text" id="edit-name" placeholder="Template name" maxlength="100">
+                </div>
+                <div class="form-group">
+                    <label for="edit-description">Description</label>
+                    <textarea id="edit-description" placeholder="Optional description" maxlength="500"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit-category">Category</label>
+                    <select id="edit-category">
+                        {% for cat in categories %}
+                        <option value="{{ cat.value }}">{{ cat.label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeEditModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveTemplateEdit()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Clerk sign out
+        async function signOut() {
+            if (window.Clerk) {
+                await window.Clerk.signOut();
+                window.location.href = '/';
+            }
+        }
+
+        // Get auth headers for API calls
+        async function getAuthHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            {% if clerk_publishable_key %}
+            if (window.Clerk && window.Clerk.session) {
+                const token = await window.Clerk.session.getToken();
+                if (token) {
+                    headers['Authorization'] = `Bearer ${token}`;
+                }
+            }
+            {% endif %}
+            return headers;
+        }
+
+        // Filter by category
+        function filterByCategory(category) {
+            const url = new URL(window.location);
+            if (category) {
+                url.searchParams.set('category', category);
+            } else {
+                url.searchParams.delete('category');
+            }
+            url.searchParams.delete('page');
+            window.location = url;
+        }
+
+        // Use template - create a new screen from it
+        async function useTemplate(templateId) {
+            if (!confirm('Create a new screen from this template?')) return;
+
+            const headers = await getAuthHeaders();
+            const response = await fetch(`/api/v1/screens?template_id=${encodeURIComponent(templateId)}`, {
+                method: 'POST',
+                headers: headers,
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                window.location.href = `/admin/screens`;
+            } else {
+                const error = await response.json().catch(() => ({}));
+                alert(error.detail || 'Failed to create screen from template');
+            }
+        }
+
+        // Edit template modal
+        function editTemplate(id, name, description, category) {
+            document.getElementById('edit-template-id').value = id;
+            document.getElementById('edit-name').value = name;
+            document.getElementById('edit-description').value = description;
+            document.getElementById('edit-category').value = category;
+            document.getElementById('edit-modal').classList.add('active');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.remove('active');
+        }
+
+        async function saveTemplateEdit() {
+            const id = document.getElementById('edit-template-id').value;
+            const name = document.getElementById('edit-name').value.trim();
+            const description = document.getElementById('edit-description').value.trim();
+            const category = document.getElementById('edit-category').value;
+
+            if (!name) {
+                alert('Name is required');
+                return;
+            }
+
+            const headers = await getAuthHeaders();
+            const response = await fetch(`/api/v1/templates/${id}`, {
+                method: 'PATCH',
+                headers: headers,
+                credentials: 'include',
+                body: JSON.stringify({ name, description: description || null, category })
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const error = await response.json().catch(() => ({}));
+                alert(error.detail || 'Failed to update template');
+            }
+        }
+
+        // Delete template
+        async function deleteTemplate(id, name) {
+            if (!confirm(`Are you sure you want to delete "${name}"? This cannot be undone.`)) return;
+
+            const headers = await getAuthHeaders();
+            const response = await fetch(`/api/v1/templates/${id}`, {
+                method: 'DELETE',
+                headers: headers,
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                window.location.reload();
+            } else {
+                const error = await response.json().catch(() => ({}));
+                alert(error.detail || 'Failed to delete template');
+            }
+        }
+
+        // Initialize Clerk
+        {% if clerk_publishable_key %}
+        window.addEventListener('load', async () => {
+            if (window.Clerk) {
+                await window.Clerk.load();
+            }
+        });
+        {% endif %}
+    </script>
+</body>
+</html>

@@ -29,7 +29,7 @@ curl -X PATCH .../screens/abc123 -d '{"theme": "catppuccin-mocha"}'
 | Panel | `#313244` |
 | Text | `#cdd6f4` |
 
-![Catppuccin Mocha Theme](../../tests/e2e/screenshots/theme_catppuccin-mocha.png)
+![Catppuccin Mocha Theme](../images/screenshots/theme_catppuccin-mocha.png)
 
 #### Nord
 
@@ -45,7 +45,7 @@ curl -X PATCH .../screens/abc123 -d '{"theme": "nord"}'
 | Panel | `#3b4252` |
 | Text | `#eceff4` |
 
-![Nord Theme](../../tests/e2e/screenshots/theme_nord.png)
+![Nord Theme](../images/screenshots/theme_nord.png)
 
 #### Dracula
 
@@ -61,7 +61,7 @@ curl -X PATCH .../screens/abc123 -d '{"theme": "dracula"}'
 | Panel | `#44475a` |
 | Text | `#f8f8f2` |
 
-![Dracula Theme](../../tests/e2e/screenshots/theme_dracula.png)
+![Dracula Theme](../images/screenshots/theme_dracula.png)
 
 #### Tokyo Night
 
@@ -77,7 +77,7 @@ curl -X PATCH .../screens/abc123 -d '{"theme": "tokyo-night"}'
 | Panel | `#24283b` |
 | Text | `#a9b1d6` |
 
-![Tokyo Night Theme](../../tests/e2e/screenshots/theme_tokyo-night.png)
+![Tokyo Night Theme](../images/screenshots/theme_tokyo-night.png)
 
 #### Gruvbox Dark
 
@@ -93,7 +93,7 @@ curl -X PATCH .../screens/abc123 -d '{"theme": "gruvbox-dark"}'
 | Panel | `#3c3836` |
 | Text | `#ebdbb2` |
 
-![Gruvbox Dark Theme](../../tests/e2e/screenshots/theme_gruvbox-dark.png)
+![Gruvbox Dark Theme](../images/screenshots/theme_gruvbox-dark.png)
 
 #### Solarized Dark
 
@@ -109,7 +109,7 @@ curl -X PATCH .../screens/abc123 -d '{"theme": "solarized-dark"}'
 | Panel | `#073642` |
 | Text | `#839496` |
 
-![Solarized Dark Theme](../../tests/e2e/screenshots/theme_solarized-dark.png)
+![Solarized Dark Theme](../images/screenshots/theme_solarized-dark.png)
 
 ### Light Themes
 
@@ -127,7 +127,7 @@ curl -X PATCH .../screens/abc123 -d '{"theme": "catppuccin-latte"}'
 | Panel | `#e6e9ef` |
 | Text | `#4c4f69` |
 
-![Catppuccin Latte Theme](../../tests/e2e/screenshots/theme_catppuccin-latte.png)
+![Catppuccin Latte Theme](../images/screenshots/theme_catppuccin-latte.png)
 
 #### Solarized Light
 
@@ -143,7 +143,7 @@ curl -X PATCH .../screens/abc123 -d '{"theme": "solarized-light"}'
 | Panel | `#eee8d5` |
 | Text | `#657b83` |
 
-![Solarized Light Theme](../../tests/e2e/screenshots/theme_solarized-light.png)
+![Solarized Light Theme](../images/screenshots/theme_solarized-light.png)
 
 #### Minimal
 
@@ -153,7 +153,7 @@ Clean white theme with ample whitespace.
 curl -X PATCH .../screens/abc123 -d '{"theme": "minimal"}'
 ```
 
-![Minimal Theme](../../tests/e2e/screenshots/theme_minimal.png)
+![Minimal Theme](../images/screenshots/theme_minimal.png)
 
 ### Special Themes
 
@@ -165,7 +165,7 @@ Clean dark gray defaults.
 curl -X PATCH .../screens/abc123 -d '{"theme": "default"}'
 ```
 
-![Default Theme](../../tests/e2e/screenshots/theme_default.png)
+![Default Theme](../images/screenshots/theme_default.png)
 
 #### Modern
 
@@ -175,7 +175,7 @@ Black with sharp corners, bold aesthetic.
 curl -X PATCH .../screens/abc123 -d '{"theme": "modern"}'
 ```
 
-![Modern Theme](../../tests/e2e/screenshots/theme_modern.png)
+![Modern Theme](../images/screenshots/theme_modern.png)
 
 #### Mono
 
@@ -185,7 +185,7 @@ Monospace font with terminal feel.
 curl -X PATCH .../screens/abc123 -d '{"theme": "mono"}'
 ```
 
-![Mono Theme](../../tests/e2e/screenshots/theme_mono.png)
+![Mono Theme](../images/screenshots/theme_mono.png)
 
 #### Elegant
 
@@ -195,7 +195,7 @@ Gradients with serif fonts and refined shadows.
 curl -X PATCH .../screens/abc123 -d '{"theme": "elegant"}'
 ```
 
-![Elegant Theme](../../tests/e2e/screenshots/theme_elegant.png)
+![Elegant Theme](../images/screenshots/theme_elegant.png)
 
 ## Theme with Overrides
 

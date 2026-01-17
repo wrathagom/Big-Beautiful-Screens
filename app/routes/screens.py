@@ -5,7 +5,7 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from ..auth import OptionalUser, RequiredUser, can_modify_screen
@@ -20,6 +20,7 @@ from ..database import (
     get_rotation_settings,
     get_screen_by_id,
     get_screens_count,
+    get_template,
     reorder_pages,
     update_page,
     update_rotation_settings,
@@ -40,7 +41,7 @@ from ..models import (
 from ..quota import check_and_increment_quota, get_user_id_from_api_key
 from ..rate_limit import RATE_LIMIT_CREATE, RATE_LIMIT_MUTATE, limiter
 from ..themes import get_theme
-from ..utils import normalize_content, resolve_theme_settings
+from ..utils import deserialize_template_to_screen_config, normalize_content, resolve_theme_settings
 
 router = APIRouter(tags=["Screens"])
 
@@ -52,8 +53,22 @@ static_path = Path(__file__).parent.parent.parent / "static"
 
 @router.post("/api/v1/screens", response_model=ScreenResponse)
 @limiter.limit(RATE_LIMIT_CREATE)
-async def create_new_screen(request: Request, user: OptionalUser = None):
+async def create_new_screen(
+    request: Request,
+    user: OptionalUser = None,
+    template_id: str | None = Query(
+        default=None,
+        description="Optional template ID to initialize screen with template configuration",
+    ),
+    name: str | None = Query(
+        default=None,
+        description="Optional name for the new screen",
+    ),
+):
     """Create a new screen and return its ID and API key.
+
+    Optionally provide a template_id to initialize the screen with a template's
+    configuration (settings, layout, pages, content).
 
     In SaaS mode, requires authentication and sets the current user as owner.
     Screen creation is limited based on the user's plan.
@@ -64,6 +79,22 @@ async def create_new_screen(request: Request, user: OptionalUser = None):
     # In SaaS mode, require authentication to prevent orphan screens
     if settings.APP_MODE == AppMode.SAAS and not user:
         raise HTTPException(status_code=401, detail="Authentication required to create screens")
+
+    # Fetch and validate template if provided
+    template = None
+    if template_id:
+        template = await get_template(template_id)
+        if not template:
+            raise HTTPException(status_code=404, detail="Template not found")
+
+        # In SaaS mode, user templates are only accessible by their owner
+        if (
+            settings.APP_MODE == AppMode.SAAS
+            and template.get("type") == "user"
+            and template.get("user_id")
+            and (not user or template["user_id"] != user.user_id)
+        ):
+            raise HTTPException(status_code=404, detail="Template not found")
 
     # Set ownership if user is authenticated in SaaS mode
     owner_id = None
@@ -104,13 +135,49 @@ async def create_new_screen(request: Request, user: OptionalUser = None):
     api_key = f"sk_{secrets.token_urlsafe(24)}"
     created_at = datetime.now(UTC).isoformat()
 
-    await create_screen(screen_id, api_key, created_at, owner_id=owner_id, org_id=org_id)
+    await create_screen(screen_id, api_key, created_at, name=name, owner_id=owner_id, org_id=org_id)
+
+    # Apply template configuration if provided
+    if template and template.get("configuration"):
+        screen_settings, pages = deserialize_template_to_screen_config(template["configuration"])
+
+        # Apply screen settings (rotation, styling, etc.)
+        if screen_settings:
+            await update_rotation_settings(
+                screen_id,
+                enabled=screen_settings.get("enabled"),
+                interval=screen_settings.get("interval"),
+                gap=screen_settings.get("gap"),
+                border_radius=screen_settings.get("border_radius"),
+                panel_shadow=screen_settings.get("panel_shadow"),
+                background_color=screen_settings.get("background_color"),
+                panel_color=screen_settings.get("panel_color"),
+                font_family=screen_settings.get("font_family"),
+                font_color=screen_settings.get("font_color"),
+                theme=screen_settings.get("theme"),
+                head_html=screen_settings.get("head_html"),
+                default_layout=screen_settings.get("default_layout"),
+                transition=screen_settings.get("transition"),
+                transition_duration=screen_settings.get("transition_duration"),
+                debug_enabled=screen_settings.get("debug_enabled"),
+            )
+
+        # Create pages from template
+        for page in pages:
+            await upsert_page(
+                screen_id,
+                page["name"],
+                page["payload"],
+                duration=page.get("duration"),
+                expires_at=None,  # Templates don't have expiration
+            )
 
     return ScreenResponse(
         screen_id=screen_id,
         api_key=api_key,
         screen_url=f"/screen/{screen_id}",
         api_url=f"/api/v1/screens/{screen_id}/message",
+        name=name,
     )
 
 

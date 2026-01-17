@@ -19,6 +19,7 @@ from .routes.media import public_router as media_public_router
 from .routes.media import router as media_router
 from .routes.proxy import router as proxy_router
 from .routes.screens import router as screens_router
+from .routes.templates import router as templates_router
 from .routes.themes import router as themes_router
 from .routes_me import router as me_router
 from .webhooks import router as webhooks_router
@@ -28,6 +29,7 @@ openapi_tags = [
     {"name": "Screens", "description": "Create and manage display screens"},
     {"name": "Pages", "description": "Manage pages within a screen for rotation"},
     {"name": "Themes", "description": "Color themes and styling presets"},
+    {"name": "Templates", "description": "Screen templates for quick setup"},
     {"name": "Media", "description": "Upload and manage media files (images, videos)"},
 ]
 
@@ -92,6 +94,7 @@ app.openapi = custom_openapi
 
 # Include API routers
 app.include_router(themes_router)
+app.include_router(templates_router)
 app.include_router(screens_router)
 app.include_router(admin_router)
 app.include_router(media_router)
@@ -123,6 +126,9 @@ async def startup():
     """Initialize database on application startup."""
     await init_db()
 
+    # Seed system templates if none exist
+    await seed_system_templates()
+
     # In self-hosted mode, create demo screen on first run
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         from .database import get_screens_count
@@ -135,6 +141,55 @@ async def startup():
                 print(f"Created demo screen: /screen/{result['screen_id']}")
             except Exception as e:
                 print(f"Failed to create demo screen: {e}")
+
+
+async def seed_system_templates():
+    """Seed system templates on first startup if none exist."""
+    import secrets
+
+    from .database import create_template, delete_template, get_all_templates, get_templates_count
+    from .seed_templates import get_system_templates
+
+    try:
+        # Check if any system templates exist
+        count = await get_templates_count(template_type="system")
+        if count > 0:
+            # Verify existing templates have pages in their configuration
+            existing = await get_all_templates(template_type="system")
+            needs_reseed = False
+            for tmpl in existing:
+                config = tmpl.get("configuration", {})
+                pages = config.get("pages", []) if isinstance(config, dict) else []
+                if not pages:
+                    needs_reseed = True
+                    break
+
+            if not needs_reseed:
+                return  # System templates already exist with valid pages
+
+            # Delete existing system templates and reseed
+            print("Reseeding system templates (existing templates had empty pages)")
+            for tmpl in existing:
+                await delete_template(tmpl["id"])
+
+        # Get seed templates and insert them
+        templates = get_system_templates()
+        for template in templates:
+            template_id = f"tmpl_{secrets.token_hex(8)}"
+            await create_template(
+                template_id=template_id,
+                name=template["name"],
+                description=template["description"],
+                category=template["category"],
+                template_type="system",
+                configuration=template["configuration"],
+                user_id=None,  # System templates have no owner
+                thumbnail_url=template.get("thumbnail_url"),
+            )
+
+        print(f"Seeded {len(templates)} system templates")
+    except Exception as e:
+        print(f"Failed to seed system templates: {e}")
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -476,3 +477,146 @@ class ThemeResponse(BaseModel):
     border_radius: str = Field(description="Corner rounding")
     panel_shadow: str | None = Field(description="Panel shadow")
     is_builtin: bool = Field(description="Whether this is a built-in theme")
+
+
+# ============== Template Models ==============
+
+
+class TemplateCategory(str, Enum):
+    """Use-case categories for screen templates."""
+
+    RESTAURANT = "restaurant"
+    IT_TECH = "it_tech"
+    SMALL_BUSINESS = "small_business"
+    EDUCATION = "education"
+    HEALTHCARE = "healthcare"
+    CUSTOM = "custom"
+
+
+class TemplateType(str, Enum):
+    """Template ownership type."""
+
+    SYSTEM = "system"
+    USER = "user"
+
+
+class TemplateCreate(BaseModel):
+    """Create a new template from an existing screen."""
+
+    screen_id: str = Field(
+        description="ID of the screen to use as the template source",
+        examples=["abc123def456"],
+    )
+    name: str = Field(
+        description="Human-readable template name",
+        max_length=100,
+        examples=["Restaurant Menu Board", "IT Dashboard"],
+    )
+    description: str | None = Field(
+        default=None,
+        description="Optional description of the template",
+        max_length=500,
+        examples=["A clean menu board layout with daily specials section"],
+    )
+    category: TemplateCategory = Field(
+        description="Use-case category for the template",
+        examples=["restaurant", "it_tech"],
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "screen_id": "abc123def456",
+                "name": "Restaurant Menu Board",
+                "description": "A clean menu board layout with header, specials, and footer sections",
+                "category": "restaurant",
+            }
+        }
+    }
+
+
+class TemplateUpdate(BaseModel):
+    """Update template metadata. Only provided fields are modified."""
+
+    name: str | None = Field(
+        default=None,
+        description="Template name",
+        max_length=100,
+    )
+    description: str | None = Field(
+        default=None,
+        description="Template description",
+        max_length=500,
+    )
+    category: TemplateCategory | None = Field(
+        default=None,
+        description="Template category",
+    )
+
+
+class TemplateResponse(BaseModel):
+    """Template summary for list views (excludes configuration)."""
+
+    id: str = Field(description="Unique template identifier")
+    name: str = Field(description="Template name")
+    description: str | None = Field(description="Template description")
+    category: TemplateCategory = Field(description="Use-case category")
+    thumbnail_url: str | None = Field(description="Preview image URL")
+    type: TemplateType = Field(description="Template type (system or user)")
+    created_at: datetime = Field(description="Creation timestamp")
+    updated_at: datetime = Field(description="Last update timestamp")
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "id": "tmpl_abc123",
+                "name": "Restaurant Menu Board",
+                "description": "A clean menu board layout",
+                "category": "restaurant",
+                "thumbnail_url": "/media/thumbnails/tmpl_abc123.png",
+                "type": "system",
+                "created_at": "2024-01-15T10:30:00Z",
+                "updated_at": "2024-01-15T10:30:00Z",
+            }
+        }
+    }
+
+
+class TemplateDetail(TemplateResponse):
+    """Full template details including configuration."""
+
+    configuration: dict = Field(
+        description="Complete screen configuration (settings, layout, pages, content items)"
+    )
+
+    model_config = {
+        "json_schema_extra": {
+            "example": {
+                "id": "tmpl_abc123",
+                "name": "Restaurant Menu Board",
+                "description": "A clean menu board layout",
+                "category": "restaurant",
+                "thumbnail_url": "/media/thumbnails/tmpl_abc123.png",
+                "type": "system",
+                "created_at": "2024-01-15T10:30:00Z",
+                "updated_at": "2024-01-15T10:30:00Z",
+                "configuration": {
+                    "background_color": "#1e1e2e",
+                    "panel_color": "#313244",
+                    "font_family": "system-ui, sans-serif",
+                    "font_color": "#cdd6f4",
+                    "gap": "1rem",
+                    "border_radius": "1rem",
+                    "default_layout": "dashboard-header",
+                    "pages": [
+                        {
+                            "name": "default",
+                            "content": [
+                                {"type": "text", "value": "Welcome!"},
+                            ],
+                        }
+                    ],
+                },
+            }
+        }
+    }
