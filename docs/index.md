@@ -2,7 +2,27 @@
 
 **API-driven real-time display screens for dashboards, menus, and signage.**
 
-Big Beautiful Screens is a lightweight service that lets you push content to display screens in real-time. Point any device—Smart TV, browser, Raspberry Pi—at a screen URL and update it instantly via REST API.
+<div class="grid cards" markdown>
+
+-   :material-server: **Self-Hosted**
+
+    ---
+
+    Run on your own infrastructure with Docker. Full control, no limits, completely free.
+
+    [:octicons-arrow-right-24: Install & Run](getting-started/installation.md)
+
+-   :material-cloud: **Hosted (SaaS)**
+
+    ---
+
+    Start creating screens immediately. No installation, free tier available.
+
+    [:octicons-arrow-right-24: Start Creating](getting-started/saas-quickstart.md)
+
+</div>
+
+---
 
 ## Features
 
