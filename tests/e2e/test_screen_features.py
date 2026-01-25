@@ -574,7 +574,7 @@ class TestHierarchyVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "hierarchy_panel_color.png")
+        assert_snapshot(page, "hierarchy_panel_color.png")
 
     def test_font_color_hierarchy(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -597,7 +597,7 @@ class TestHierarchyVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "hierarchy_font_color.png")
+        assert_snapshot(page, "hierarchy_font_color.png")
 
     def test_mixed_hierarchy(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test multiple style overrides in same screen."""
@@ -629,7 +629,7 @@ class TestHierarchyVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "hierarchy_mixed.png")
+        assert_snapshot(page, "hierarchy_mixed.png")
 
     def test_shadow_hierarchy(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -652,7 +652,7 @@ class TestHierarchyVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "hierarchy_shadow.png")
+        assert_snapshot(page, "hierarchy_shadow.png")
 
 
 class TestWidgetVisualRegression:
@@ -700,7 +700,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_clock_digital_12h.png")
+        assert_snapshot(page, "widget_clock_digital_12h.png")
 
     def test_clock_digital_24h(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -723,7 +723,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_clock_digital_24h.png")
+        assert_snapshot(page, "widget_clock_digital_24h.png")
 
     def test_clock_analog(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test analog clock widget."""
@@ -744,7 +744,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_clock_analog.png")
+        assert_snapshot(page, "widget_clock_analog.png")
 
     def test_clock_with_date(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test clock widget with date display."""
@@ -765,7 +765,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_clock_with_date.png")
+        assert_snapshot(page, "widget_clock_with_date.png")
 
     def test_countdown_labeled(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -792,7 +792,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_countdown_labeled.png")
+        assert_snapshot(page, "widget_countdown_labeled.png")
 
     def test_countdown_simple(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -818,7 +818,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_countdown_simple.png")
+        assert_snapshot(page, "widget_countdown_simple.png")
 
     def test_countdown_expired(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -844,7 +844,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_countdown_expired.png")
+        assert_snapshot(page, "widget_countdown_expired.png")
 
     def test_chart_bar(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test bar chart widget."""
@@ -870,7 +870,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_chart_bar.png")
+        assert_snapshot(page, "widget_chart_bar.png")
 
     def test_chart_line(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test line chart widget with fill."""
@@ -898,7 +898,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_chart_line.png")
+        assert_snapshot(page, "widget_chart_line.png")
 
     def test_stock_single(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test stock widget with single stock."""
@@ -928,7 +928,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_stock_single.png")
+        assert_snapshot(page, "widget_stock_single.png")
 
     def test_stock_grid(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test stock widget with 4 stocks in grid."""
@@ -975,7 +975,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_stock_grid.png")
+        assert_snapshot(page, "widget_stock_grid.png")
 
     def test_stock_list(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test stock widget with 6 stocks in list view."""
@@ -1034,7 +1034,7 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_stock_list.png")
+        assert_snapshot(page, "widget_stock_list.png")
 
     def test_widget_grid_mixed(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -1073,4 +1073,4 @@ class TestWidgetVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "widget_grid_mixed.png")
+        assert_snapshot(page, "widget_grid_mixed.png")

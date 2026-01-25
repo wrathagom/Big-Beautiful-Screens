@@ -68,7 +68,7 @@ class TestLayoutVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "auto_layout_4_items.png")
+        assert_snapshot(page, "auto_layout_4_items.png")
 
     def test_grid_2x2_layout(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test 2x2 grid layout."""
@@ -83,7 +83,7 @@ class TestLayoutVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "grid_2x2_layout.png")
+        assert_snapshot(page, "grid_2x2_layout.png")
 
     def test_grid_3x3_layout(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test 3x3 grid layout."""
@@ -98,7 +98,7 @@ class TestLayoutVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "grid_3x3_layout.png")
+        assert_snapshot(page, "grid_3x3_layout.png")
 
     def test_vertical_layout(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test vertical (single column) layout."""
@@ -113,7 +113,7 @@ class TestLayoutVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "vertical_layout.png")
+        assert_snapshot(page, "vertical_layout.png")
 
     def test_horizontal_layout(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -130,7 +130,7 @@ class TestLayoutVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "horizontal_layout.png")
+        assert_snapshot(page, "horizontal_layout.png")
 
     def test_dashboard_header_layout(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -155,7 +155,7 @@ class TestLayoutVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "dashboard_header_layout.png")
+        assert_snapshot(page, "dashboard_header_layout.png")
 
     def test_sidebar_left_layout(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -172,7 +172,7 @@ class TestLayoutVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "sidebar_left_layout.png")
+        assert_snapshot(page, "sidebar_left_layout.png")
 
     def test_menu_board_layout(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -197,7 +197,7 @@ class TestLayoutVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "menu_board_layout.png")
+        assert_snapshot(page, "menu_board_layout.png")
 
 
 class TestScreenContentRendering:
@@ -253,7 +253,7 @@ class TestScreenContentRendering:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "simple_text_content.png")
+        assert_snapshot(page, "simple_text_content.png")
 
     def test_html_content(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test HTML content rendering."""
@@ -267,7 +267,7 @@ class TestScreenContentRendering:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "html_content.png")
+        assert_snapshot(page, "html_content.png")
 
     def test_multiple_panels_different_content(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -289,7 +289,7 @@ class TestScreenContentRendering:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "multiple_content_types.png")
+        assert_snapshot(page, "multiple_content_types.png")
 
 
 class TestStylingVisualRegression:
@@ -344,7 +344,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_font_family.png")
+        assert_snapshot(page, "styling_font_family.png")
 
     def test_custom_font_color(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -362,7 +362,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_font_color.png")
+        assert_snapshot(page, "styling_font_color.png")
 
     def test_custom_panel_color(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -380,7 +380,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_panel_color.png")
+        assert_snapshot(page, "styling_panel_color.png")
 
     def test_custom_background_color(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -398,7 +398,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_background_color.png")
+        assert_snapshot(page, "styling_background_color.png")
 
     def test_gradient_background(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -416,7 +416,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_gradient_background.png")
+        assert_snapshot(page, "styling_gradient_background.png")
 
     def test_custom_border_radius(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -434,7 +434,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_border_radius.png")
+        assert_snapshot(page, "styling_border_radius.png")
 
     def test_custom_gap(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test large 50px gap between panels."""
@@ -450,7 +450,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_gap.png")
+        assert_snapshot(page, "styling_gap.png")
 
     def test_custom_panel_shadow(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -468,7 +468,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_panel_shadow.png")
+        assert_snapshot(page, "styling_panel_shadow.png")
 
     def test_no_gap_no_radius(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -487,7 +487,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_no_gap_no_radius.png")
+        assert_snapshot(page, "styling_no_gap_no_radius.png")
 
     def test_combined_styling(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -511,7 +511,7 @@ class TestStylingVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "styling_combined.png")
+        assert_snapshot(page, "styling_combined.png")
 
 
 class TestThemeVisualRegression:
@@ -608,7 +608,7 @@ class TestThemeVisualRegression:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), f"theme_{theme_name}.png")
+        assert_snapshot(page, f"theme_{theme_name}.png")
 
 
 class TestScreenBasicFunctionality:
@@ -706,7 +706,7 @@ class TestAdditionalLayouts:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "layout_grid_4x4.png")
+        assert_snapshot(page, "layout_grid_4x4.png")
 
     def test_dashboard_footer_layout(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -731,7 +731,7 @@ class TestAdditionalLayouts:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "layout_dashboard_footer.png")
+        assert_snapshot(page, "layout_dashboard_footer.png")
 
     def test_sidebar_right_layout(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -748,7 +748,7 @@ class TestAdditionalLayouts:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "layout_sidebar_right.png")
+        assert_snapshot(page, "layout_sidebar_right.png")
 
     def test_featured_top_layout(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -770,7 +770,7 @@ class TestAdditionalLayouts:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "layout_featured_top.png")
+        assert_snapshot(page, "layout_featured_top.png")
 
     def test_custom_column_widths(
         self, page: Page, app_server: str, screen_data: dict, assert_snapshot
@@ -787,7 +787,7 @@ class TestAdditionalLayouts:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "layout_custom_columns.png")
+        assert_snapshot(page, "layout_custom_columns.png")
 
     def test_custom_rows(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test custom row heights with auto 1fr 1fr auto."""
@@ -802,4 +802,4 @@ class TestAdditionalLayouts:
         page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
         self.wait_for_stable_screen(page)
 
-        assert_snapshot(page.screenshot(), "layout_custom_rows.png")
+        assert_snapshot(page, "layout_custom_rows.png")

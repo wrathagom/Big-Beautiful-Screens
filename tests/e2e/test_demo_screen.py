@@ -60,7 +60,7 @@ class TestDemoScreenPages:
         # Verify we're on the welcome page
         expect(page.locator("text=Welcome to Big Beautiful Screens")).to_be_visible()
 
-        assert_snapshot(page.screenshot(), "demo_page_1_welcome.png")
+        assert_snapshot(page, "demo_page_1_welcome.png")
 
     def test_demo_page_2_content_types(
         self, page: Page, app_server: str, demo_screen_id: str, assert_snapshot
@@ -75,7 +75,7 @@ class TestDemoScreenPages:
         # Verify we're on the content types page
         expect(page.locator("h1:has-text('Content Types')")).to_be_visible()
 
-        assert_snapshot(page.screenshot(), "demo_page_2_content_types.png")
+        assert_snapshot(page, "demo_page_2_content_types.png")
 
     def test_demo_page_3_api(
         self, page: Page, app_server: str, demo_screen_id: str, assert_snapshot
@@ -91,7 +91,7 @@ class TestDemoScreenPages:
         # Verify we're on the API page
         expect(page.locator("h1:has-text('API Powered')")).to_be_visible()
 
-        assert_snapshot(page.screenshot(), "demo_page_3_api.png")
+        assert_snapshot(page, "demo_page_3_api.png")
 
     def test_demo_page_4_widgets(
         self, page: Page, app_server: str, demo_screen_id: str, assert_snapshot
@@ -114,7 +114,7 @@ class TestDemoScreenPages:
         # Verify clock widgets are visible
         expect(page.locator(".widget-clock").first).to_be_visible()
 
-        assert_snapshot(page.screenshot(), "demo_page_4_widgets.png")
+        assert_snapshot(page, "demo_page_4_widgets.png")
 
     def test_demo_page_5_themes(
         self, page: Page, app_server: str, demo_screen_id: str, assert_snapshot
@@ -132,7 +132,7 @@ class TestDemoScreenPages:
         # Verify we're on the themes page
         expect(page.locator("h1:has-text('Themes & Styling')")).to_be_visible()
 
-        assert_snapshot(page.screenshot(), "demo_page_5_themes.png")
+        assert_snapshot(page, "demo_page_5_themes.png")
 
 
 class TestDemoScreenTransitions:

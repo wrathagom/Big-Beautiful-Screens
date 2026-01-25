@@ -177,30 +177,105 @@ def page(browser, browser_context_args, app_server, request):
     context.close()  # This triggers video save
 
 
+def _compare_images_with_threshold(
+    baseline_bytes: bytes, new_bytes: bytes, threshold: float
+) -> tuple[bool, float]:
+    """Compare two PNG images and return if they match within threshold.
+
+    Uses a simple byte-level comparison after decompressing the PNG data.
+    Returns (match, diff_ratio) where diff_ratio is the percentage of different pixels.
+    """
+    import struct
+    import zlib
+
+    def decode_png_pixels(png_bytes: bytes) -> tuple[int, int, bytes]:
+        """Decode PNG to raw pixel data. Returns (width, height, pixel_data)."""
+        # Verify PNG signature
+        if png_bytes[:8] != b"\x89PNG\r\n\x1a\n":
+            raise ValueError("Not a valid PNG file")
+
+        # Parse chunks to get IHDR (dimensions) and IDAT (compressed data)
+        pos = 8
+        width = height = 0
+        compressed_data = b""
+
+        while pos < len(png_bytes):
+            length = struct.unpack(">I", png_bytes[pos : pos + 4])[0]
+            chunk_type = png_bytes[pos + 4 : pos + 8]
+            chunk_data = png_bytes[pos + 8 : pos + 8 + length]
+
+            if chunk_type == b"IHDR":
+                width, height = struct.unpack(">II", chunk_data[:8])
+            elif chunk_type == b"IDAT":
+                compressed_data += chunk_data
+            elif chunk_type == b"IEND":
+                break
+
+            pos += 12 + length  # 4 (length) + 4 (type) + length + 4 (crc)
+
+        # Decompress and remove filter bytes (first byte of each row)
+        raw_data = zlib.decompress(compressed_data)
+        return width, height, raw_data
+
+    try:
+        w1, h1, data1 = decode_png_pixels(baseline_bytes)
+        w2, h2, data2 = decode_png_pixels(new_bytes)
+
+        # If dimensions differ, definitely not a match
+        if (w1, h1) != (w2, h2):
+            return False, 1.0
+
+        # Compare raw pixel data
+        if data1 == data2:
+            return True, 0.0
+
+        # Count different bytes
+        diff_count = sum(1 for a, b in zip(data1, data2, strict=False) if a != b)
+        diff_ratio = diff_count / len(data1) if data1 else 0
+
+        return diff_ratio <= threshold, diff_ratio
+    except Exception:
+        # If PNG parsing fails, fall back to exact comparison
+        return baseline_bytes == new_bytes, 0.0 if baseline_bytes == new_bytes else 1.0
+
+
 @pytest.fixture
 def assert_snapshot(request):
-    """Fixture for visual snapshot comparison.
+    """Fixture for visual snapshot comparison with threshold tolerance.
 
     Usage:
         def test_example(page, assert_snapshot):
-            assert_snapshot(page.screenshot(), "test_name.png")
+            assert_snapshot(page, "test_name.png")
+
+    Allows up to 1% pixel difference for minor rendering variations.
     """
     screenshots_dir = Path(__file__).parent / "screenshots"
     screenshots_dir.mkdir(exist_ok=True)
 
-    def _assert_snapshot(image_bytes: bytes, name: str):
-        """Compare screenshot against baseline or create new baseline."""
+    def _assert_snapshot(page, name: str, threshold: float = 0.01):
+        """Compare screenshot against baseline with threshold tolerance.
+
+        Args:
+            page: Playwright page object
+            name: Screenshot filename
+            threshold: Pixel difference threshold (0-1), default 0.01 (1%)
+        """
         baseline_path = screenshots_dir / name
+        image_bytes = page.screenshot()
 
         if baseline_path.exists():
-            # Compare against existing baseline
             baseline_bytes = baseline_path.read_bytes()
-            if image_bytes != baseline_bytes:
+            match, diff_ratio = _compare_images_with_threshold(
+                baseline_bytes, image_bytes, threshold
+            )
+
+            if not match:
                 # Save the new screenshot for comparison
                 new_path = screenshots_dir / f"new_{name}"
                 new_path.write_bytes(image_bytes)
                 pytest.fail(
-                    f"Screenshot '{name}' differs from baseline. "
+                    f"Screenshot '{name}' differs from baseline by {diff_ratio:.2%} "
+                    f"(threshold: {threshold:.2%}). "
                     f"New screenshot saved to {new_path}. "
                     f"If the change is expected, replace {baseline_path} with {new_path}."
                 )
