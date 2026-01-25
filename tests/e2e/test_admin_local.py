@@ -52,15 +52,20 @@ class TestScreenCreation:
     def test_create_screen_button_works(self, page: Page, app_server: str):
         """Test that clicking create screen button creates a new screen."""
         page.goto(f"{app_server}/admin/screens")
+        initial_count = page.locator(".screen-card").count()
 
-        # Click create button
+        # Click create button - opens template modal
         page.locator("#create-screen").click()
 
-        # Wait for the screen card to appear
-        screen_card = page.locator(".screen-card").first
-        expect(screen_card).to_be_visible()
+        # Wait for template modal and click "Start from Scratch"
+        expect(page.locator("#template-modal")).to_be_visible()
+        page.locator(".template-option-btn", has_text="Start from Scratch").click()
 
-        # The card should be expanded by default
+        # Wait for a new screen card to appear
+        expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
+
+        # The new card should be expanded by default
+        screen_card = page.locator(".screen-card").first
         expect(screen_card).to_have_class(re.compile(r"expanded"))
 
         # Should have an unnamed screen
@@ -70,8 +75,12 @@ class TestScreenCreation:
         """Test that creating a screen shows a success toast."""
         page.goto(f"{app_server}/admin/screens")
 
-        # Click create button
+        # Click create button - opens template modal
         page.locator("#create-screen").click()
+
+        # Wait for template modal and click "Start from Scratch"
+        expect(page.locator("#template-modal")).to_be_visible()
+        page.locator(".template-option-btn", has_text="Start from Scratch").click()
 
         # Check for success toast
         toast = page.locator(".toast.success")
@@ -81,11 +90,17 @@ class TestScreenCreation:
     def test_create_screen_shows_api_details(self, page: Page, app_server: str):
         """Test that newly created screen shows API key and endpoint."""
         page.goto(f"{app_server}/admin/screens")
+        initial_count = page.locator(".screen-card").count()
 
-        # Click create button
+        # Click create button - opens template modal
         page.locator("#create-screen").click()
 
-        # Wait for card
+        # Wait for template modal and click "Start from Scratch"
+        expect(page.locator("#template-modal")).to_be_visible()
+        page.locator(".template-option-btn", has_text="Start from Scratch").click()
+
+        # Wait for new card
+        expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         card = page.locator(".screen-card").first
         expect(card).to_be_visible()
 
@@ -106,7 +121,11 @@ class TestScreenCardInteractions:
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
         initial_count = page.locator(".screen-card").count()
+        # Click create button - opens template modal
         page.locator("#create-screen").click()
+        # Wait for template modal and click "Start from Scratch"
+        expect(page.locator("#template-modal")).to_be_visible()
+        page.locator(".template-option-btn", has_text="Start from Scratch").click()
         # Wait for a new screen card to appear (count increases)
         expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         # Wait for toast to disappear
@@ -181,7 +200,11 @@ class TestScreenNameEditing:
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
         initial_count = page.locator(".screen-card").count()
+        # Click create button - opens template modal
         page.locator("#create-screen").click()
+        # Wait for template modal and click "Start from Scratch"
+        expect(page.locator("#template-modal")).to_be_visible()
+        page.locator(".template-option-btn", has_text="Start from Scratch").click()
         # Wait for a new screen card to appear (count increases)
         expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         page.wait_for_timeout(500)
@@ -255,7 +278,11 @@ class TestScreenDeletion:
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
         initial_count = page.locator(".screen-card").count()
+        # Click create button - opens template modal
         page.locator("#create-screen").click()
+        # Wait for template modal and click "Start from Scratch"
+        expect(page.locator("#template-modal")).to_be_visible()
+        page.locator(".template-option-btn", has_text="Start from Scratch").click()
         # Wait for a new screen card to appear (count increases)
         expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         page.wait_for_timeout(500)
@@ -332,7 +359,11 @@ class TestScreenActions:
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
         initial_count = page.locator(".screen-card").count()
+        # Click create button - opens template modal
         page.locator("#create-screen").click()
+        # Wait for template modal and click "Start from Scratch"
+        expect(page.locator("#template-modal")).to_be_visible()
+        page.locator(".template-option-btn", has_text="Start from Scratch").click()
         # Wait for a new screen card to appear (count increases)
         expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         page.wait_for_timeout(500)
@@ -403,7 +434,11 @@ class TestDuplicateScreen:
         """Set up a page with one screen created."""
         page.goto(f"{app_server}/admin/screens")
         initial_count = page.locator(".screen-card").count()
+        # Click create button - opens template modal
         page.locator("#create-screen").click()
+        # Wait for template modal and click "Start from Scratch"
+        expect(page.locator("#template-modal")).to_be_visible()
+        page.locator(".template-option-btn", has_text="Start from Scratch").click()
         # Wait for a new screen card to appear (count increases)
         expect(page.locator(".screen-card")).to_have_count(initial_count + 1)
         page.wait_for_timeout(500)
