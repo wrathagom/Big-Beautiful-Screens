@@ -1,0 +1,148 @@
+{
+  "pages": [
+    {
+      "name": "default",
+      "content": [
+        {
+          "type": "widget",
+          "widget_type": "weather",
+          "widget_config": {
+            "units": "imperial",
+            "display": "daily",
+            "location": "New York",
+            "days_to_show": 7
+          }
+        }
+      ],
+      "layout": null,
+      "background_color": "#0a0a12",
+      "panel_color": "#12121a",
+      "font_family": null,
+      "font_color": "#ffffff",
+      "gap": null,
+      "border_radius": null,
+      "panel_shadow": null,
+      "transition": null,
+      "transition_duration": null,
+      "display_order": 0,
+      "duration": null,
+      "expires_at": null
+    },
+    {
+      "name": "stocks",
+      "content": [
+        {
+          "type": "widget",
+          "widget_type": "stock",
+          "widget_config": {
+            "stocks": [
+              {
+                "name": "NASDAQ",
+                "price": 19572.6,
+                "change": 199.83,
+                "symbol": "^IXIC",
+                "change_percent": 1.03
+              },
+              {
+                "name": "Apple",
+                "price": 243.36,
+                "change": 5.12,
+                "symbol": "AAPL",
+                "change_percent": 2.15
+              },
+              {
+                "name": "Microsoft",
+                "price": 430.53,
+                "change": -2.47,
+                "symbol": "MSFT",
+                "change_percent": -0.57
+              },
+              {
+                "name": "NVIDIA",
+                "price": 140.14,
+                "change": 4.28,
+                "symbol": "NVDA",
+                "change_percent": 3.15
+              },
+              {
+                "name": "Alphabet",
+                "price": 193.95,
+                "change": 1.87,
+                "symbol": "GOOGL",
+                "change_percent": 0.97
+              },
+              {
+                "name": "Amazon",
+                "price": 224.92,
+                "change": -1.35,
+                "symbol": "AMZN",
+                "change_percent": -0.6
+              }
+            ],
+            "compact": true
+          }
+        }
+      ],
+      "layout": null,
+      "background_color": null,
+      "panel_color": null,
+      "font_family": null,
+      "font_color": null,
+      "gap": null,
+      "border_radius": null,
+      "panel_shadow": null,
+      "transition": null,
+      "transition_duration": null,
+      "display_order": 1,
+      "duration": null,
+      "expires_at": null
+    },
+    {
+      "name": "us-news",
+      "content": [
+        {
+          "type": "widget",
+          "widget_type": "rss",
+          "widget_config": {
+            "url": "https://feeds.npr.org/1001/rss.xml",
+            "max_items": 5,
+            "show_date": true,
+            "show_image": true,
+            "title_override": "US News",
+            "show_description": true
+          }
+        }
+      ],
+      "layout": null,
+      "background_color": null,
+      "panel_color": null,
+      "font_family": null,
+      "font_color": null,
+      "gap": null,
+      "border_radius": null,
+      "panel_shadow": null,
+      "transition": null,
+      "transition_duration": null,
+      "display_order": 2,
+      "duration": null,
+      "expires_at": null
+    }
+  ],
+  "rotation": {
+    "enabled": true,
+    "interval": 12,
+    "gap": "1.5rem",
+    "border_radius": "0.75rem",
+    "panel_shadow": "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+    "background_color": "#0a1628",
+    "panel_color": "rgba(255,255,255,0.05)",
+    "font_family": "Inter",
+    "font_color": "#e2e8f0",
+    "theme": "default",
+    "head_html": "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap\" rel=\"stylesheet\">",
+    "default_layout": null,
+    "transition": "fade",
+    "transition_duration": 500,
+    "debug_enabled": false
+  }
+}

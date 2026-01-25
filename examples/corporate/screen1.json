@@ -1,0 +1,156 @@
+{
+  "pages": [
+    {
+      "name": "default",
+      "content": [
+        {
+          "type": "widget",
+          "widget_type": "clock",
+          "widget_config": {
+            "show_date": true,
+            "date_format": "long",
+            "show_seconds": false
+          }
+        },
+        {
+          "type": "widget",
+          "widget_type": "weather",
+          "widget_config": {
+            "units": "imperial",
+            "display": "full",
+            "location": "New York"
+          }
+        }
+      ],
+      "layout": null,
+      "background_color": null,
+      "panel_color": null,
+      "font_family": null,
+      "font_color": null,
+      "gap": null,
+      "border_radius": null,
+      "panel_shadow": null,
+      "transition": null,
+      "transition_duration": null,
+      "display_order": 0,
+      "duration": null,
+      "expires_at": null
+    },
+    {
+      "name": "stocks",
+      "content": [
+        {
+          "type": "widget",
+          "widget_type": "stock",
+          "widget_config": {
+            "stocks": [
+              {
+                "name": "Dow Jones",
+                "price": 42840.26,
+                "change": 498.02,
+                "symbol": "^DJI",
+                "change_percent": 1.18
+              },
+              {
+                "name": "S&P 500",
+                "price": 5930.85,
+                "change": 63.77,
+                "symbol": "^GSPC",
+                "change_percent": 1.09
+              },
+              {
+                "name": "JPMorgan Chase",
+                "price": 243.15,
+                "change": 2.87,
+                "symbol": "JPM",
+                "change_percent": 1.19
+              },
+              {
+                "name": "Bank of America",
+                "price": 46.82,
+                "change": 0.65,
+                "symbol": "BAC",
+                "change_percent": 1.41
+              },
+              {
+                "name": "Walmart",
+                "price": 91.23,
+                "change": 0.42,
+                "symbol": "WMT",
+                "change_percent": 0.46
+              },
+              {
+                "name": "Exxon Mobil",
+                "price": 107.45,
+                "change": -1.23,
+                "symbol": "XOM",
+                "change_percent": -1.13
+              }
+            ],
+            "compact": true
+          }
+        }
+      ],
+      "layout": null,
+      "background_color": null,
+      "panel_color": null,
+      "font_family": null,
+      "font_color": null,
+      "gap": null,
+      "border_radius": null,
+      "panel_shadow": null,
+      "transition": null,
+      "transition_duration": null,
+      "display_order": 1,
+      "duration": null,
+      "expires_at": null
+    },
+    {
+      "name": "world-news",
+      "content": [
+        {
+          "type": "widget",
+          "widget_type": "rss",
+          "widget_config": {
+            "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+            "max_items": 5,
+            "show_date": true,
+            "show_image": true,
+            "title_override": "World News",
+            "show_description": true
+          }
+        }
+      ],
+      "layout": null,
+      "background_color": null,
+      "panel_color": null,
+      "font_family": null,
+      "font_color": null,
+      "gap": null,
+      "border_radius": null,
+      "panel_shadow": null,
+      "transition": null,
+      "transition_duration": null,
+      "display_order": 2,
+      "duration": null,
+      "expires_at": null
+    }
+  ],
+  "rotation": {
+    "enabled": true,
+    "interval": 12,
+    "gap": "1.5rem",
+    "border_radius": "0.75rem",
+    "panel_shadow": "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+    "background_color": "#0a1628",
+    "panel_color": "rgba(255,255,255,0.05)",
+    "font_family": "Inter",
+    "font_color": "#e2e8f0",
+    "theme": "default",
+    "head_html": "<link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap\" rel=\"stylesheet\">",
+    "default_layout": null,
+    "transition": "fade",
+    "transition_duration": 500,
+    "debug_enabled": false
+  }
+}

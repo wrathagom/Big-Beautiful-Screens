@@ -1,0 +1,52 @@
+{
+  "pages": [
+    {
+      "name": "default",
+      "content": [
+        {
+          "type": "markdown",
+          "value": "### Coffee\n\n```\nEspresso .......... $3.50\nAmericano ......... $4.00\nLatte ............. $5.00\nCappuccino ........ $5.00\nMocha ............. $5.50\nCold Brew ......... $4.50\nIced Latte ........ $5.50\n```\n\n### Pastries\n\n```\nCroissant ......... $3.50\nMuffin ............ $3.00\nScone ............. $3.25\n```"
+        },
+        {
+          "url": "https://pub-8ffed939b02c48a8a2558f82b7bd79c1.r2.dev/user_37AsSrGTVClcGMugVHjekTQVwDO/ef601f81-4a46-4247-9e0a-f1cb4e057471/Coffee_Art.mp4",
+          "loop": true,
+          "type": "video",
+          "muted": true,
+          "autoplay": true
+        }
+      ],
+      "layout": {
+        "columns": 2
+      },
+      "background_color": "#1C1210",
+      "panel_color": "#1C1210",
+      "font_family": "Georgia",
+      "font_color": "#E8D4C4",
+      "gap": "0",
+      "border_radius": "0",
+      "panel_shadow": null,
+      "transition": null,
+      "transition_duration": null,
+      "display_order": 0,
+      "duration": null,
+      "expires_at": null
+    }
+  ],
+  "rotation": {
+    "enabled": false,
+    "interval": 30,
+    "gap": "1.25rem",
+    "border_radius": "1rem",
+    "panel_shadow": "0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)",
+    "background_color": "linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)",
+    "panel_color": "rgba(255, 255, 255, 0.1)",
+    "font_family": "system-ui, -apple-system, sans-serif",
+    "font_color": "#f0f0f0",
+    "theme": "default",
+    "head_html": "<link href=\"https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Cormorant+Garamond:wght@500;600&display=swap\" rel=\"stylesheet\"><style>pre, code { background: transparent !important; border: none !important; color: inherit !important; font-family: \"IBM Plex Mono\", monospace !important; } h1,h2,h3,h4 { font-family: \"Cormorant Garamond\", serif !important; } h3 { padding-bottom: 0.5rem; border-bottom: 1px solid #E8D4C4; margin-bottom: 1rem; }</style>",
+    "default_layout": null,
+    "transition": "none",
+    "transition_duration": 500,
+    "debug_enabled": false
+  }
+}

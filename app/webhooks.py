@@ -90,6 +90,11 @@ async def clerk_webhook(
         name = f"{data.get('first_name', '')} {data.get('last_name', '')}".strip() or None
 
         if user_id and email:
+            # Check if user is new to OUR database (not just Clerk)
+            # This handles the case where DB is reset but user exists in Clerk
+            existing_user = await db.get_user(user_id)
+            is_new_user = existing_user is None
+
             await db.create_or_update_user(
                 user_id=user_id,
                 email=email,
@@ -97,12 +102,13 @@ async def clerk_webhook(
                 plan="free",  # Default plan
             )
 
-            # Create demo screen for new users
-            if event_type == "user.created":
+            # Create demo screen for users who are new to our system
+            if is_new_user:
                 from .onboarding import create_demo_screen
 
                 try:
                     await create_demo_screen(owner_id=user_id)
+                    print(f"Created demo screen for user {user_id}")
                 except Exception as e:
                     print(f"Failed to create demo screen for user {user_id}: {e}")
 
