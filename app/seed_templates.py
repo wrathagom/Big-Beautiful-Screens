@@ -47,8 +47,8 @@ def _get_restaurant_templates() -> list[dict]:
                 "background_color": "#1a0f00",
                 "panel_color": "#2d1f10",
                 "font_color": "#f5e6d3",
-                "gap": 12,
-                "border_radius": 8,
+                "gap": "12px",
+                "border_radius": "8px",
                 "pages": [
                     {
                         "name": "Menu",
@@ -80,8 +80,8 @@ def _get_restaurant_templates() -> list[dict]:
                 "background_color": "#0d1117",
                 "panel_color": "#161b22",
                 "font_color": "#e6edf3",
-                "gap": 16,
-                "border_radius": 12,
+                "gap": "16px",
+                "border_radius": "12px",
                 "pages": [
                     {
                         "name": "Specials",
@@ -119,8 +119,8 @@ def _get_it_tech_templates() -> list[dict]:
                 "background_color": "#0a0a0f",
                 "panel_color": "#12121a",
                 "font_color": "#00ff88",
-                "gap": 8,
-                "border_radius": 4,
+                "gap": "8px",
+                "border_radius": "4px",
                 "pages": [
                     {
                         "name": "Status",
@@ -156,8 +156,8 @@ def _get_it_tech_templates() -> list[dict]:
                 "background_color": "#1a1b26",
                 "panel_color": "#24283b",
                 "font_color": "#a9b1d6",
-                "gap": 10,
-                "border_radius": 6,
+                "gap": "10px",
+                "border_radius": "6px",
                 "pages": [
                     {
                         "name": "Pipeline",
@@ -190,8 +190,8 @@ def _get_it_tech_templates() -> list[dict]:
                 "panel_color": "#0f0f0f",
                 "font_color": "#33ff33",
                 "font_family": "monospace",
-                "gap": 6,
-                "border_radius": 2,
+                "gap": "6px",
+                "border_radius": "2px",
                 "pages": [
                     {
                         "name": "Network",
@@ -225,8 +225,8 @@ def _get_small_business_templates() -> list[dict]:
                 "background_color": "#1e3a5f",
                 "panel_color": "#2a4a6f",
                 "font_color": "#ffffff",
-                "gap": 20,
-                "border_radius": 12,
+                "gap": "20px",
+                "border_radius": "12px",
                 "pages": [
                     {
                         "name": "Welcome",
@@ -260,8 +260,8 @@ def _get_small_business_templates() -> list[dict]:
                 "background_color": "#2d3436",
                 "panel_color": "#3d4446",
                 "font_color": "#dfe6e9",
-                "gap": 15,
-                "border_radius": 8,
+                "gap": "15px",
+                "border_radius": "8px",
                 "pages": [
                     {
                         "name": "Announcements",
@@ -295,8 +295,8 @@ def _get_education_templates() -> list[dict]:
                 "background_color": "#1a1a2e",
                 "panel_color": "#16213e",
                 "font_color": "#eaeaea",
-                "gap": 10,
-                "border_radius": 8,
+                "gap": "10px",
+                "border_radius": "8px",
                 "pages": [
                     {
                         "name": "Schedule",
@@ -328,8 +328,8 @@ def _get_education_templates() -> list[dict]:
                 "background_color": "#0f4c75",
                 "panel_color": "#1b5f85",
                 "font_color": "#bbe1fa",
-                "gap": 12,
-                "border_radius": 10,
+                "gap": "12px",
+                "border_radius": "10px",
                 "pages": [
                     {
                         "name": "Campus",
@@ -372,8 +372,8 @@ def _get_healthcare_templates() -> list[dict]:
                 "background_color": "#e8f4f8",
                 "panel_color": "#ffffff",
                 "font_color": "#2c3e50",
-                "gap": 15,
-                "border_radius": 12,
+                "gap": "15px",
+                "border_radius": "12px",
                 "pages": [
                     {
                         "name": "Welcome",
@@ -406,8 +406,8 @@ def _get_healthcare_templates() -> list[dict]:
                 "background_color": "#1a5276",
                 "panel_color": "#21618c",
                 "font_color": "#d4e6f1",
-                "gap": 12,
-                "border_radius": 8,
+                "gap": "12px",
+                "border_radius": "8px",
                 "pages": [
                     {
                         "name": "Services",

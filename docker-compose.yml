@@ -5,8 +5,6 @@
 #
 # Access at http://localhost:8000
 
-version: '3.8'
-
 services:
   big-beautiful-screens:
     build: .
