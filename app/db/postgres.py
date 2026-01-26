@@ -237,6 +237,16 @@ class PostgresBackend(DatabaseBackend):
                 CREATE INDEX IF NOT EXISTS idx_templates_category ON templates(category)
             """)
 
+            # Webhook events table (idempotency)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS webhook_events (
+                    provider TEXT NOT NULL,
+                    event_id TEXT NOT NULL,
+                    received_at TIMESTAMPTZ DEFAULT NOW(),
+                    PRIMARY KEY (provider, event_id)
+                )
+            """)
+
             # Seed built-in themes
             await self._seed_builtin_themes(conn)
 
@@ -1659,3 +1669,18 @@ class PostgresBackend(DatabaseBackend):
         async with pool.acquire() as conn:
             result = await conn.execute("DELETE FROM templates WHERE id = $1", template_id)
             return result == "DELETE 1"
+
+    async def record_webhook_event(self, provider: str, event_id: str) -> bool:
+        """Record a webhook event idempotently."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                """
+                INSERT INTO webhook_events (provider, event_id)
+                VALUES ($1, $2)
+                ON CONFLICT DO NOTHING
+            """,
+                provider,
+                event_id,
+            )
+            return result.endswith("1")

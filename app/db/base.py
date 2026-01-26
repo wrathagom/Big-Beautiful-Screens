@@ -434,3 +434,10 @@ class DatabaseBackend(ABC):
         Returns True if deleted, False if not found.
         """
         pass
+
+    # ============== Webhook Events (SaaS only) ==============
+
+    @abstractmethod
+    async def record_webhook_event(self, provider: str, event_id: str) -> bool:
+        """Record a webhook event idempotently. Returns True if newly recorded."""
+        pass

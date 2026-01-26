@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     HELP_URL: str = "https://github.com/wrathagom/Big-Beautiful-Screens/issues"
     HELP_TEXT: str | None = None  # Auto-set based on mode if not specified
 
+    # Debug logging
+    AUTH_DEBUG: bool = False
+
     class Config:
         env_file = ".env"
         case_sensitive = True

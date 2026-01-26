@@ -4,8 +4,6 @@ Handles Clerk webhooks for user and organization sync.
 Handles Stripe webhooks for subscription management.
 """
 
-import json
-
 import stripe
 from fastapi import APIRouter, Header, HTTPException, Request
 from svix.webhooks import Webhook, WebhookVerificationError
@@ -44,35 +42,36 @@ async def clerk_webhook(
     # Get raw body for signature verification
     body = await request.body()
 
-    # Verify webhook signature if secret is configured
-    if settings.CLERK_WEBHOOK_SECRET:
-        if not svix_id or not svix_timestamp or not svix_signature:
-            raise HTTPException(status_code=400, detail="Missing webhook headers")
+    if not settings.CLERK_WEBHOOK_SECRET:
+        raise HTTPException(status_code=500, detail="Clerk webhook secret not configured")
 
-        try:
-            wh = Webhook(settings.CLERK_WEBHOOK_SECRET)
-            event = wh.verify(
-                body,
-                {
-                    "svix-id": svix_id,
-                    "svix-timestamp": svix_timestamp,
-                    "svix-signature": svix_signature,
-                },
-            )
-        except WebhookVerificationError as e:
-            print(f"Clerk webhook verification failed: {e}")
-            raise HTTPException(status_code=401, detail="Invalid signature") from e
-    else:
-        # No secret configured, just parse the JSON
-        try:
-            event = json.loads(body)
-        except json.JSONDecodeError as e:
-            raise HTTPException(status_code=400, detail="Invalid JSON") from e
+    if not svix_id or not svix_timestamp or not svix_signature:
+        raise HTTPException(status_code=400, detail="Missing webhook headers")
+
+    try:
+        wh = Webhook(settings.CLERK_WEBHOOK_SECRET)
+        event = wh.verify(
+            body,
+            {
+                "svix-id": svix_id,
+                "svix-timestamp": svix_timestamp,
+                "svix-signature": svix_signature,
+            },
+        )
+    except WebhookVerificationError as e:
+        print(f"Clerk webhook verification failed: {e}")
+        raise HTTPException(status_code=401, detail="Invalid signature") from e
 
     event_type = event.get("type")
     data = event.get("data", {})
 
     db = get_database()
+
+    event_id = event.get("id")
+    if event_id:
+        recorded = await db.record_webhook_event("clerk", event_id)
+        if not recorded:
+            return {"success": True, "event": event_type, "duplicate": True}
 
     # Handle user events
     if event_type == "user.created" or event_type == "user.updated":
@@ -217,6 +216,12 @@ async def stripe_webhook(
     data = event["data"]["object"]
 
     db = get_database()
+
+    event_id = event.get("id")
+    if event_id:
+        recorded = await db.record_webhook_event("stripe", event_id)
+        if not recorded:
+            return {"success": True, "event": event_type, "duplicate": True}
 
     # Handle checkout completion - upgrade plan
     if event_type == "checkout.session.completed":

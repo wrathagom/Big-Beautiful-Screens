@@ -26,6 +26,11 @@ def _get_clerk() -> Clerk:
     return _clerk_client
 
 
+def _auth_debug_log(settings, message: str) -> None:
+    if settings.AUTH_DEBUG:
+        print(message)
+
+
 def _get_request_origin(request: Request) -> str | None:
     """Build request origin, honoring proxy headers if present."""
     forwarded_proto = request.headers.get("x-forwarded-proto")
@@ -119,19 +124,18 @@ async def get_current_user(request: Request) -> AuthUser | None:
     if settings.APP_MODE == AppMode.SELF_HOSTED:
         return None
 
-    # Debug: log what we're working with
-    print("=== GET_CURRENT_USER DEBUG ===")
-    print(f"Cookies: {list(request.cookies.keys())}")
+    _auth_debug_log(settings, "=== GET_CURRENT_USER DEBUG ===")
+    _auth_debug_log(settings, f"Cookies: {list(request.cookies.keys())}")
     session_name, session_value = _get_session_cookie(request)
-    print(f"Has __session: {session_value is not None}")
+    _auth_debug_log(settings, f"Has __session: {session_value is not None}")
     if session_name and session_name != "__session":
-        print(f"Session cookie name: {session_name}")
+        _auth_debug_log(settings, f"Session cookie name: {session_name}")
     db_jwt = _get_clerk_db_jwt(request)
-    print(f"Has __clerk_db_jwt param: {db_jwt is not None}")
+    _auth_debug_log(settings, f"Has __clerk_db_jwt param: {db_jwt is not None}")
 
     # Check if there's any token to verify
     if not _has_clerk_token(request):
-        print("No Clerk token found, returning None")
+        _auth_debug_log(settings, "No Clerk token found, returning None")
         return None
 
     try:
@@ -181,7 +185,10 @@ async def get_current_user(request: Request) -> AuthUser | None:
         if request_origin and request_origin not in authorized_parties:
             authorized_parties.append(request_origin)
 
-        print(f"Calling authenticate_request with authorized_parties: {authorized_parties}")
+        _auth_debug_log(
+            settings,
+            f"Calling authenticate_request with authorized_parties: {authorized_parties}",
+        )
         request_state = clerk.authenticate_request(
             request,
             AuthenticateRequestOptions(
@@ -189,13 +196,15 @@ async def get_current_user(request: Request) -> AuthUser | None:
             ),
         )
 
-        print(
-            f"authenticate_request result: is_signed_in={request_state.is_signed_in}, reason={request_state.reason}"
+        _auth_debug_log(
+            settings,
+            "authenticate_request result: "
+            f"is_signed_in={request_state.is_signed_in}, reason={request_state.reason}",
         )
 
         if not request_state.is_signed_in:
             if request_state.reason:
-                print(f"Clerk auth failed: {request_state.reason}")
+                _auth_debug_log(settings, f"Clerk auth failed: {request_state.reason}")
             return None
 
         # Extract user info from the verified token payload

@@ -41,11 +41,28 @@ from ..models import (
 from ..quota import check_and_increment_quota, get_user_id_from_api_key
 from ..rate_limit import RATE_LIMIT_CREATE, RATE_LIMIT_MUTATE, limiter
 from ..themes import get_theme
-from ..utils import deserialize_template_to_screen_config, normalize_content, resolve_theme_settings
+from ..utils import (
+    deserialize_template_to_screen_config,
+    normalize_content,
+    resolve_theme_settings,
+    sanitize_head_html,
+)
 
 router = APIRouter(tags=["Screens"])
 
 static_path = Path(__file__).parent.parent.parent / "static"
+
+SCREEN_CSP = (
+    "default-src 'self'; "
+    "script-src 'self' https://cdn.jsdelivr.net; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "img-src 'self' data: https:; "
+    "font-src 'self' https://fonts.gstatic.com data:; "
+    "connect-src 'self' ws: wss:; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "frame-ancestors 'none'"
+)
 
 
 # ============== Screen Endpoints ==============
@@ -530,7 +547,9 @@ async def update_screen(
     font_color = (
         request.font_color if request.font_color is not None else theme_values.get("font_color")
     )
-    head_html = request.head_html
+    head_html = sanitize_head_html(request.head_html)
+    if head_html == "":
+        head_html = None
     transition = request.transition
     transition_duration = request.transition_duration
 
@@ -861,7 +880,9 @@ async def view_screen(screen_id: str):
         raise HTTPException(status_code=404, detail="Screen not found")
 
     html_path = static_path / "screen.html"
-    return HTMLResponse(content=html_path.read_text())
+    response = HTMLResponse(content=html_path.read_text())
+    response.headers["Content-Security-Policy"] = SCREEN_CSP
+    return response
 
 
 # ============== WebSocket ==============

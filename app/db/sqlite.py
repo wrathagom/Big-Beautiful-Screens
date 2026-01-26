@@ -153,6 +153,16 @@ class SQLiteBackend(DatabaseBackend):
                 CREATE INDEX IF NOT EXISTS idx_templates_category ON templates(category)
             """)
 
+            # Webhook events table (idempotency)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS webhook_events (
+                    provider TEXT NOT NULL,
+                    event_id TEXT NOT NULL,
+                    received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (provider, event_id)
+                )
+            """)
+
             # Seed built-in themes if table is empty
             await self._seed_builtin_themes(db)
 
@@ -163,6 +173,15 @@ class SQLiteBackend(DatabaseBackend):
 
     async def _run_migrations(self, db) -> None:
         """Run schema migrations for existing databases."""
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS webhook_events (
+                provider TEXT NOT NULL,
+                event_id TEXT NOT NULL,
+                received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (provider, event_id)
+            )
+        """)
+
         async with db.execute("PRAGMA table_info(screens)") as cursor:
             columns = [row[1] async for row in cursor]
 
@@ -1334,3 +1353,16 @@ class SQLiteBackend(DatabaseBackend):
             await db.execute("DELETE FROM templates WHERE id = ?", (template_id,))
             await db.commit()
             return True
+
+    async def record_webhook_event(self, provider: str, event_id: str) -> bool:
+        """Record a webhook event idempotently."""
+        async with aiosqlite.connect(self.db_path) as db:
+            cursor = await db.execute(
+                """
+                INSERT OR IGNORE INTO webhook_events (provider, event_id)
+                VALUES (?, ?)
+            """,
+                (provider, event_id),
+            )
+            await db.commit()
+            return cursor.rowcount > 0

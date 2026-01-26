@@ -41,6 +41,11 @@ def _format_datetime(value: str | datetime | None) -> str:
     return value[:19].replace("T", " ")
 
 
+def _auth_debug_log(settings, message: str) -> None:
+    if settings.AUTH_DEBUG:
+        print(message)
+
+
 def _get_help_text() -> str:
     """Get help button text based on mode or config."""
     settings = get_settings()
@@ -173,10 +178,10 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
     settings = get_settings()
 
     # Debug logging for auth callback
-    print("=== AUTH CALLBACK DEBUG ===")
-    print(f"Query params: {dict(request.query_params)}")
-    print(f"Cookies: {list(request.cookies.keys())}")
-    print(f"Redirect URL: {redirect_url}")
+    _auth_debug_log(settings, "=== AUTH CALLBACK DEBUG ===")
+    _auth_debug_log(settings, f"Query params: {dict(request.query_params)}")
+    _auth_debug_log(settings, f"Cookies: {list(request.cookies.keys())}")
+    _auth_debug_log(settings, f"Redirect URL: {redirect_url}")
 
     if settings.APP_MODE != AppMode.SAAS:
         return RedirectResponse(url=redirect_url, status_code=302)
@@ -186,7 +191,7 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
     # Render the callback page to let the SDK handle the token exchange.
     db_jwt = request.query_params.get("__clerk_db_jwt")
     if db_jwt:
-        print("Found __clerk_db_jwt, rendering callback page")
+        _auth_debug_log(settings, "Found __clerk_db_jwt, rendering callback page")
         response = templates.TemplateResponse(
             request=request,
             name="clerk_callback.html",
@@ -212,7 +217,7 @@ async def auth_callback(request: Request, redirect_url: str = "/admin/screens"):
         handshake_jwt = request.cookies.get("__clerk_handshake")
 
     if handshake_jwt:
-        print(f"Found __clerk_handshake: {handshake_jwt[:50]}...")
+        _auth_debug_log(settings, "Found __clerk_handshake")
         try:
             # Decode JWT payload (we don't need to verify, just extract cookies)
             # JWT format: header.payload.signature

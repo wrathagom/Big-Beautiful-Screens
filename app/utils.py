@@ -1,6 +1,63 @@
 """Utility functions for content processing and theme resolution."""
 
+import html
+from html.parser import HTMLParser
+from urllib.parse import urlparse
+
 from .database import get_theme_from_db
+
+_ALLOWED_HEAD_REL = {"stylesheet", "preconnect"}
+_ALLOWED_HEAD_ATTRS = ("rel", "href", "crossorigin", "referrerpolicy", "as", "type", "media")
+
+
+def _is_allowed_head_href(href: str) -> bool:
+    if href.startswith("/static/"):
+        return True
+    parsed = urlparse(href)
+    return parsed.scheme == "https" or (
+        parsed.scheme == "http" and parsed.hostname in {"localhost", "127.0.0.1"}
+    )
+
+
+class _HeadHtmlSanitizer(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.links: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "link":
+            return
+
+        attr_dict = {key.lower(): value for key, value in attrs if value is not None}
+        rel_value = attr_dict.get("rel", "").lower()
+        rel_tokens = {token for token in rel_value.split() if token}
+        rel = next((token for token in _ALLOWED_HEAD_REL if token in rel_tokens), None)
+        href = attr_dict.get("href", "")
+
+        if not rel or not href or not _is_allowed_head_href(href):
+            return
+
+        filtered_attrs = []
+        for key in _ALLOWED_HEAD_ATTRS:
+            value = attr_dict.get(key)
+            if value and key != "rel":
+                filtered_attrs.append((key, value))
+
+        filtered_attrs.insert(0, ("rel", rel))
+        attr_str = " ".join(
+            f'{key}="{html.escape(value, quote=True)}"' for key, value in filtered_attrs
+        )
+        self.links.append(f"<link {attr_str}>")
+
+
+def sanitize_head_html(raw_html: str | None) -> str | None:
+    """Allow only safe <link> tags for fonts/styles in head HTML."""
+    if raw_html is None:
+        return None
+    sanitizer = _HeadHtmlSanitizer()
+    sanitizer.feed(raw_html)
+    sanitized = "\n".join(sanitizer.links)
+    return sanitized
 
 
 async def resolve_theme_settings(rotation: dict) -> dict:
@@ -257,7 +314,10 @@ def deserialize_template_to_screen_config(template_config: dict) -> tuple[dict, 
     ]
     for field in style_fields:
         if template_config.get(field) is not None:
-            screen_settings[field] = template_config[field]
+            value = template_config[field]
+            if field == "head_html":
+                value = sanitize_head_html(value)
+            screen_settings[field] = value
 
     # Rotation settings (map to screen field names)
     if template_config.get("rotation_enabled") is not None:

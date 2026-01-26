@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
@@ -50,6 +50,24 @@ app = FastAPI(
     description="Real-time display screens for dashboards, status boards, and signage",
     openapi_tags=openapi_tags,
 )
+
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    if proto == "https":
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            "max-age=63072000; includeSubDomains; preload",
+        )
+    return response
+
 
 # Add rate limiting
 app.state.limiter = limiter
