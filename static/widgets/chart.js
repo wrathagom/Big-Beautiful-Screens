@@ -146,7 +146,8 @@ const ChartWidget = {
                 const color = ds.color || this._colorPalette[index % this._colorPalette.length];
                 // Support per-bar colors via backgroundColor array
                 const bgColor = ds.backgroundColor || (isLine ? this._hexToRgba(color, 0.2) : color);
-                const borderColor = ds.borderColor || color;
+                // Match borderColor to backgroundColor for per-bar colors, or use explicit borderColor
+                const borderColor = ds.borderColor || (Array.isArray(bgColor) ? bgColor : color);
                 return {
                     label: ds.label || `Series ${index + 1}`,
                     data: ds.values || ds.data || [],
