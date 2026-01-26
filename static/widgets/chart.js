@@ -123,7 +123,6 @@ const ChartWidget = {
     },
 
     _normalizeData(config) {
-        console.log('[Chart] _normalizeData input:', JSON.stringify(config, null, 2));
         const isLine = config.chart_type === 'line';
 
         // Simple format: values array
@@ -143,14 +142,12 @@ const ChartWidget = {
 
         // Advanced format: datasets array
         if (config.datasets && Array.isArray(config.datasets) && config.datasets.length > 0) {
-            const result = config.datasets.map((ds, index) => {
-                console.log('[Chart] Processing dataset:', index, 'backgroundColor:', ds.backgroundColor);
+            return config.datasets.map((ds, index) => {
                 const color = ds.color || this._colorPalette[index % this._colorPalette.length];
                 // Support per-bar colors via backgroundColor array
                 const bgColor = ds.backgroundColor || (isLine ? this._hexToRgba(color, 0.2) : color);
                 // Match borderColor to backgroundColor for per-bar colors, or use explicit borderColor
                 const borderColor = ds.borderColor || (Array.isArray(bgColor) ? bgColor : color);
-                console.log('[Chart] Resolved bgColor:', bgColor, 'borderColor:', borderColor);
                 return {
                     label: ds.label || `Series ${index + 1}`,
                     data: ds.values || ds.data || [],
@@ -162,8 +159,6 @@ const ChartWidget = {
                     pointRadius: config.point_radius
                 };
             });
-            console.log('[Chart] Normalized datasets:', JSON.stringify(result, null, 2));
-            return result;
         }
 
         // Fallback: empty dataset
