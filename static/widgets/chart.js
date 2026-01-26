@@ -47,6 +47,9 @@ const ChartWidget = {
         fill: { default: false },
         tension: { default: 0.1 },
         point_radius: { default: 3 },
+        index_axis: { enum: ['x', 'y'], default: 'x' },  // 'y' for horizontal bars
+        x_min: { default: null },
+        x_max: { default: null },
         y_min: { default: null },
         y_max: { default: null }
     },
@@ -141,11 +144,14 @@ const ChartWidget = {
         if (config.datasets && Array.isArray(config.datasets) && config.datasets.length > 0) {
             return config.datasets.map((ds, index) => {
                 const color = ds.color || this._colorPalette[index % this._colorPalette.length];
+                // Support per-bar colors via backgroundColor array
+                const bgColor = ds.backgroundColor || (isLine ? this._hexToRgba(color, 0.2) : color);
+                const borderColor = ds.borderColor || color;
                 return {
                     label: ds.label || `Series ${index + 1}`,
                     data: ds.values || ds.data || [],
-                    backgroundColor: isLine ? this._hexToRgba(color, 0.2) : color,
-                    borderColor: color,
+                    backgroundColor: bgColor,
+                    borderColor: borderColor,
                     borderWidth: isLine ? 2 : 1,
                     fill: config.fill,
                     tension: config.tension,
@@ -164,7 +170,7 @@ const ChartWidget = {
     },
 
     _buildChartConfig(config, datasets) {
-        return {
+        const chartConfig = {
             type: config.chart_type,
             data: {
                 labels: config.labels || [],
@@ -173,6 +179,7 @@ const ChartWidget = {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                indexAxis: config.index_axis || 'x',  // 'y' for horizontal bars
                 animation: {
                     duration: 500
                 },
@@ -191,7 +198,9 @@ const ChartWidget = {
                         },
                         grid: {
                             display: config.show_grid
-                        }
+                        },
+                        min: config.index_axis === 'y' ? config.x_min : undefined,
+                        max: config.index_axis === 'y' ? config.x_max : undefined
                     },
                     y: {
                         display: true,
@@ -208,6 +217,7 @@ const ChartWidget = {
                 }
             }
         };
+        return chartConfig;
     },
 
     _applyDynamicStyling(wrapper, chart, config) {
