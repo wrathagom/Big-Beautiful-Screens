@@ -79,6 +79,10 @@ def normalize_content(content: list) -> list:
                 entry["image_mode"] = item.image_mode
             if item.wrap is not None:
                 entry["wrap"] = item.wrap
+            if item.grid_column:
+                entry["grid_column"] = item.grid_column
+            if item.grid_row:
+                entry["grid_row"] = item.grid_row
 
             normalized.append(entry)
 
