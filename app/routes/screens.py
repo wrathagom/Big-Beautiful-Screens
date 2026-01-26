@@ -54,9 +54,10 @@ static_path = Path(__file__).parent.parent.parent / "static"
 
 SCREEN_CSP = (
     "default-src 'self'; "
-    "script-src 'self' https://cdn.jsdelivr.net; "
+    "script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; "
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
     "img-src 'self' data: https:; "
+    "media-src 'self' https: blob:; "
     "font-src 'self' https://fonts.gstatic.com data:; "
     "connect-src 'self' ws: wss:; "
     "object-src 'none'; "
