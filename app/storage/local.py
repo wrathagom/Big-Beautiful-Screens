@@ -4,6 +4,7 @@ import os
 import re
 import uuid
 from pathlib import Path
+from typing import AsyncIterator
 
 import aiofiles
 import aiofiles.os
@@ -71,6 +72,39 @@ class LocalStorage(StorageBackend):
             storage_path=storage_path,
             public_url=self.get_public_url(storage_path),
             size_bytes=len(file_data),
+        )
+
+    async def upload_stream(
+        self,
+        file_stream: AsyncIterator[bytes],
+        filename: str,
+        content_type: str,
+        owner_id: str | None = None,
+    ) -> UploadResult:
+        """Upload a file to local storage from a stream."""
+        file_id = str(uuid.uuid4())
+        safe_filename = sanitize_filename(filename)
+
+        storage_dir = self.base_path / owner_id / file_id if owner_id else self.base_path / file_id
+        await aiofiles.os.makedirs(storage_dir, exist_ok=True)
+
+        file_path = storage_dir / safe_filename
+        storage_path = str(file_path.relative_to(self.base_path))
+        size_bytes = 0
+
+        try:
+            async with aiofiles.open(file_path, "wb") as f:
+                async for chunk in file_stream:
+                    size_bytes += len(chunk)
+                    await f.write(chunk)
+        except Exception:
+            await self.delete(storage_path)
+            raise
+
+        return UploadResult(
+            storage_path=storage_path,
+            public_url=self.get_public_url(storage_path),
+            size_bytes=size_bytes,
         )
 
     async def delete(self, storage_path: str) -> bool:

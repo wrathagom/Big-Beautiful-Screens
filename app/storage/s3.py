@@ -1,6 +1,7 @@
 """AWS S3 storage backend."""
 
 import uuid
+from typing import AsyncIterator
 
 import aioboto3
 
@@ -11,6 +12,8 @@ from app.storage.local import sanitize_filename
 
 class S3Storage(StorageBackend):
     """AWS S3 storage backend."""
+
+    _MIN_PART_SIZE = 5 * 1024 * 1024
 
     def __init__(
         self,
@@ -88,6 +91,100 @@ class S3Storage(StorageBackend):
             storage_path=storage_path,
             public_url=self.get_public_url(storage_path),
             size_bytes=len(file_data),
+        )
+
+    async def upload_stream(
+        self,
+        file_stream: AsyncIterator[bytes],
+        filename: str,
+        content_type: str,
+        owner_id: str | None = None,
+    ) -> UploadResult:
+        """Upload a file to S3 using multipart upload."""
+        file_id = str(uuid.uuid4())
+        safe_filename = sanitize_filename(filename)
+
+        if owner_id:
+            storage_path = f"{owner_id}/{file_id}/{safe_filename}"
+        else:
+            storage_path = f"{file_id}/{safe_filename}"
+
+        iterator = file_stream.__aiter__()
+        try:
+            first_chunk = await iterator.__anext__()
+        except StopAsyncIteration:
+            async with self._session.client("s3", **self._get_client_kwargs()) as s3:
+                await s3.put_object(
+                    Bucket=self.bucket,
+                    Key=storage_path,
+                    Body=b"",
+                    ContentType=content_type,
+                )
+            return UploadResult(
+                storage_path=storage_path,
+                public_url=self.get_public_url(storage_path),
+                size_bytes=0,
+            )
+
+        size_bytes = 0
+        parts = []
+        part_number = 1
+        buffer = bytearray()
+
+        async with self._session.client("s3", **self._get_client_kwargs()) as s3:
+            response = await s3.create_multipart_upload(
+                Bucket=self.bucket,
+                Key=storage_path,
+                ContentType=content_type,
+            )
+            upload_id = response["UploadId"]
+
+            async def upload_part(data: bytes) -> None:
+                nonlocal part_number
+                response = await s3.upload_part(
+                    Bucket=self.bucket,
+                    Key=storage_path,
+                    UploadId=upload_id,
+                    PartNumber=part_number,
+                    Body=data,
+                )
+                parts.append({"ETag": response["ETag"], "PartNumber": part_number})
+                part_number += 1
+
+            try:
+                size_bytes += len(first_chunk)
+                buffer.extend(first_chunk)
+
+                async for chunk in iterator:
+                    size_bytes += len(chunk)
+                    buffer.extend(chunk)
+
+                    while len(buffer) >= self._MIN_PART_SIZE:
+                        part = bytes(buffer[: self._MIN_PART_SIZE])
+                        del buffer[: self._MIN_PART_SIZE]
+                        await upload_part(part)
+
+                if buffer:
+                    await upload_part(bytes(buffer))
+
+                await s3.complete_multipart_upload(
+                    Bucket=self.bucket,
+                    Key=storage_path,
+                    UploadId=upload_id,
+                    MultipartUpload={"Parts": parts},
+                )
+            except Exception:
+                await s3.abort_multipart_upload(
+                    Bucket=self.bucket,
+                    Key=storage_path,
+                    UploadId=upload_id,
+                )
+                raise
+
+        return UploadResult(
+            storage_path=storage_path,
+            public_url=self.get_public_url(storage_path),
+            size_bytes=size_bytes,
         )
 
     async def delete(self, storage_path: str) -> bool:

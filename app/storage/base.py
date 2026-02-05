@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import AsyncIterator
 
 
 @dataclass
@@ -29,6 +30,28 @@ class StorageBackend(ABC):
 
         Args:
             file_data: Raw file bytes
+            filename: Original filename (will be sanitized)
+            content_type: MIME type of the file
+            owner_id: Optional owner ID for organizing files
+
+        Returns:
+            UploadResult with storage path, public URL, and size
+        """
+        pass
+
+    @abstractmethod
+    async def upload_stream(
+        self,
+        file_stream: AsyncIterator[bytes],
+        filename: str,
+        content_type: str,
+        owner_id: str | None = None,
+    ) -> UploadResult:
+        """
+        Upload a file to storage from an async byte stream.
+
+        Args:
+            file_stream: Async iterator yielding file chunks
             filename: Original filename (will be sanitized)
             content_type: MIME type of the file
             owner_id: Optional owner ID for organizing files
