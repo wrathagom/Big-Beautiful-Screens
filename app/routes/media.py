@@ -2,7 +2,7 @@
 
 import os
 import uuid
-from typing import Literal
+from typing import AsyncIterator, Literal
 
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
@@ -36,6 +36,19 @@ from ..storage import get_storage
 from ..storage.local import LocalStorage
 
 router = APIRouter(prefix="/api/v1/media", tags=["Media"])
+
+
+class UploadTooLargeError(Exception):
+    """Raised when an upload exceeds the configured max size."""
+
+
+class UploadLimitError(Exception):
+    """Raised when an upload exceeds size or quota limits."""
+
+    def __init__(self, status_code: int, detail: str) -> None:
+        super().__init__(detail)
+        self.status_code = status_code
+        self.detail = detail
 
 
 def _can_use_media_library(user: OptionalUser, settings) -> tuple[bool, str | None]:
@@ -188,32 +201,66 @@ async def upload_media(
             detail=f"Invalid file type: {content_type}. Allowed types: images (PNG, JPG, GIF, WebP, SVG) and videos (MP4, WebM, MOV).",
         )
 
-    # Check file size
+    # Check file size and storage quota
     max_size = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
-    file_data = await file.read()
-    file_size = len(file_data)
+    upload_limit = max_size
+    quota_detail = None
 
-    if file_size > max_size:
-        raise HTTPException(
-            status_code=413,
-            detail=f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE_MB}MB.",
-        )
+    if settings.APP_MODE == AppMode.SAAS and user:
+        quota = await _get_storage_quota(user)
+        if quota != -1:
+            current_usage = await get_storage_used(owner_id=user.user_id)
+            remaining = quota - current_usage
+            if remaining <= 0:
+                quota_mb = quota / (1024 * 1024)
+                usage_mb = current_usage / (1024 * 1024)
+                raise HTTPException(
+                    status_code=402,
+                    detail=f"Storage quota exceeded. Used {usage_mb:.1f}MB of {quota_mb:.1f}MB.",
+                )
+            upload_limit = min(upload_limit, remaining)
+            quota_mb = quota / (1024 * 1024)
+            usage_mb = current_usage / (1024 * 1024)
+            quota_detail = (
+                f"Storage quota exceeded. Used {usage_mb:.1f}MB of {quota_mb:.1f}MB."
+            )
 
-    # Check storage quota
-    within_quota, error = await _check_storage_quota(user, file_size)
-    if not within_quota:
-        raise HTTPException(status_code=402, detail=error)
+    async def _stream_chunks() -> AsyncIterator[bytes]:
+        uploaded = 0
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            uploaded += len(chunk)
+            if uploaded > upload_limit:
+                if upload_limit < max_size and quota_detail:
+                    raise UploadLimitError(status_code=402, detail=quota_detail)
+                raise UploadTooLargeError()
+            yield chunk
 
     # Upload to storage
     storage = get_storage()
     owner_id = user.user_id if user else None
+    try:
+        result = await storage.upload_stream(
+            file_stream=_stream_chunks(),
+            filename=file.filename or "unnamed",
+            content_type=content_type,
+            owner_id=owner_id,
+        )
+    except UploadLimitError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    except UploadTooLargeError as exc:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {settings.MAX_UPLOAD_SIZE_MB}MB.",
+        ) from exc
 
-    result = await storage.upload(
-        file_data=file_data,
-        filename=file.filename or "unnamed",
-        content_type=content_type,
-        owner_id=owner_id,
-    )
+    # Check storage quota
+    within_quota, error = await _check_storage_quota(user, result.size_bytes)
+    if not within_quota:
+        await storage.delete(result.storage_path)
+        raise HTTPException(status_code=402, detail=error)
 
     # Create database record
     media_id = str(uuid.uuid4())
