@@ -198,7 +198,11 @@ async def update_template_metadata(
 
     # In SaaS mode, verify ownership
     settings = get_settings()
-    if settings.APP_MODE == AppMode.SAAS and existing.get("user_id") and existing["user_id"] != user.user_id:
+    if (
+        settings.APP_MODE == AppMode.SAAS
+        and existing.get("user_id")
+        and existing["user_id"] != user.user_id
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to modify this template")
 
     # Update template
@@ -235,7 +239,11 @@ async def delete_template_endpoint(template_id: str, user: AuthOrAccountKey):
 
     # In SaaS mode, verify ownership
     settings = get_settings()
-    if settings.APP_MODE == AppMode.SAAS and existing.get("user_id") and existing["user_id"] != user.user_id:
+    if (
+        settings.APP_MODE == AppMode.SAAS
+        and existing.get("user_id")
+        and existing["user_id"] != user.user_id
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this template")
 
     success = await delete_template(template_id)
