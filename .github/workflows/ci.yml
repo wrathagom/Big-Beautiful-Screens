@@ -40,7 +40,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run tests
-        run: pytest tests/ -v
+        run: pytest tests/core/unit -v
 
   duplicates:
     runs-on: ubuntu-latest

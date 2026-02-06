@@ -46,32 +46,32 @@ playwright install chromium
 source .env.e2e
 
 # Run tests
-pytest tests/e2e/saas/ -v
+pytest tests/saas/e2e -v
 ```
 
 ### Run specific test files
 
 ```bash
 # Auth tests only
-pytest tests/e2e/saas/test_auth_flows.py -v
+pytest tests/saas/e2e/test_auth_flows.py -v
 
 # Admin dashboard tests
-pytest tests/e2e/saas/test_admin_dashboard.py -v
+pytest tests/saas/e2e/test_admin_dashboard.py -v
 
 # Billing/Stripe tests
-pytest tests/e2e/saas/test_billing.py -v
+pytest tests/saas/e2e/test_billing.py -v
 ```
 
 ### Run with visible browser (debugging)
 
 ```bash
-pytest tests/e2e/saas/ -v --headed
+pytest tests/saas/e2e -v --headed
 ```
 
 ### Run with slow motion (easier to watch)
 
 ```bash
-pytest tests/e2e/saas/ -v --headed --slowmo=500
+pytest tests/saas/e2e -v --headed --slowmo=500
 ```
 
 ## Test Categories

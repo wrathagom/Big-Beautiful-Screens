@@ -1,0 +1,22 @@
+# ============================================================
+# This file is used by cd-info to display directory information
+# Learn more: https://github.com/wrathagom/cd-info
+# ============================================================
+# --- END CD-INFO HEADER ---
+
+# Quick Commands
+  - `source .venv/bin/activate`             Activate virtual environment
+  - `uvicorn app.main:app --reload`        Start dev server
+  - `docker-compose up -d`                 Run with Docker
+
+# Testing
+  - `pytest tests/ -v`                     Run all tests
+  - `pytest tests/e2e/ -v`                 Run E2E tests
+
+# Code Quality
+  - `ruff check app/ tests/`              Lint check
+  - `ruff format app/ tests/`             Auto-format
+
+# Links
+  - Docs: https://docs.bigbeautifulscreens.com/
+  - Repo: https://github.com/wrathagom/Big-Beautiful-Screens

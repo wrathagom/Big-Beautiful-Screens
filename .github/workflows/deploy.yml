@@ -1,10 +1,6 @@
 name: Deploy & E2E Tests
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
     inputs:
       skip_e2e:
@@ -47,7 +43,7 @@ jobs:
         run: ruff format --check app/ tests/
 
       - name: Run unit tests
-        run: pytest tests/ --ignore=tests/e2e -v --tb=short
+        run: pytest tests/core/unit -v --tb=short
 
   # ============================================
   # Job 2: Deploy to Dev Environment
@@ -122,7 +118,7 @@ jobs:
 
       - name: Run E2E tests
         run: |
-          pytest tests/e2e/saas/ -v \
+          pytest tests/saas/e2e -v \
             --tb=short \
             --timeout=120 \
             --screenshot=only-on-failure \
@@ -139,7 +135,7 @@ jobs:
           name: e2e-test-results
           path: |
             test-results/
-            tests/e2e/saas/screenshots/
+            tests/saas/e2e/screenshots/
           retention-days: 7
 
   # ============================================
@@ -168,7 +164,7 @@ jobs:
 
       - name: Run local E2E tests
         run: |
-          pytest tests/e2e/ --ignore=tests/e2e/saas/ -v \
+          pytest tests/core/e2e -v \
             --tb=short \
             --timeout=60
         env:
