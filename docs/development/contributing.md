@@ -84,6 +84,12 @@ All core tests must pass before merging.
    - Test plan
    - Screenshots (if UI changes)
 
+## Merge Strategy
+
+- Keep PR branches up to date by rebasing onto `main` before merge.
+- Resolve conflicts locally and ensure required tests/CI pass after the rebase.
+- Merge using **Rebase and merge** (linear history; no merge commits).
+
 ## Adding a New Widget
 
 Widgets are modular and easy to add:
