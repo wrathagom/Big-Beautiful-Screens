@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Keys - Big Beautiful Screens</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <link rel="stylesheet" href="/static/admin.css">
+    {% if clerk_publishable_key %}
+    <script
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
+        async
+    ></script>
+    {% endif %}
+    <style>
+        .key-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .key-card {
+            background: #1a1a2e;
+            border-radius: 0.5rem;
+            border: 1px solid #2a2a4e;
+            padding: 1.25rem;
+        }
+
+        .key-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .key-info {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .key-name {
+            font-weight: 600;
+            color: #fff;
+            font-size: 1.1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .key-preview-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .key-preview {
+            background: #0d1b2a;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.25rem;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            color: #888;
+        }
+
+        .key-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .key-meta-item {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .key-meta-label {
+            color: #666;
+        }
+
+        .key-scopes {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+
+        .scope-badge {
+            background: #2a2a4e;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            color: #a855f7;
+        }
+
+        .key-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .btn-copy {
+            background: #4a69bd;
+            color: white;
+            border: none;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.85rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-copy:hover {
+            background: #5a79cd;
+        }
+
+        .btn-copy.copied {
+            background: #27ae60;
+        }
+
+        .expired-badge {
+            background: #c0392b;
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #1a1a2e;
+            border-radius: 0.75rem;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #2a2a4e;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            color: #fff;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #888;
+        }
+
+        .modal-close:hover {
+            color: #fff;
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #2a2a4e;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #ccc;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #2a2a4e;
+            border-radius: 0.375rem;
+            background: #0d1b2a;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4a69bd;
+        }
+
+        .key-display {
+            background: #0d1b2a;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .key-display-label {
+            font-size: 0.85rem;
+            color: #888;
+            margin-bottom: 0.5rem;
+        }
+
+        .key-display-value {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.9rem;
+            color: #27ae60;
+            word-break: break-all;
+            padding: 0.75rem;
+            background: #1a1a2e;
+            border-radius: 0.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .key-warning {
+            background: rgba(243, 156, 18, 0.1);
+            border: 1px solid rgba(243, 156, 18, 0.3);
+            border-left: 3px solid #f39c12;
+            padding: 0.75rem 1rem;
+            border-radius: 0.25rem;
+            color: #f39c12;
+            font-size: 0.85rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem;
+            color: #888;
+        }
+
+        .empty-state h3 {
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="admin-header">
+            <div class="header-title">
+                <img src="/static/logo.png" alt="BBS Logo" class="header-logo">
+                <div>
+                    <h1>API Keys</h1>
+                    <p class="subtitle">Manage account-level API keys</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="create-key-btn" class="btn-primary">+ Create New Key</button>
+            <div class="nav-links">
+                <div class="nav-dropdown">
+                    <button class="nav-link" onclick="toggleNavDropdown(this)">Menu &#9662;</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="/admin/screens">Screens</a>
+                        <a href="/admin/templates">Templates</a>
+                        <a href="/admin/themes">Themes</a>
+                        <a href="/admin/media">Media</a>
+                        {% if clerk_publishable_key %}
+                        <a href="/admin/usage">Usage & Billing</a>
+                        <a href="/admin/api-keys" class="active">API Keys</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if clerk_publishable_key %}
+                <button class="btn-delete" onclick="signOut()">Sign Out</button>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="key-list" class="key-list">
+            <div class="loading">Loading API keys...</div>
+        </div>
+
+        <div id="pagination" class="pagination" style="display: none;">
+            <span class="page-info" id="page-info"></span>
+            <div class="page-controls">
+                <button class="btn-secondary" id="prev-btn" onclick="loadKeys(currentPage - 1)">Previous</button>
+                <button class="btn-secondary" id="next-btn" onclick="loadKeys(currentPage + 1)">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Key Modal -->
+    <div id="create-modal" class="modal" onclick="if(event.target === this) closeCreateModal()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Create New API Key</h2>
+                <button class="modal-close" onclick="closeCreateModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="key-name">Name *</label>
+                    <input type="text" id="key-name" placeholder="My API Key" maxlength="100" required>
+                </div>
+                <div class="form-group">
+                    <label for="key-expiration">Expiration</label>
+                    <select id="key-expiration">
+                        <option value="">Never expires</option>
+                        <option value="30">30 days</option>
+                        <option value="60">60 days</option>
+                        <option value="90">90 days</option>
+                        <option value="180">180 days</option>
+                        <option value="365">365 days</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCreateModal()">Cancel</button>
+                <button class="btn-primary" id="create-submit-btn" onclick="createKey()">Create Key</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Created Modal -->
+    <div id="key-created-modal" class="modal" onclick="if(event.target === this) closeKeyCreatedModal()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>API Key Created</h2>
+                <button class="modal-close" onclick="closeKeyCreatedModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="key-display">
+                    <div class="key-display-label">Your new API key:</div>
+                    <div class="key-display-value" id="new-key-value"></div>
+                    <button class="btn-primary" style="width: 100%;" onclick="copyNewKey()">Copy to Clipboard</button>
+                </div>
+                <div class="key-warning">
+                    <strong>Important:</strong> This is the only time you will see this key. Please copy it now and store it securely. You will not be able to retrieve it later.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="closeKeyCreatedModal()">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="modal" onclick="if(event.target === this) closeDeleteModal()">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Delete API Key</h2>
+                <button class="modal-close" onclick="closeDeleteModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the API key "<strong id="delete-key-name"></strong>"?</p>
+                <p style="color: #888; font-size: 0.9rem;">This action cannot be undone. Any applications using this key will immediately lose access.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button class="btn-delete" id="delete-confirm-btn" onclick="confirmDelete()">Delete Key</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let keyToDelete = null;
+        let newKeyValue = null;
+
+        async function signOut() {
+            if (typeof Clerk !== 'undefined' && Clerk.loaded) {
+                await Clerk.signOut();
+            }
+            window.location.href = '/auth/logout';
+        }
+
+        async function getAuthHeaders() {
+            if (typeof Clerk === 'undefined') return {};
+            if (!Clerk.loaded) await Clerk.load();
+            if (!Clerk.session) return {};
+            try {
+                const token = await Clerk.session.getToken();
+                if (token) {
+                    return { 'Authorization': `Bearer ${token}` };
+                }
+            } catch (e) {
+                console.error('[Auth] Error getting token:', e);
+            }
+            return {};
+        }
+
+        function toggleNavDropdown(btn) {
+            const menu = btn.nextElementSibling;
+            const wasOpen = menu.classList.contains('show');
+
+            document.querySelectorAll('.nav-dropdown-menu.show').forEach(m => {
+                m.classList.remove('show');
+            });
+
+            if (!wasOpen) {
+                menu.classList.add('show');
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav-dropdown')) {
+                document.querySelectorAll('.nav-dropdown-menu.show').forEach(menu => {
+                    menu.classList.remove('show');
+                });
+            }
+        });
+
+        async function loadKeys(page = 1) {
+            const keyList = document.getElementById('key-list');
+            keyList.innerHTML = '<div class="loading">Loading API keys...</div>';
+
+            try {
+                const authHeaders = await getAuthHeaders();
+                const response = await fetch(`/api/v1/account/keys?page=${page}&per_page=20`, {
+                    headers: authHeaders,
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    throw new Error('Failed to load keys');
+                }
+
+                const data = await response.json();
+                currentPage = data.page;
+                totalPages = data.total_pages;
+
+                renderKeys(data.keys);
+                updatePagination(data);
+            } catch (error) {
+                keyList.innerHTML = `<div class="empty-state"><h3>Error</h3><p>${error.message}</p></div>`;
+            }
+        }
+
+        function renderKeys(keys) {
+            const keyList = document.getElementById('key-list');
+
+            if (keys.length === 0) {
+                keyList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No API Keys</h3>
+                        <p>Create an API key to authenticate programmatic access to your account.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            keyList.innerHTML = keys.map(key => {
+                const isExpired = key.expires_at && new Date(key.expires_at) < new Date();
+                const expiresDisplay = key.expires_at
+                    ? (isExpired ? 'Expired' : `Expires ${formatDate(key.expires_at)}`)
+                    : 'Never expires';
+
+                return `
+                    <div class="key-card" data-key-id="${key.id}">
+                        <div class="key-header">
+                            <div class="key-info">
+                                <div class="key-name">${escapeHtml(key.name)}</div>
+                                <div class="key-preview-container">
+                                    <code class="key-preview">${escapeHtml(key.key_preview)}</code>
+                                    <button class="btn-copy" onclick="copyKeyPreview(this, '${escapeHtml(key.key_preview)}')">Copy</button>
+                                </div>
+                                <div class="key-meta">
+                                    <div class="key-meta-item">
+                                        <span class="key-meta-label">Scopes:</span>
+                                        <div class="key-scopes">
+                                            ${key.scopes.map(s => `<span class="scope-badge">${escapeHtml(s)}</span>`).join('')}
+                                        </div>
+                                    </div>
+                                    <div class="key-meta-item">
+                                        <span class="key-meta-label">Created:</span>
+                                        <span>${formatDate(key.created_at)}</span>
+                                    </div>
+                                    <div class="key-meta-item">
+                                        <span class="key-meta-label">Last used:</span>
+                                        <span>${key.last_used_at ? formatDate(key.last_used_at) : 'Never'}</span>
+                                    </div>
+                                    <div class="key-meta-item">
+                                        ${isExpired ? '<span class="expired-badge">Expired</span>' : `<span>${expiresDisplay}</span>`}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="key-actions">
+                                <button class="btn-delete" onclick="openDeleteModal('${key.id}', '${escapeHtml(key.name)}')">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updatePagination(data) {
+            const pagination = document.getElementById('pagination');
+            const pageInfo = document.getElementById('page-info');
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+
+            if (data.total_pages > 1) {
+                pagination.style.display = 'flex';
+                pageInfo.textContent = `Page ${data.page} of ${data.total_pages} (${data.total_count} keys)`;
+                prevBtn.disabled = data.page <= 1;
+                nextBtn.disabled = data.page >= data.total_pages;
+                prevBtn.classList.toggle('disabled', data.page <= 1);
+                nextBtn.classList.toggle('disabled', data.page >= data.total_pages);
+            } else {
+                pagination.style.display = 'none';
+            }
+        }
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function copyKeyPreview(btn, value) {
+            navigator.clipboard.writeText(value).then(() => {
+                const original = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.classList.add('copied');
+                setTimeout(() => {
+                    btn.textContent = original;
+                    btn.classList.remove('copied');
+                }, 1500);
+            });
+        }
+
+        document.getElementById('create-key-btn').addEventListener('click', () => {
+            document.getElementById('create-modal').classList.add('active');
+            document.getElementById('key-name').value = '';
+            document.getElementById('key-expiration').value = '';
+            document.getElementById('key-name').focus();
+        });
+
+        function closeCreateModal() {
+            document.getElementById('create-modal').classList.remove('active');
+        }
+
+        async function createKey() {
+            const name = document.getElementById('key-name').value.trim();
+            const expiration = document.getElementById('key-expiration').value;
+
+            if (!name) {
+                alert('Name is required');
+                return;
+            }
+
+            if (name.length > 100) {
+                alert('Name must be 100 characters or less');
+                return;
+            }
+
+            const submitBtn = document.getElementById('create-submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Creating...';
+
+            try {
+                const authHeaders = await getAuthHeaders();
+                const body = { name };
+                if (expiration) {
+                    body.expires_in_days = parseInt(expiration);
+                }
+
+                const response = await fetch('/api/v1/account/keys', {
+                    method: 'POST',
+                    headers: {
+                        ...authHeaders,
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify(body)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.detail || 'Failed to create key');
+                }
+
+                const data = await response.json();
+                newKeyValue = data.key;
+
+                closeCreateModal();
+                document.getElementById('new-key-value').textContent = newKeyValue;
+                document.getElementById('key-created-modal').classList.add('active');
+
+                loadKeys(1);
+            } catch (error) {
+                alert('Failed to create key: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Create Key';
+            }
+        }
+
+        function closeKeyCreatedModal() {
+            document.getElementById('key-created-modal').classList.remove('active');
+            newKeyValue = null;
+        }
+
+        function copyNewKey() {
+            if (newKeyValue) {
+                navigator.clipboard.writeText(newKeyValue).then(() => {
+                    const btn = event.target;
+                    btn.textContent = 'Copied!';
+                    setTimeout(() => {
+                        btn.textContent = 'Copy to Clipboard';
+                    }, 1500);
+                });
+            }
+        }
+
+        function openDeleteModal(keyId, keyName) {
+            keyToDelete = keyId;
+            document.getElementById('delete-key-name').textContent = keyName;
+            document.getElementById('delete-modal').classList.add('active');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.remove('active');
+            keyToDelete = null;
+        }
+
+        async function confirmDelete() {
+            if (!keyToDelete) return;
+
+            const confirmBtn = document.getElementById('delete-confirm-btn');
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Deleting...';
+
+            try {
+                const authHeaders = await getAuthHeaders();
+                const response = await fetch(`/api/v1/account/keys/${keyToDelete}`, {
+                    method: 'DELETE',
+                    headers: authHeaders,
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.detail || 'Failed to delete key');
+                }
+
+                closeDeleteModal();
+                loadKeys(currentPage);
+            } catch (error) {
+                alert('Failed to delete key: ' + error.message);
+            } finally {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Delete Key';
+            }
+        }
+
+        window.addEventListener('load', async () => {
+            if (typeof Clerk !== 'undefined') {
+                await Clerk.load();
+            }
+            loadKeys(1);
+        });
+    </script>
+
+    {% include 'partials/footer.html' %}
+
+    <div class="help-container">
+        <span class="help-text">{{ help_text }}</span>
+        <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
+    </div>
+</body>
+</html>

@@ -284,12 +284,21 @@
         <div class="actions">
             <a href="/admin/screens" class="btn-primary">+ Create New Screen</a>
             <div class="nav-links">
-                <a href="/admin/screens" class="nav-link">Screens</a>
-                <a href="/admin/themes" class="nav-link">Themes</a>
-                <a href="/admin/media" class="nav-link">Media</a>
+                <div class="nav-dropdown">
+                    <button class="nav-link" onclick="toggleNavDropdown(this)">Menu &#9662;</button>
+                    <div class="nav-dropdown-menu">
+                        <a href="/admin/screens">Screens</a>
+                        <a href="/admin/templates" class="active">Templates</a>
+                        <a href="/admin/themes">Themes</a>
+                        <a href="/admin/media">Media</a>
+                        {% if clerk_publishable_key %}
+                        <a href="/admin/usage">Usage & Billing</a>
+                        <a href="/admin/api-keys">API Keys</a>
+                        {% endif %}
+                    </div>
+                </div>
                 {% if clerk_publishable_key %}
-                <a href="/admin/usage" class="nav-link">Usage & Billing</a>
-                <a href="#" class="nav-link" onclick="signOut(); return false;">Sign Out</a>
+                <button class="btn-delete" onclick="signOut()">Sign Out</button>
                 {% endif %}
             </div>
         </div>
@@ -410,6 +419,27 @@
             {% endif %}
             return headers;
         }
+
+        function toggleNavDropdown(btn) {
+            const menu = btn.nextElementSibling;
+            const wasOpen = menu.classList.contains('show');
+
+            document.querySelectorAll('.nav-dropdown-menu.show').forEach(m => {
+                m.classList.remove('show');
+            });
+
+            if (!wasOpen) {
+                menu.classList.add('show');
+            }
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.nav-dropdown')) {
+                document.querySelectorAll('.nav-dropdown-menu.show').forEach(menu => {
+                    menu.classList.remove('show');
+                });
+            }
+        });
 
         // Filter by category
         function filterByCategory(category) {
