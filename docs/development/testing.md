@@ -1,84 +1,104 @@
 # Testing
 
-Big Beautiful Screens includes a comprehensive test suite using pytest.
+Big Beautiful Screens includes a comprehensive test suite using pytest, organized into two buckets: **core** (self-hosted) and **saas**.
+
+## Setup
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install dependencies (includes pytest-playwright)
+pip install -r requirements.txt
+
+# Install Playwright browsers (required for E2E tests)
+playwright install chromium
+```
 
 ## Running Tests
 
 ```bash
-# Activate virtual environment
-source venv/bin/activate
+# Run all core unit tests
+pytest tests/core/unit -v
 
-# Run all tests
-pytest tests/ -v
+# Run all core tests (unit + e2e)
+pytest tests/core -v
 
-# Run specific test file
-pytest tests/test_screens.py -v
+# Run core e2e tests only
+pytest tests/core/e2e -v
 
-# Run specific test class
-pytest tests/test_screens.py::TestWidgets -v
+# Run a specific test file
+pytest tests/core/unit/test_screens.py -v
+
+# Run a specific test class
+pytest tests/core/unit/test_screens.py::TestWidgets -v
 
 # Run with coverage
-pytest tests/ --cov=app --cov-report=html
+pytest tests/core --cov=app --cov-report=html
+
+# Run everything (core + saas)
+pytest tests/ -v
 ```
 
 ## Test Structure
 
 ```
 tests/
-├── test_screens.py      # API and integration tests
-└── test_onboarding.py   # Onboarding/demo screen tests
+├── conftest.py                  # Root config (TESTING=1)
+├── core/                        # Self-hosted tests
+│   ├── unit/                    # Unit tests (fast, no browser needed)
+│   │   ├── test_screens.py
+│   │   ├── test_templates.py
+│   │   ├── test_media.py
+│   │   ├── test_proxy.py
+│   │   ├── test_rate_limit.py
+│   │   └── test_onboarding.py
+│   └── e2e/                     # Playwright E2E tests
+│       ├── conftest.py
+│       ├── test_admin_local.py
+│       ├── test_demo_screen.py
+│       ├── test_screen_features.py
+│       ├── test_screen_layouts.py
+│       ├── test_templates.py
+│       └── screenshots/
+└── saas/                        # SaaS-specific tests
+    ├── saas_utils.py
+    ├── fixtures/
+    ├── unit/                    # SaaS unit tests (mocked)
+    │   ├── test_webhooks.py
+    │   └── test_multitenancy.py
+    └── e2e/                     # SaaS E2E tests (deployed env)
+        ├── test_admin_dashboard.py
+        ├── test_auth_flows.py
+        └── test_billing.py
 ```
 
 ## Test Categories
 
-### Screen Tests
+### Core Unit Tests
 
-```python
-class TestScreenCreation:
-    """Tests for screen creation."""
+Fast tests that don't need a browser or running server:
 
-class TestMessages:
-    """Tests for sending messages to screens."""
+- **test_screens.py** — Screen CRUD, messages, widgets, themes, pages, rotation
+- **test_templates.py** — Template CRUD, system templates, screen creation from templates
+- **test_media.py** — Media upload and serving
+- **test_proxy.py** — URL proxy functionality
+- **test_rate_limit.py** — Rate limiting
+- **test_onboarding.py** — Demo screen and onboarding
 
-class TestScreenManagement:
-    """Tests for screen management endpoints."""
+### Core E2E Tests
 
-class TestScreenViewer:
-    """Tests for the screen viewer page."""
-```
+Playwright browser tests against a local server (started automatically via the `app_server` fixture):
 
-### Page Tests
+- **test_admin_local.py** — Admin dashboard interactions
+- **test_demo_screen.py** — Demo screen pages and transitions
+- **test_screen_features.py** — Styling, widgets, visual regression
+- **test_screen_layouts.py** — Layouts and themes visual regression
+- **test_templates.py** — Template gallery and management
 
-```python
-class TestPages:
-    """Tests for multi-page functionality."""
+### SaaS Tests
 
-class TestRotation:
-    """Tests for rotation and display settings."""
-```
-
-### Widget Tests
-
-```python
-class TestWidgets:
-    """Tests for widget content types."""
-
-    def test_send_clock_widget_digital(self, client, screen):
-        """Test sending a digital clock widget."""
-
-    def test_send_clock_widget_analog(self, client, screen):
-        """Test sending an analog clock widget."""
-
-    def test_send_clock_widget_with_timezone(self, client, screen):
-        """Test sending a clock widget with timezone."""
-```
-
-### Theme Tests
-
-```python
-class TestThemes:
-    """Tests for theme functionality."""
-```
+SaaS unit tests run with mocked dependencies. SaaS E2E tests require a deployed environment and credentials — see `tests/saas/e2e/README.md`.
 
 ## Writing Tests
 

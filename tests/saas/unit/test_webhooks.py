@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.saas_utils import load_fixture
+from tests.saas.saas_utils import load_fixture
 
 
 @pytest.fixture(scope="module", autouse=True)

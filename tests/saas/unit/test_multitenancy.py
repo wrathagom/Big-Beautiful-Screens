@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 # MockClerkUser imported for type reference only (used in module-level user definitions)
-from tests.saas_utils import MockClerkUser  # noqa: F401
+from tests.saas.saas_utils import MockClerkUser  # noqa: F401
 
 
 @pytest.fixture(scope="module", autouse=True)

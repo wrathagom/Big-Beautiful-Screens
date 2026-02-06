@@ -524,7 +524,7 @@ class TestWidgets:
 
 
 # Import time mocking helper
-from tests.e2e.conftest import mock_javascript_time  # noqa: E402
+from tests.core.e2e.conftest import mock_javascript_time  # noqa: E402
 
 
 class TestHierarchyVisualRegression:

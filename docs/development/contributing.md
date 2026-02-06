@@ -12,8 +12,8 @@ Thank you for your interest in contributing to Big Beautiful Screens!
 
 2. Create a virtual environment:
    ```bash
-   python -m venv venv
-   source venv/bin/activate
+   python -m venv .venv
+   source .venv/bin/activate
    ```
 
 3. Install dependencies:
@@ -21,13 +21,18 @@ Thank you for your interest in contributing to Big Beautiful Screens!
    pip install -r requirements.txt
    ```
 
-4. Install pre-commit hooks:
+4. Install Playwright browsers (required for E2E tests):
+   ```bash
+   playwright install chromium
+   ```
+
+5. Install pre-commit hooks:
    ```bash
    pip install pre-commit
    pre-commit install
    ```
 
-5. Run the development server:
+6. Run the development server:
    ```bash
    uvicorn app.main:app --reload
    ```
@@ -44,10 +49,17 @@ Pre-commit hooks handle formatting automatically.
 ## Running Tests
 
 ```bash
-pytest tests/ -v
+# Unit tests (fast, no browser needed)
+pytest tests/core/unit -v
+
+# E2E tests (requires playwright install chromium)
+pytest tests/core/e2e -v
+
+# All core tests
+pytest tests/core -v
 ```
 
-All tests must pass before merging.
+All core tests must pass before merging.
 
 ## Pull Request Process
 
@@ -105,7 +117,7 @@ Widgets are modular and easy to add:
    import './widgets/yourwidget.js';
    ```
 
-3. Add tests in `tests/test_screens.py`:
+3. Add tests in `tests/core/unit/test_screens.py`:
    ```python
    def test_send_yourwidget(self, client, screen):
        response = client.post(
@@ -137,7 +149,8 @@ big-beautiful-screens/
 │   ├── admin.css            # Admin styling
 │   └── widgets/             # Widget modules
 ├── tests/
-│   └── test_screens.py      # Test suite
+│   ├── core/                  # Self-hosted tests (unit + e2e)
+│   └── saas/                  # SaaS-specific tests
 ├── docs/                    # Documentation
 └── mkdocs.yml               # Docs configuration
 ```
