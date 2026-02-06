@@ -658,6 +658,50 @@ h1 {
     align-items: center;
 }
 
+/* Navigation Dropdown */
+.nav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.nav-dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 0.25rem;
+    background: #1a1a2e;
+    border: 1px solid #3a3a5e;
+    border-radius: 0.5rem;
+    min-width: 180px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.nav-dropdown-menu.show {
+    display: block;
+}
+
+.nav-dropdown-menu a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: #ccc;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+}
+
+.nav-dropdown-menu a:hover {
+    background: #2a2a4e;
+    color: #fff;
+}
+
+.nav-dropdown-menu a.active {
+    background: #3a3a5e;
+    color: #fff;
+}
+
 /* ============== Theme Management ============== */
 .theme-list {
     display: flex;
