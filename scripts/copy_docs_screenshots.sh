@@ -6,7 +6,7 @@ set -e
 
 cd "$(dirname "$0")/.." || exit 1
 
-SRC_DIR="tests/e2e/screenshots"
+SRC_DIR="tests/core/e2e/screenshots"
 DEST_DIR="docs/images/screenshots"
 
 # Create destination directory
