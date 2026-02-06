@@ -38,7 +38,9 @@ from ..storage.local import LocalStorage
 router = APIRouter(prefix="/api/v1/media", tags=["Media"])
 
 
-def _can_use_media_library(user: AuthOrAccountKey | OptionalUser, settings) -> tuple[bool, str | None]:
+def _can_use_media_library(
+    user: AuthOrAccountKey | OptionalUser, settings
+) -> tuple[bool, str | None]:
     """Check if the user can use the media library.
 
     Returns (can_use, error_message).
@@ -102,7 +104,9 @@ async def _get_storage_quota(user: AuthOrAccountKey | OptionalUser) -> int:
     return limits.get("storage_bytes", 0)
 
 
-async def _check_storage_quota(user: AuthOrAccountKey | OptionalUser, file_size: int) -> tuple[bool, str | None]:
+async def _check_storage_quota(
+    user: AuthOrAccountKey | OptionalUser, file_size: int
+) -> tuple[bool, str | None]:
     """Check if adding this file would exceed storage quota.
 
     Returns (within_quota, error_message).

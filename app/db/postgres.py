@@ -1751,9 +1751,7 @@ class PostgresBackend(DatabaseBackend):
         """Get an account API key by its key value."""
         pool = await self._get_pool()
         async with pool.acquire() as conn:
-            row = await conn.fetchrow(
-                "SELECT * FROM account_api_keys WHERE key = $1", key
-            )
+            row = await conn.fetchrow("SELECT * FROM account_api_keys WHERE key = $1", key)
             if not row:
                 return None
 
@@ -1794,7 +1792,9 @@ class PostgresBackend(DatabaseBackend):
                     "scopes": json.loads(row["scopes"]) if row["scopes"] else ["*"],
                     "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
                     "created_at": row["created_at"].isoformat() if row["created_at"] else None,
-                    "last_used_at": row["last_used_at"].isoformat() if row["last_used_at"] else None,
+                    "last_used_at": row["last_used_at"].isoformat()
+                    if row["last_used_at"]
+                    else None,
                 }
                 for row in rows
             ]
@@ -1822,7 +1822,5 @@ class PostgresBackend(DatabaseBackend):
         """Delete an account API key."""
         pool = await self._get_pool()
         async with pool.acquire() as conn:
-            result = await conn.execute(
-                "DELETE FROM account_api_keys WHERE id = $1", key_id
-            )
+            result = await conn.execute("DELETE FROM account_api_keys WHERE id = $1", key_id)
             return result == "DELETE 1"

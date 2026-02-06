@@ -128,7 +128,11 @@ async def update_theme(theme_name: str, request: ThemeUpdate, user: AuthOrAccoun
 
     # In SaaS mode, verify ownership
     settings = get_settings()
-    if settings.APP_MODE == AppMode.SAAS and existing.get("owner_id") and existing["owner_id"] != user.user_id:
+    if (
+        settings.APP_MODE == AppMode.SAAS
+        and existing.get("owner_id")
+        and existing["owner_id"] != user.user_id
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to modify this theme")
 
     theme = await update_theme_in_db(
@@ -166,7 +170,11 @@ async def delete_theme(theme_name: str, user: AuthOrAccountKey):
 
     # In SaaS mode, verify ownership
     settings = get_settings()
-    if settings.APP_MODE == AppMode.SAAS and existing.get("owner_id") and existing["owner_id"] != user.user_id:
+    if (
+        settings.APP_MODE == AppMode.SAAS
+        and existing.get("owner_id")
+        and existing["owner_id"] != user.user_id
+    ):
         raise HTTPException(status_code=403, detail="Not authorized to delete this theme")
 
     success, error = await delete_theme_from_db(theme_name)
