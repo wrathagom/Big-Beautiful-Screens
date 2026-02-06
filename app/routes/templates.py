@@ -4,7 +4,7 @@ import secrets
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..auth import OptionalUser
+from ..auth import AuthOrAccountKey
 from ..config import AppMode, get_settings
 from ..database import (
     create_template,
@@ -35,7 +35,7 @@ def generate_template_id() -> str:
 
 @router.get("", response_model=dict)
 async def list_templates(
-    user: OptionalUser = None,
+    user: AuthOrAccountKey,
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     type: TemplateType | None = Query(None, description="Filter by template type"),
@@ -45,12 +45,14 @@ async def list_templates(
 
     Returns system templates plus user's own templates (in SaaS mode).
     Templates are sorted by type (system first) then by creation date.
+
+    In SaaS mode, requires authentication (Clerk session or account API key with ak_ prefix).
     """
     settings = get_settings()
 
     # Determine user_id for filtering
     user_id = None
-    if settings.APP_MODE == AppMode.SAAS and user:
+    if settings.APP_MODE == AppMode.SAAS:
         user_id = user.user_id
 
     # Convert enums to string values for database query
@@ -90,20 +92,17 @@ async def list_templates(
 @router.post("", response_model=TemplateDetail)
 async def create_template_from_screen(
     request: TemplateCreate,
-    user: OptionalUser = None,
+    user: AuthOrAccountKey,
 ):
     """Create a new template from an existing screen.
 
     Captures the screen's configuration (settings, layout, pages, content)
     and stores it as a reusable template.
 
-    In SaaS mode, requires authentication and the user must own the source screen.
+    In SaaS mode, requires authentication (Clerk session or account API key with ak_ prefix)
+    and the user must own the source screen.
     """
     settings = get_settings()
-
-    # In SaaS mode, require authentication
-    if settings.APP_MODE == AppMode.SAAS and not user:
-        raise HTTPException(status_code=401, detail="Authentication required to create templates")
 
     # Get the source screen
     screen = await get_screen_by_id(request.screen_id)
@@ -150,11 +149,13 @@ async def create_template_from_screen(
 
 
 @router.get("/{template_id}", response_model=TemplateDetail)
-async def get_template_detail(template_id: str, user: OptionalUser = None):
+async def get_template_detail(template_id: str, user: AuthOrAccountKey):
     """Get a specific template by ID, including full configuration.
 
     In SaaS mode, user templates are only accessible by their owner.
     System templates are accessible by everyone.
+
+    Requires authentication (Clerk session or account API key with ak_ prefix) in SaaS mode.
     """
     template = await get_template(template_id)
     if not template:
@@ -177,12 +178,14 @@ async def get_template_detail(template_id: str, user: OptionalUser = None):
 async def update_template_metadata(
     template_id: str,
     request: TemplateUpdate,
-    user: OptionalUser = None,
+    user: AuthOrAccountKey,
 ):
     """Update template metadata (name, description, category).
 
     In SaaS mode, only the template owner can update user templates.
     System templates cannot be modified.
+
+    Requires authentication (Clerk session or account API key with ak_ prefix) in SaaS mode.
     """
     # Check if template exists
     existing = await get_template(template_id)
@@ -195,11 +198,8 @@ async def update_template_metadata(
 
     # In SaaS mode, verify ownership
     settings = get_settings()
-    if settings.APP_MODE == AppMode.SAAS:
-        if not user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        if existing.get("user_id") and existing["user_id"] != user.user_id:
-            raise HTTPException(status_code=403, detail="Not authorized to modify this template")
+    if settings.APP_MODE == AppMode.SAAS and existing.get("user_id") and existing["user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to modify this template")
 
     # Update template
     updated = await update_template(
@@ -216,11 +216,13 @@ async def update_template_metadata(
 
 
 @router.delete("/{template_id}")
-async def delete_template_endpoint(template_id: str, user: OptionalUser = None):
+async def delete_template_endpoint(template_id: str, user: AuthOrAccountKey):
     """Delete a template.
 
     In SaaS mode, only the template owner can delete user templates.
     System templates cannot be deleted.
+
+    Requires authentication (Clerk session or account API key with ak_ prefix) in SaaS mode.
     """
     # Check if template exists
     existing = await get_template(template_id)
@@ -233,11 +235,8 @@ async def delete_template_endpoint(template_id: str, user: OptionalUser = None):
 
     # In SaaS mode, verify ownership
     settings = get_settings()
-    if settings.APP_MODE == AppMode.SAAS:
-        if not user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        if existing.get("user_id") and existing["user_id"] != user.user_id:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this template")
+    if settings.APP_MODE == AppMode.SAAS and existing.get("user_id") and existing["user_id"] != user.user_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this template")
 
     success = await delete_template(template_id)
     if not success:

@@ -8,7 +8,7 @@ from pathlib import Path
 from fastapi import APIRouter, Header, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-from ..auth import OptionalUser, RequiredUser, can_modify_screen
+from ..auth import AuthOrAccountKey, OptionalUser, RequiredUser, can_modify_screen
 from ..config import AppMode, get_settings
 from ..connection_manager import manager
 from ..database import (
@@ -73,7 +73,7 @@ SCREEN_CSP = (
 @limiter.limit(RATE_LIMIT_CREATE)
 async def create_new_screen(
     request: Request,
-    user: OptionalUser = None,
+    user: AuthOrAccountKey,
     template_id: str | None = Query(
         default=None,
         description="Optional template ID to initialize screen with template configuration",
@@ -88,15 +88,11 @@ async def create_new_screen(
     Optionally provide a template_id to initialize the screen with a template's
     configuration (settings, layout, pages, content).
 
-    In SaaS mode, requires authentication and sets the current user as owner.
-    Screen creation is limited based on the user's plan.
+    In SaaS mode, requires authentication (Clerk session or account API key with ak_ prefix)
+    and sets the current user as owner. Screen creation is limited based on the user's plan.
     In self-hosted mode, creates anonymous screens with no limits.
     """
     settings = get_settings()
-
-    # In SaaS mode, require authentication to prevent orphan screens
-    if settings.APP_MODE == AppMode.SAAS and not user:
-        raise HTTPException(status_code=401, detail="Authentication required to create screens")
 
     # Fetch and validate template if provided
     template = None
@@ -200,18 +196,17 @@ async def create_new_screen(
 
 
 @router.get("/api/v1/screens")
-async def list_screens(user: OptionalUser, page: int = 1, per_page: int = 20):
+async def list_screens(user: AuthOrAccountKey, page: int = 1, per_page: int = 20):
     """List screens with pagination.
 
-    In SaaS mode, requires authentication and returns only user's screens.
+    In SaaS mode, requires authentication (Clerk session or account API key with ak_ prefix)
+    and returns only user's screens.
     In self-hosted mode, returns all screens.
     """
     settings = get_settings()
 
-    # In SaaS mode, require authentication
+    # In SaaS mode, use authenticated user's ID
     if settings.APP_MODE == AppMode.SAAS:
-        if not user:
-            raise HTTPException(status_code=401, detail="Authentication required")
         owner_id = user.user_id
         org_id = user.org_id
     else:

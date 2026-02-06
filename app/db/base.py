@@ -435,6 +435,42 @@ class DatabaseBackend(ABC):
         """
         pass
 
+    # ============== Account API Keys (SaaS only) ==============
+
+    async def create_account_api_key(
+        self,
+        key_id: str,
+        key: str,
+        user_id: str,
+        name: str,
+        scopes: list[str] | None = None,
+        expires_at: datetime | None = None,
+    ) -> dict:
+        """Create a new account-level API key. Only implemented in SaaS backends."""
+        raise NotImplementedError("Account API keys not available in this backend")
+
+    async def get_account_api_key_by_key(self, key: str) -> dict | None:
+        """Get an account API key by its key value. Only implemented in SaaS backends."""
+        return None
+
+    async def get_account_api_keys_by_user(
+        self, user_id: str, limit: int | None = None, offset: int = 0
+    ) -> list[dict]:
+        """Get all account API keys for a user. Only implemented in SaaS backends."""
+        return []
+
+    async def get_account_api_keys_count(self, user_id: str) -> int:
+        """Get count of account API keys for a user. Only implemented in SaaS backends."""
+        return 0
+
+    async def update_account_api_key_last_used(self, key_id: str) -> bool:
+        """Update the last_used_at timestamp for an account API key. Only implemented in SaaS backends."""
+        return False
+
+    async def delete_account_api_key(self, key_id: str) -> bool:
+        """Delete an account API key. Only implemented in SaaS backends."""
+        return False
+
     # ============== Webhook Events (SaaS only) ==============
 
     @abstractmethod

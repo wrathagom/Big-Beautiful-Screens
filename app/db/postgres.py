@@ -247,6 +247,26 @@ class PostgresBackend(DatabaseBackend):
                 )
             """)
 
+            # Account API keys table (for MCP integration)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS account_api_keys (
+                    id TEXT PRIMARY KEY,
+                    key TEXT UNIQUE NOT NULL,
+                    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name TEXT NOT NULL,
+                    scopes TEXT NOT NULL DEFAULT '["*"]',
+                    expires_at TIMESTAMPTZ,
+                    created_at TIMESTAMPTZ NOT NULL,
+                    last_used_at TIMESTAMPTZ
+                )
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_account_api_keys_key ON account_api_keys(key)
+            """)
+            await conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_account_api_keys_user ON account_api_keys(user_id)
+            """)
+
             # Seed built-in themes
             await self._seed_builtin_themes(conn)
 
@@ -1684,3 +1704,125 @@ class PostgresBackend(DatabaseBackend):
                 event_id,
             )
             return result.endswith("1")
+
+    # ============== Account API Keys ==============
+
+    async def create_account_api_key(
+        self,
+        key_id: str,
+        key: str,
+        user_id: str,
+        name: str,
+        scopes: list[str] | None = None,
+        expires_at: datetime | None = None,
+    ) -> dict:
+        """Create a new account-level API key."""
+        pool = await self._get_pool()
+        now = datetime.now(UTC)
+        scopes_json = json.dumps(scopes or ["*"])
+
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """
+                INSERT INTO account_api_keys (id, key, user_id, name, scopes, expires_at, created_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            """,
+                key_id,
+                key,
+                user_id,
+                name,
+                scopes_json,
+                expires_at,
+                now,
+            )
+
+            return {
+                "id": key_id,
+                "key": key,
+                "user_id": user_id,
+                "name": name,
+                "scopes": scopes or ["*"],
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "created_at": now.isoformat(),
+                "last_used_at": None,
+            }
+
+    async def get_account_api_key_by_key(self, key: str) -> dict | None:
+        """Get an account API key by its key value."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM account_api_keys WHERE key = $1", key
+            )
+            if not row:
+                return None
+
+            return {
+                "id": row["id"],
+                "key": row["key"],
+                "user_id": row["user_id"],
+                "name": row["name"],
+                "scopes": json.loads(row["scopes"]) if row["scopes"] else ["*"],
+                "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
+                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                "last_used_at": row["last_used_at"].isoformat() if row["last_used_at"] else None,
+            }
+
+    async def get_account_api_keys_by_user(
+        self, user_id: str, limit: int | None = None, offset: int = 0
+    ) -> list[dict]:
+        """Get all account API keys for a user."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            query = """
+                SELECT id, user_id, name, scopes, expires_at, created_at, last_used_at
+                FROM account_api_keys
+                WHERE user_id = $1
+                ORDER BY created_at DESC
+            """
+            params = [user_id]
+            if limit:
+                query += f" LIMIT {limit} OFFSET {offset}"
+
+            rows = await conn.fetch(query, *params)
+
+            return [
+                {
+                    "id": row["id"],
+                    "user_id": row["user_id"],
+                    "name": row["name"],
+                    "scopes": json.loads(row["scopes"]) if row["scopes"] else ["*"],
+                    "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
+                    "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+                    "last_used_at": row["last_used_at"].isoformat() if row["last_used_at"] else None,
+                }
+                for row in rows
+            ]
+
+    async def get_account_api_keys_count(self, user_id: str) -> int:
+        """Get count of account API keys for a user."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            return await conn.fetchval(
+                "SELECT COUNT(*) FROM account_api_keys WHERE user_id = $1", user_id
+            )
+
+    async def update_account_api_key_last_used(self, key_id: str) -> bool:
+        """Update the last_used_at timestamp for an account API key."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                "UPDATE account_api_keys SET last_used_at = $1 WHERE id = $2",
+                datetime.now(UTC),
+                key_id,
+            )
+            return result == "UPDATE 1"
+
+    async def delete_account_api_key(self, key_id: str) -> bool:
+        """Delete an account API key."""
+        pool = await self._get_pool()
+        async with pool.acquire() as conn:
+            result = await conn.execute(
+                "DELETE FROM account_api_keys WHERE id = $1", key_id
+            )
+            return result == "DELETE 1"
