@@ -15,7 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from tests.saas_utils import MockClerkUser
+from tests.saas.saas_utils import MockClerkUser
 
 
 @pytest.fixture(scope="module", autouse=True)
