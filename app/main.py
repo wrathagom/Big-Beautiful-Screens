@@ -11,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from .config import AppMode, get_settings
 from .database import init_db
 from .logging_middleware import UsageLoggingMiddleware, configure_usage_logging
+from .mcp.routes import router as mcp_router
 from .rate_limit import limiter
 from .routes.account_keys import router as account_keys_router
 from .routes.admin import router as admin_router
@@ -119,6 +120,7 @@ app.include_router(admin_router)
 app.include_router(media_router)
 app.include_router(media_public_router)
 app.include_router(proxy_router)
+app.include_router(mcp_router)
 
 # Include SaaS-only routers
 if settings.APP_MODE == AppMode.SAAS:
