@@ -651,7 +651,6 @@ h1 {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    line-height: 1;
     transition: background 0.2s;
 }
 
@@ -668,7 +667,6 @@ h1 {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    line-height: 1;
 }
 
 .nav-links {
