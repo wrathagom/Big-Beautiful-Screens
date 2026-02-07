@@ -21,3 +21,6 @@ svix>=1.4.0
 # Billing (SaaS mode)
 stripe>=7.0.0
 
+# MCP (Model Context Protocol)
+mcp>=1.0.0
+
