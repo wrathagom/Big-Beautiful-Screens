@@ -230,11 +230,13 @@ class TestMCPHandlers:
         from app.mcp.handlers import handle_create_screen, handle_send_message
 
         screen = await handle_create_screen({})
-        result = await handle_send_message({
-            "screen_id": screen["screen_id"],
-            "api_key": screen["api_key"],
-            "content": ["Hello from MCP!", "# Markdown heading"],
-        })
+        result = await handle_send_message(
+            {
+                "screen_id": screen["screen_id"],
+                "api_key": screen["api_key"],
+                "content": ["Hello from MCP!", "# Markdown heading"],
+            }
+        )
         assert result["success"] is True
         assert "viewers" in result
 
@@ -244,11 +246,13 @@ class TestMCPHandlers:
         from app.mcp.handlers import handle_create_screen, handle_send_message
 
         screen = await handle_create_screen({})
-        result = await handle_send_message({
-            "screen_id": screen["screen_id"],
-            "api_key": "sk_wrong_key",
-            "content": ["Should fail"],
-        })
+        result = await handle_send_message(
+            {
+                "screen_id": screen["screen_id"],
+                "api_key": "sk_wrong_key",
+                "content": ["Should fail"],
+            }
+        )
         assert "error" in result
         assert "Invalid API key" in result["error"]
 
@@ -258,10 +262,12 @@ class TestMCPHandlers:
         from app.mcp.handlers import handle_create_screen, handle_send_message
 
         screen = await handle_create_screen({})
-        result = await handle_send_message({
-            "screen_id": screen["screen_id"],
-            "api_key": screen["api_key"],
-        })
+        result = await handle_send_message(
+            {
+                "screen_id": screen["screen_id"],
+                "api_key": screen["api_key"],
+            }
+        )
         assert "error" in result
         assert "required" in result["error"].lower()
 
@@ -271,12 +277,14 @@ class TestMCPHandlers:
         from app.mcp.handlers import handle_create_page, handle_create_screen
 
         screen = await handle_create_screen({})
-        result = await handle_create_page({
-            "screen_id": screen["screen_id"],
-            "page_name": "alerts",
-            "api_key": screen["api_key"],
-            "content": ["Alert message!"],
-        })
+        result = await handle_create_page(
+            {
+                "screen_id": screen["screen_id"],
+                "page_name": "alerts",
+                "api_key": screen["api_key"],
+                "content": ["Alert message!"],
+            }
+        )
         assert result["success"] is True
         assert result["page"]["name"] == "alerts"
 
@@ -286,13 +294,15 @@ class TestMCPHandlers:
         from app.mcp.handlers import handle_create_page, handle_create_screen
 
         screen = await handle_create_screen({})
-        result = await handle_create_page({
-            "screen_id": screen["screen_id"],
-            "page_name": "promo",
-            "api_key": screen["api_key"],
-            "content": ["Special offer!"],
-            "duration": 15,
-        })
+        result = await handle_create_page(
+            {
+                "screen_id": screen["screen_id"],
+                "page_name": "promo",
+                "api_key": screen["api_key"],
+                "content": ["Special offer!"],
+                "duration": 15,
+            }
+        )
         assert result["success"] is True
         assert result["page"]["duration"] == 15
 
@@ -302,13 +312,15 @@ class TestMCPHandlers:
         from app.mcp.handlers import handle_create_screen, handle_update_screen
 
         screen = await handle_create_screen({"name": "Original"})
-        result = await handle_update_screen({
-            "screen_id": screen["screen_id"],
-            "api_key": screen["api_key"],
-            "name": "Updated Name",
-            "rotation_enabled": True,
-            "rotation_interval": 20,
-        })
+        result = await handle_update_screen(
+            {
+                "screen_id": screen["screen_id"],
+                "api_key": screen["api_key"],
+                "name": "Updated Name",
+                "rotation_enabled": True,
+                "rotation_interval": 20,
+            }
+        )
         assert result["success"] is True
         assert result["settings"]["enabled"] is True
         assert result["settings"]["interval"] == 20
@@ -319,11 +331,13 @@ class TestMCPHandlers:
         from app.mcp.handlers import handle_create_screen, handle_update_screen
 
         screen = await handle_create_screen({})
-        result = await handle_update_screen({
-            "screen_id": screen["screen_id"],
-            "api_key": "sk_wrong_key",
-            "name": "Should fail",
-        })
+        result = await handle_update_screen(
+            {
+                "screen_id": screen["screen_id"],
+                "api_key": "sk_wrong_key",
+                "name": "Should fail",
+            }
+        )
         assert "error" in result
         assert "Invalid API key" in result["error"]
 
@@ -337,10 +351,12 @@ class TestMCPHandlers:
         )
 
         screen = await handle_create_screen({})
-        result = await handle_delete_screen({
-            "screen_id": screen["screen_id"],
-            "api_key": screen["api_key"],
-        })
+        result = await handle_delete_screen(
+            {
+                "screen_id": screen["screen_id"],
+                "api_key": screen["api_key"],
+            }
+        )
         assert result["success"] is True
 
         get_result = await handle_get_screen({"screen_id": screen["screen_id"]})
@@ -352,10 +368,12 @@ class TestMCPHandlers:
         from app.mcp.handlers import handle_create_screen, handle_delete_screen
 
         screen = await handle_create_screen({})
-        result = await handle_delete_screen({
-            "screen_id": screen["screen_id"],
-            "api_key": "sk_wrong_key",
-        })
+        result = await handle_delete_screen(
+            {
+                "screen_id": screen["screen_id"],
+                "api_key": "sk_wrong_key",
+            }
+        )
         assert "error" in result
         assert "Invalid API key" in result["error"]
 
