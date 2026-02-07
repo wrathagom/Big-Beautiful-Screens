@@ -546,6 +546,13 @@ h1 {
         text-align: center;
     }
 
+    .nav-links .btn-delete {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        justify-content: center;
+        text-align: center;
+    }
+
     .card-summary {
         gap: 0.5rem;
     }
@@ -650,6 +657,17 @@ h1 {
 .nav-link:hover {
     background: #9b59b6;
     text-decoration: none;
+}
+
+.nav-links .btn-delete {
+    /* Keep "Sign Out" visually aligned with the purple nav button. */
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    line-height: 1;
 }
 
 .nav-links {

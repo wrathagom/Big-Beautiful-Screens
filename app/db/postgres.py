@@ -1773,7 +1773,7 @@ class PostgresBackend(DatabaseBackend):
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             query = """
-                SELECT id, user_id, name, scopes, expires_at, created_at, last_used_at
+                SELECT id, key, user_id, name, scopes, expires_at, created_at, last_used_at
                 FROM account_api_keys
                 WHERE user_id = $1
                 ORDER BY created_at DESC
@@ -1787,6 +1787,7 @@ class PostgresBackend(DatabaseBackend):
             return [
                 {
                     "id": row["id"],
+                    "key": row["key"],
                     "user_id": row["user_id"],
                     "name": row["name"],
                     "scopes": json.loads(row["scopes"]) if row["scopes"] else ["*"],
