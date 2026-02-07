@@ -25,7 +25,20 @@ The MCP server is included with Big Beautiful Screens. No additional installatio
 
 ### Running the MCP Server
 
-The MCP server can be run as a standalone process using stdio transport:
+The MCP server supports two transport modes:
+
+#### HTTP/SSE Transport (Recommended for Railway/Remote)
+
+The MCP server is automatically available as HTTP endpoints when running the FastAPI application:
+
+- **SSE Endpoint**: `GET /mcp/sse` - Server-Sent Events connection for receiving messages
+- **Messages Endpoint**: `POST /mcp/messages` - Send messages to the MCP server
+
+This mode works with Railway and other cloud deployments since it runs as part of the main FastAPI application.
+
+#### Stdio Transport (Local Development)
+
+For local development or direct integration, you can run the MCP server as a standalone process:
 
 ```bash
 # Using the CLI script
@@ -41,26 +54,33 @@ bbs-mcp-server
 
 Add the following to your Claude Desktop configuration file:
 
-=== "SaaS Mode"
+=== "SaaS Mode (HTTP/SSE)"
 
     ```json
     {
       "mcpServers": {
         "big-beautiful-screens": {
-          "command": "python",
-          "args": ["-m", "app.mcp.cli"],
-          "cwd": "/path/to/Big-Beautiful-Screens",
-          "env": {
-            "APP_MODE": "saas",
-            "BBS_API_KEY": "ak_your_account_api_key",
-            "BBS_API_URL": "https://your-bbs-instance.com"
-          }
+          "url": "https://your-bbs-instance.railway.app/mcp/sse",
+          "transport": "sse"
         }
       }
     }
     ```
 
-=== "Self-Hosted Mode"
+=== "Self-Hosted Mode (HTTP/SSE)"
+
+    ```json
+    {
+      "mcpServers": {
+        "big-beautiful-screens": {
+          "url": "http://localhost:8000/mcp/sse",
+          "transport": "sse"
+        }
+      }
+    }
+    ```
+
+=== "Local Development (Stdio)"
 
     ```json
     {
@@ -70,8 +90,7 @@ Add the following to your Claude Desktop configuration file:
           "args": ["-m", "app.mcp.cli"],
           "cwd": "/path/to/Big-Beautiful-Screens",
           "env": {
-            "APP_MODE": "self-hosted",
-            "BBS_API_URL": "http://localhost:8000"
+            "APP_MODE": "self-hosted"
           }
         }
       }
