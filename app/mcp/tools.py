@@ -224,7 +224,8 @@ def send_message_tool() -> Tool:
                     "description": (
                         "Array of content items. Strings are auto-detected. "
                         "Use objects for explicit control: "
-                        "{type: 'text'|'markdown'|'image'|'video', value: '...', url: '...'}"
+                        "{type: 'text'|'markdown'|'image'|'video', value: '...', url: '...'}. "
+                        "For widgets: {type: 'widget', value: 'analog-clock'|'digital-clock'|'countdown', timezone: 'America/New_York'}"
                     ),
                     "items": {
                         "oneOf": [
@@ -236,8 +237,15 @@ def send_message_tool() -> Tool:
                                         "type": "string",
                                         "enum": ["text", "markdown", "image", "video", "widget"],
                                     },
-                                    "value": {"type": "string"},
+                                    "value": {
+                                        "type": "string",
+                                        "description": "Content value. For widgets, this is the widget type (analog-clock, digital-clock, countdown)",
+                                    },
                                     "url": {"type": "string"},
+                                    "timezone": {
+                                        "type": "string",
+                                        "description": "Timezone for clock widgets (e.g., 'America/New_York', 'Europe/London')",
+                                    },
                                     "panel_color": {"type": "string"},
                                     "font_color": {"type": "string"},
                                     "font_family": {"type": "string"},

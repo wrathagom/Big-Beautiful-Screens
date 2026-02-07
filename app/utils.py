@@ -129,11 +129,17 @@ def normalize_content(content: list) -> list:
                     "muted": muted if muted is not None else True,
                 }
             elif item_type == "widget":
+                # Support both widget_type and value for widget type specification
+                widget_type = _get_item_attr(item, "widget_type") or item_value
                 entry = {
                     "type": "widget",
-                    "widget_type": _get_item_attr(item, "widget_type"),
+                    "widget_type": widget_type,
                     "widget_config": _get_item_attr(item, "widget_config") or {},
                 }
+                # Copy timezone and other widget-specific config from top level
+                timezone = _get_item_attr(item, "timezone")
+                if timezone:
+                    entry["widget_config"]["timezone"] = timezone
             else:
                 entry = {"type": item_type, "value": item_value}
 
