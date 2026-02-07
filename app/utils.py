@@ -95,6 +95,13 @@ async def resolve_theme_settings(rotation: dict) -> dict:
     return resolved
 
 
+def _get_item_attr(item, key, default=None):
+    """Get attribute from item, supporting both dict and object access."""
+    if isinstance(item, dict):
+        return item.get(key, default)
+    return getattr(item, key, default)
+
+
 def normalize_content(content: list) -> list:
     """Normalize content items to structured format with auto-detection."""
     normalized = []
@@ -103,43 +110,58 @@ def normalize_content(content: list) -> list:
         if isinstance(item, str):
             normalized.append(detect_content_type(item))
         else:
-            # Already structured (ContentItem)
-            if item.type == "image":
-                entry = {"type": "image", "url": item.url or item.value}
-            elif item.type == "video":
+            # Already structured (ContentItem or dict)
+            item_type = _get_item_attr(item, "type")
+            item_value = _get_item_attr(item, "value")
+            item_url = _get_item_attr(item, "url")
+
+            if item_type == "image":
+                entry = {"type": "image", "url": item_url or item_value}
+            elif item_type == "video":
+                autoplay = _get_item_attr(item, "autoplay")
+                loop = _get_item_attr(item, "loop")
+                muted = _get_item_attr(item, "muted")
                 entry = {
                     "type": "video",
-                    "url": item.url or item.value,
-                    "autoplay": item.autoplay if item.autoplay is not None else True,
-                    "loop": item.loop if item.loop is not None else True,
-                    "muted": item.muted if item.muted is not None else True,
+                    "url": item_url or item_value,
+                    "autoplay": autoplay if autoplay is not None else True,
+                    "loop": loop if loop is not None else True,
+                    "muted": muted if muted is not None else True,
                 }
-            elif item.type == "widget":
+            elif item_type == "widget":
                 entry = {
                     "type": "widget",
-                    "widget_type": item.widget_type,
-                    "widget_config": item.widget_config or {},
+                    "widget_type": _get_item_attr(item, "widget_type"),
+                    "widget_config": _get_item_attr(item, "widget_config") or {},
                 }
             else:
-                entry = {"type": item.type, "value": item.value}
+                entry = {"type": item_type, "value": item_value}
 
             # Preserve per-panel styling if specified
-            if item.panel_color:
-                entry["panel_color"] = item.panel_color
-            if item.panel_shadow is not None:
-                entry["panel_shadow"] = item.panel_shadow
-            if item.font_family:
-                entry["font_family"] = item.font_family
-            if item.font_color:
-                entry["font_color"] = item.font_color
-            if item.image_mode:
-                entry["image_mode"] = item.image_mode
-            if item.wrap is not None:
-                entry["wrap"] = item.wrap
-            if item.grid_column:
-                entry["grid_column"] = item.grid_column
-            if item.grid_row:
-                entry["grid_row"] = item.grid_row
+            panel_color = _get_item_attr(item, "panel_color")
+            if panel_color:
+                entry["panel_color"] = panel_color
+            panel_shadow = _get_item_attr(item, "panel_shadow")
+            if panel_shadow is not None:
+                entry["panel_shadow"] = panel_shadow
+            font_family = _get_item_attr(item, "font_family")
+            if font_family:
+                entry["font_family"] = font_family
+            font_color = _get_item_attr(item, "font_color")
+            if font_color:
+                entry["font_color"] = font_color
+            image_mode = _get_item_attr(item, "image_mode")
+            if image_mode:
+                entry["image_mode"] = image_mode
+            wrap = _get_item_attr(item, "wrap")
+            if wrap is not None:
+                entry["wrap"] = wrap
+            grid_column = _get_item_attr(item, "grid_column")
+            if grid_column:
+                entry["grid_column"] = grid_column
+            grid_row = _get_item_attr(item, "grid_row")
+            if grid_row:
+                entry["grid_row"] = grid_row
 
             normalized.append(entry)
 
