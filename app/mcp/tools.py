@@ -225,7 +225,7 @@ def send_message_tool() -> Tool:
                         "Array of content items. Strings are auto-detected. "
                         "Use objects for explicit control: "
                         "{type: 'text'|'markdown'|'image'|'video', value: '...', url: '...'}. "
-                        "For widgets: {type: 'widget', value: 'analog-clock'|'digital-clock'|'countdown', timezone: 'America/New_York'}"
+                        "For widgets: {type: 'widget', value: 'clock'|'countdown'|'weather'|'rss'|'chart'|'stock', widget_config: {...}}"
                     ),
                     "items": {
                         "oneOf": [
@@ -239,12 +239,16 @@ def send_message_tool() -> Tool:
                                     },
                                     "value": {
                                         "type": "string",
-                                        "description": "Content value. For widgets, this is the widget type (analog-clock, digital-clock, countdown)",
+                                        "description": "Content value. For widgets, this is the widget type: 'clock', 'countdown', 'weather', 'rss', 'chart', 'stock'",
                                     },
                                     "url": {"type": "string"},
+                                    "widget_config": {
+                                        "type": "object",
+                                        "description": "Widget-specific config. Clock: {style: 'digital'|'analog', timezone: 'America/New_York', format: '12h'|'24h'}. Countdown: {target: 'ISO datetime', expired_text: 'Done!'}",
+                                    },
                                     "timezone": {
                                         "type": "string",
-                                        "description": "Timezone for clock widgets (e.g., 'America/New_York', 'Europe/London')",
+                                        "description": "Shorthand for widget_config.timezone (e.g., 'America/New_York')",
                                     },
                                     "panel_color": {"type": "string"},
                                     "font_color": {"type": "string"},
