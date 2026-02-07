@@ -29,23 +29,31 @@ class TestTemplatesPage:
         expect(empty_state.locator("h3")).to_have_text("No templates yet")
 
     def test_templates_page_navigation_links(self, page: Page, app_server: str):
-        """Test that navigation links are present."""
+        """Test that navigation links are present in the dropdown menu."""
         page.goto(f"{app_server}/admin/templates")
 
-        # Check nav links
-        expect(page.locator('a.nav-link:has-text("Screens")')).to_be_visible()
-        expect(page.locator('a.nav-link:has-text("Themes")')).to_be_visible()
-        expect(page.locator('a.nav-link:has-text("Media")')).to_be_visible()
+        # Open the nav dropdown menu
+        page.locator('button:has-text("Menu")').click()
+        menu = page.locator(".nav-dropdown-menu")
+        expect(menu).to_have_class(re.compile(r"show"))
+
+        # Check nav links inside dropdown
+        expect(menu.locator('a:has-text("Screens")')).to_be_visible()
+        expect(menu.locator('a:has-text("Themes")')).to_be_visible()
+        expect(menu.locator('a:has-text("Media")')).to_be_visible()
 
     def test_templates_link_in_screens_page(self, page: Page, app_server: str):
         """Test that Templates link exists in screens page navigation."""
         page.goto(f"{app_server}/admin/screens")
 
-        # Check Templates link exists
-        templates_link = page.locator('a.nav-link:has-text("Templates")')
-        expect(templates_link).to_be_visible()
+        # Open the nav dropdown menu
+        page.locator('button:has-text("Menu")').click()
+        menu = page.locator(".nav-dropdown-menu")
+        expect(menu).to_have_class(re.compile(r"show"))
 
-        # Click and verify navigation
+        # Check Templates link exists and click it
+        templates_link = menu.locator('a:has-text("Templates")')
+        expect(templates_link).to_be_visible()
         templates_link.click()
         expect(page).to_have_url(re.compile(r"/admin/templates"))
 

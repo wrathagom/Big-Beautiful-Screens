@@ -79,35 +79,40 @@ class TestAdminNavigation:
         """Should be able to navigate to themes page."""
         page = authenticated_page
 
-        # Look for themes link
-        themes_link = page.locator('a[href*="themes"], a:has-text("Themes")').first
+        # Open the nav dropdown menu
+        menu_btn = page.locator('button:has-text("Menu")')
+        if menu_btn.is_visible():
+            menu_btn.click()
+            themes_link = page.locator('.nav-dropdown-menu a[href*="themes"]').first
+            if themes_link.is_visible():
+                themes_link.click()
+                page.wait_for_url(re.compile(r"/admin/themes"))
+                expect(page).to_have_url(re.compile(r"/admin/themes"))
+                return
 
-        if themes_link.is_visible():
-            themes_link.click()
-            page.wait_for_url(re.compile(r"/admin/themes"))
-            expect(page).to_have_url(re.compile(r"/admin/themes"))
-        else:
-            # Try direct navigation
-            page.goto(f"{base_url}/admin/themes")
-            page.wait_for_load_state("networkidle")
-            expect(page).to_have_url(re.compile(r"/admin/themes"))
+        # Fallback to direct navigation
+        page.goto(f"{base_url}/admin/themes")
+        page.wait_for_load_state("networkidle")
+        expect(page).to_have_url(re.compile(r"/admin/themes"))
 
     def test_navigate_to_usage(self, authenticated_page: Page, base_url: str):
         """Should be able to navigate to usage/billing page."""
         page = authenticated_page
 
-        # Look for usage/billing link
-        usage_link = page.locator(
-            'a[href*="usage"], a:has-text("Usage"), a:has-text("Billing")'
-        ).first
+        # Open the nav dropdown menu
+        menu_btn = page.locator('button:has-text("Menu")')
+        if menu_btn.is_visible():
+            menu_btn.click()
+            usage_link = page.locator('.nav-dropdown-menu a[href*="usage"]').first
+            if usage_link.is_visible():
+                usage_link.click()
+                page.wait_for_url(re.compile(r"/admin/usage"))
+                expect(page).to_have_url(re.compile(r"/admin/usage"))
+                return
 
-        if usage_link.is_visible():
-            usage_link.click()
-            page.wait_for_url(re.compile(r"/admin/usage"))
-        else:
-            page.goto(f"{base_url}/admin/usage")
-            page.wait_for_load_state("networkidle")
-
+        # Fallback to direct navigation
+        page.goto(f"{base_url}/admin/usage")
+        page.wait_for_load_state("networkidle")
         expect(page).to_have_url(re.compile(r"/admin/usage"))
 
     def test_navigate_to_media(self, authenticated_page: Page, base_url: str):

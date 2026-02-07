@@ -61,12 +61,18 @@ class TestAdminDashboard:
         expect(page.locator("#create-screen")).to_have_text("+ Create New Screen")
 
     def test_navigation_links_visible(self, page: Page, app_server: str):
-        """Test that navigation links are present."""
+        """Test that navigation links are present in the dropdown menu."""
         page.goto(f"{app_server}/admin/screens")
 
-        # Check nav links
-        expect(page.locator('a.nav-link:has-text("Themes")')).to_be_visible()
-        expect(page.locator('a.nav-link:has-text("Media")')).to_be_visible()
+        # Open the nav dropdown menu
+        page.locator('button:has-text("Menu")').click()
+        menu = page.locator(".nav-dropdown-menu")
+        expect(menu).to_have_class(re.compile(r"show"))
+
+        # Check nav links inside dropdown
+        expect(menu.locator('a:has-text("Themes")')).to_be_visible()
+        expect(menu.locator('a:has-text("Media")')).to_be_visible()
+        expect(menu.locator('a:has-text("Templates")')).to_be_visible()
 
     def test_screen_list_or_empty_state(self, page: Page, app_server: str):
         """Test that screen list or empty state is shown."""
