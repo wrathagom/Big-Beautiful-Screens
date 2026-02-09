@@ -9,6 +9,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from pydantic import ValidationError
+
 from ..config import AppMode, get_settings
 from ..connection_manager import manager
 from ..database import (
@@ -30,6 +32,16 @@ from ..utils import (
     deserialize_template_to_screen_config,
     normalize_content,
     resolve_theme_settings,
+)
+from .arg_models import (
+    CreatePageArgs,
+    CreateScreenArgs,
+    DeleteScreenArgs,
+    GetScreenArgs,
+    ListLayoutsArgs,
+    ListScreensArgs,
+    SendMessageArgs,
+    UpdateScreenArgs,
 )
 
 
@@ -67,6 +79,23 @@ def get_mcp_context() -> MCPContext:
     return _mcp_context
 
 
+def _validation_error_to_response(e: ValidationError) -> dict[str, Any]:
+    """Convert Pydantic validation errors into the MCP handler error shape.
+
+    Some unit tests (and the pre-Pydantic behavior) expect missing required
+    fields to return `{ "error": "<field> is required" }` instead of raising.
+    """
+
+    errors = e.errors()
+    missing = [err for err in errors if err.get("type") == "missing"]
+    if missing:
+        loc = missing[0].get("loc") or ()
+        field = loc[-1] if loc else "field"
+        return {"error": f"{field} is required"}
+
+    return {"error": "Invalid arguments", "details": errors}
+
+
 async def handle_tool_call(name: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Route tool calls to their handlers."""
     handlers = {
@@ -86,15 +115,21 @@ async def handle_tool_call(name: str, arguments: dict[str, Any]) -> dict[str, An
 
     try:
         return await handler(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
     except Exception as e:
         return {"error": str(e)}
 
 
 async def handle_list_screens(arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle list_screens tool call."""
+    try:
+        args = ListScreensArgs.model_validate(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
     ctx = get_mcp_context()
-    page = arguments.get("page", 1)
-    per_page = min(arguments.get("per_page", 20), 100)
+    page = args.page
+    per_page = args.per_page
     offset = (page - 1) * per_page
 
     owner_id = ctx.user_id if ctx.is_saas else None
@@ -127,9 +162,13 @@ async def handle_list_screens(arguments: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_create_screen(arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle create_screen tool call."""
+    try:
+        args = CreateScreenArgs.model_validate(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
     ctx = get_mcp_context()
-    name = arguments.get("name")
-    template_id = arguments.get("template_id")
+    name = args.name
+    template_id = args.template_id
 
     template = None
     if template_id:
@@ -214,9 +253,11 @@ async def handle_create_screen(arguments: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_get_screen(arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle get_screen tool call."""
-    screen_id = arguments.get("screen_id")
-    if not screen_id:
-        return {"error": "screen_id is required"}
+    try:
+        args = GetScreenArgs.model_validate(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
+    screen_id = args.screen_id
 
     screen = await get_screen_by_id(screen_id)
     if not screen:
@@ -235,13 +276,12 @@ async def handle_get_screen(arguments: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_update_screen(arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle update_screen tool call."""
-    screen_id = arguments.get("screen_id")
-    api_key = arguments.get("api_key")
-
-    if not screen_id:
-        return {"error": "screen_id is required"}
-    if not api_key:
-        return {"error": "api_key is required"}
+    try:
+        args = UpdateScreenArgs.model_validate(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
+    screen_id = args.screen_id
+    api_key = args.api_key
 
     screen = await get_screen_by_id(screen_id)
     if not screen:
@@ -250,23 +290,23 @@ async def handle_update_screen(arguments: dict[str, Any]) -> dict[str, Any]:
     if screen["api_key"] != api_key:
         return {"error": "Invalid API key"}
 
-    name = arguments.get("name")
+    name = args.name
     if name is not None:
         await update_screen_name(screen_id, name)
 
-    theme = arguments.get("theme")
-    rotation_enabled = arguments.get("rotation_enabled")
-    rotation_interval = arguments.get("rotation_interval")
-    gap = arguments.get("gap")
-    border_radius = arguments.get("border_radius")
-    panel_shadow = arguments.get("panel_shadow")
-    background_color = arguments.get("background_color")
-    panel_color = arguments.get("panel_color")
-    font_family = arguments.get("font_family")
-    font_color = arguments.get("font_color")
-    default_layout = arguments.get("default_layout")
-    transition = arguments.get("transition")
-    transition_duration = arguments.get("transition_duration")
+    theme = args.theme
+    rotation_enabled = args.rotation_enabled
+    rotation_interval = args.rotation_interval
+    gap = args.gap
+    border_radius = args.border_radius
+    panel_shadow = args.panel_shadow
+    background_color = args.background_color
+    panel_color = args.panel_color
+    font_family = args.font_family
+    font_color = args.font_color
+    default_layout = args.default_layout
+    transition = args.transition
+    transition_duration = args.transition_duration
 
     await update_rotation_settings(
         screen_id,
@@ -302,13 +342,12 @@ async def handle_update_screen(arguments: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_delete_screen(arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle delete_screen tool call."""
-    screen_id = arguments.get("screen_id")
-    api_key = arguments.get("api_key")
-
-    if not screen_id:
-        return {"error": "screen_id is required"}
-    if not api_key:
-        return {"error": "api_key is required"}
+    try:
+        args = DeleteScreenArgs.model_validate(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
+    screen_id = args.screen_id
+    api_key = args.api_key
 
     screen = await get_screen_by_id(screen_id)
     if not screen:
@@ -323,16 +362,13 @@ async def handle_delete_screen(arguments: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_send_message(arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle send_message tool call."""
-    screen_id = arguments.get("screen_id")
-    api_key = arguments.get("api_key")
-    content = arguments.get("content")
-
-    if not screen_id:
-        return {"error": "screen_id is required"}
-    if not api_key:
-        return {"error": "api_key is required"}
-    if not content:
-        return {"error": "content is required"}
+    try:
+        args = SendMessageArgs.model_validate(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
+    screen_id = args.screen_id
+    api_key = args.api_key
+    content = args.content
 
     screen = await get_screen_by_id(screen_id)
     if not screen:
@@ -343,17 +379,17 @@ async def handle_send_message(arguments: dict[str, Any]) -> dict[str, Any]:
 
     normalized_content = normalize_content(content)
 
-    layout_value = arguments.get("layout")
+    layout_value = args.layout
 
     message_payload = {
         "content": normalized_content,
-        "background_color": arguments.get("background_color"),
-        "panel_color": arguments.get("panel_color"),
-        "font_family": arguments.get("font_family"),
-        "font_color": arguments.get("font_color"),
-        "gap": arguments.get("gap"),
-        "border_radius": arguments.get("border_radius"),
-        "panel_shadow": arguments.get("panel_shadow"),
+        "background_color": args.background_color,
+        "panel_color": args.panel_color,
+        "font_family": args.font_family,
+        "font_color": args.font_color,
+        "gap": args.gap,
+        "border_radius": args.border_radius,
+        "panel_shadow": args.panel_shadow,
         "layout": layout_value,
     }
 
@@ -366,19 +402,14 @@ async def handle_send_message(arguments: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_create_page(arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle create_page tool call."""
-    screen_id = arguments.get("screen_id")
-    page_name = arguments.get("page_name")
-    api_key = arguments.get("api_key")
-    content = arguments.get("content")
-
-    if not screen_id:
-        return {"error": "screen_id is required"}
-    if not page_name:
-        return {"error": "page_name is required"}
-    if not api_key:
-        return {"error": "api_key is required"}
-    if not content:
-        return {"error": "content is required"}
+    try:
+        args = CreatePageArgs.model_validate(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
+    screen_id = args.screen_id
+    page_name = args.page_name
+    api_key = args.api_key
+    content = args.content
 
     screen = await get_screen_by_id(screen_id)
     if not screen:
@@ -391,19 +422,19 @@ async def handle_create_page(arguments: dict[str, Any]) -> dict[str, Any]:
 
     message_payload = {
         "content": normalized_content,
-        "background_color": arguments.get("background_color"),
-        "panel_color": arguments.get("panel_color"),
-        "font_family": arguments.get("font_family"),
-        "font_color": arguments.get("font_color"),
-        "gap": arguments.get("gap"),
-        "border_radius": arguments.get("border_radius"),
-        "panel_shadow": arguments.get("panel_shadow"),
-        "layout": arguments.get("layout"),
-        "transition": arguments.get("transition"),
-        "transition_duration": arguments.get("transition_duration"),
+        "background_color": args.background_color,
+        "panel_color": args.panel_color,
+        "font_family": args.font_family,
+        "font_color": args.font_color,
+        "gap": args.gap,
+        "border_radius": args.border_radius,
+        "panel_shadow": args.panel_shadow,
+        "layout": args.layout,
+        "transition": args.transition,
+        "transition_duration": args.transition_duration,
     }
 
-    duration = arguments.get("duration")
+    duration = args.duration
 
     page_data = await upsert_page(screen_id, page_name, message_payload, duration=duration)
 
@@ -414,4 +445,8 @@ async def handle_create_page(arguments: dict[str, Any]) -> dict[str, Any]:
 
 async def handle_list_layouts(arguments: dict[str, Any]) -> dict[str, Any]:
     """Handle list_layouts tool call."""
+    try:
+        ListLayoutsArgs.model_validate(arguments)
+    except ValidationError as e:
+        return _validation_error_to_response(e)
     return {"layouts": list_layout_presets()}
