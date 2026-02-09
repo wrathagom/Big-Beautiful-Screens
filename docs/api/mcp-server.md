@@ -36,6 +36,13 @@ The MCP server is automatically available as HTTP endpoints when running the Fas
 
 This mode works with Railway and other cloud deployments since it runs as part of the main FastAPI application.
 
+#### Streamable HTTP Transport (Codex)
+
+Codex expects MCP over **Streamable HTTP** (not the legacy SSE + `/messages` pattern).
+Big Beautiful Screens also exposes a Streamable HTTP MCP endpoint:
+
+- **Streamable HTTP Endpoint**: `GET|POST|DELETE /mcp/http` - Streamable HTTP MCP transport
+
 #### Stdio Transport (Local Development)
 
 For local development or direct integration, you can run the MCP server as a standalone process:
