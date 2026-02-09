@@ -1,10 +1,31 @@
 """Tests for MCP (Model Context Protocol) server module."""
 
+import asyncio
 import os
 import tempfile
 from pathlib import Path
 
 import pytest
+
+
+def _run_coro(coro):
+    """Run a coroutine from sync tests, even if another event loop is already running.
+
+    The Playwright sync API can keep an asyncio loop running in the main thread during
+    the full `tests/core` suite. `pytest.mark.asyncio` (pytest-asyncio) uses
+    `asyncio.Runner.run()`, which cannot be invoked when a loop is already running.
+    Running coroutines in a separate thread avoids that conflict.
+    """
+
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    import concurrent.futures
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(asyncio.run, coro).result()
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -156,193 +177,192 @@ class TestMCPServer:
 class TestMCPHandlers:
     """Tests for MCP tool handlers."""
 
-    @pytest.mark.asyncio
-    async def test_handle_list_layouts(self, setup_test_db):
+    def test_handle_list_layouts(self, setup_test_db):
         """Test list_layouts handler."""
         from app.mcp.handlers import handle_list_layouts
 
-        result = await handle_list_layouts({})
+        result = _run_coro(handle_list_layouts({}))
         assert "layouts" in result
         assert len(result["layouts"]) > 0
 
-    @pytest.mark.asyncio
-    async def test_handle_list_screens(self, setup_test_db):
+    def test_handle_list_screens(self, setup_test_db):
         """Test list_screens handler."""
         from app.mcp.handlers import handle_list_screens
 
-        result = await handle_list_screens({})
+        result = _run_coro(handle_list_screens({}))
         assert "screens" in result
         assert "total_count" in result
         assert "page" in result
         assert "per_page" in result
 
-    @pytest.mark.asyncio
-    async def test_handle_list_screens_pagination(self, setup_test_db):
+    def test_handle_list_screens_pagination(self, setup_test_db):
         """Test list_screens handler with pagination."""
         from app.mcp.handlers import handle_list_screens
 
-        result = await handle_list_screens({"page": 1, "per_page": 5})
+        result = _run_coro(handle_list_screens({"page": 1, "per_page": 5}))
         assert result["per_page"] == 5
         assert result["page"] == 1
 
-    @pytest.mark.asyncio
-    async def test_handle_create_screen(self, setup_test_db):
+    def test_handle_create_screen(self, setup_test_db):
         """Test create_screen handler."""
         from app.mcp.handlers import handle_create_screen
 
-        result = await handle_create_screen({"name": "Test MCP Screen"})
+        result = _run_coro(handle_create_screen({"name": "Test MCP Screen"}))
         assert "screen_id" in result
         assert "api_key" in result
         assert result["api_key"].startswith("sk_")
         assert result["name"] == "Test MCP Screen"
 
-    @pytest.mark.asyncio
-    async def test_handle_get_screen(self, setup_test_db):
+    def test_handle_get_screen(self, setup_test_db):
         """Test get_screen handler."""
         from app.mcp.handlers import handle_create_screen, handle_get_screen
 
-        created = await handle_create_screen({"name": "Get Test"})
-        result = await handle_get_screen({"screen_id": created["screen_id"]})
+        created = _run_coro(handle_create_screen({"name": "Get Test"}))
+        result = _run_coro(handle_get_screen({"screen_id": created["screen_id"]}))
         assert result["screen_id"] == created["screen_id"]
         assert result["name"] == "Get Test"
 
-    @pytest.mark.asyncio
-    async def test_handle_get_screen_not_found(self, setup_test_db):
+    def test_handle_get_screen_not_found(self, setup_test_db):
         """Test get_screen handler with nonexistent screen."""
         from app.mcp.handlers import handle_get_screen
 
-        result = await handle_get_screen({"screen_id": "nonexistent123"})
+        result = _run_coro(handle_get_screen({"screen_id": "nonexistent123"}))
         assert "error" in result
         assert "not found" in result["error"].lower()
 
-    @pytest.mark.asyncio
-    async def test_handle_get_screen_missing_id(self, setup_test_db):
+    def test_handle_get_screen_missing_id(self, setup_test_db):
         """Test get_screen handler without screen_id."""
         from app.mcp.handlers import handle_get_screen
 
-        result = await handle_get_screen({})
+        result = _run_coro(handle_get_screen({}))
         assert "error" in result
         assert "required" in result["error"].lower()
 
-    @pytest.mark.asyncio
-    async def test_handle_send_message(self, setup_test_db):
+    def test_handle_send_message(self, setup_test_db):
         """Test send_message handler."""
         from app.mcp.handlers import handle_create_screen, handle_send_message
 
-        screen = await handle_create_screen({})
-        result = await handle_send_message(
-            {
-                "screen_id": screen["screen_id"],
-                "api_key": screen["api_key"],
-                "content": ["Hello from MCP!", "# Markdown heading"],
-            }
+        screen = _run_coro(handle_create_screen({}))
+        result = _run_coro(
+            handle_send_message(
+                {
+                    "screen_id": screen["screen_id"],
+                    "api_key": screen["api_key"],
+                    "content": ["Hello from MCP!", "# Markdown heading"],
+                }
+            )
         )
         assert result["success"] is True
         assert "viewers" in result
 
-    @pytest.mark.asyncio
-    async def test_handle_send_message_wrong_key(self, setup_test_db):
+    def test_handle_send_message_wrong_key(self, setup_test_db):
         """Test send_message handler with wrong API key."""
         from app.mcp.handlers import handle_create_screen, handle_send_message
 
-        screen = await handle_create_screen({})
-        result = await handle_send_message(
-            {
-                "screen_id": screen["screen_id"],
-                "api_key": "sk_wrong_key",
-                "content": ["Should fail"],
-            }
+        screen = _run_coro(handle_create_screen({}))
+        result = _run_coro(
+            handle_send_message(
+                {
+                    "screen_id": screen["screen_id"],
+                    "api_key": "sk_wrong_key",
+                    "content": ["Should fail"],
+                }
+            )
         )
         assert "error" in result
         assert "Invalid API key" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_handle_send_message_missing_content(self, setup_test_db):
+    def test_handle_send_message_missing_content(self, setup_test_db):
         """Test send_message handler without content."""
         from app.mcp.handlers import handle_create_screen, handle_send_message
 
-        screen = await handle_create_screen({})
-        result = await handle_send_message(
-            {
-                "screen_id": screen["screen_id"],
-                "api_key": screen["api_key"],
-            }
+        screen = _run_coro(handle_create_screen({}))
+        result = _run_coro(
+            handle_send_message(
+                {
+                    "screen_id": screen["screen_id"],
+                    "api_key": screen["api_key"],
+                }
+            )
         )
         assert "error" in result
         assert "required" in result["error"].lower()
 
-    @pytest.mark.asyncio
-    async def test_handle_create_page(self, setup_test_db):
+    def test_handle_create_page(self, setup_test_db):
         """Test create_page handler."""
         from app.mcp.handlers import handle_create_page, handle_create_screen
 
-        screen = await handle_create_screen({})
-        result = await handle_create_page(
-            {
-                "screen_id": screen["screen_id"],
-                "page_name": "alerts",
-                "api_key": screen["api_key"],
-                "content": ["Alert message!"],
-            }
+        screen = _run_coro(handle_create_screen({}))
+        result = _run_coro(
+            handle_create_page(
+                {
+                    "screen_id": screen["screen_id"],
+                    "page_name": "alerts",
+                    "api_key": screen["api_key"],
+                    "content": ["Alert message!"],
+                }
+            )
         )
         assert result["success"] is True
         assert result["page"]["name"] == "alerts"
 
-    @pytest.mark.asyncio
-    async def test_handle_create_page_with_duration(self, setup_test_db):
+    def test_handle_create_page_with_duration(self, setup_test_db):
         """Test create_page handler with duration."""
         from app.mcp.handlers import handle_create_page, handle_create_screen
 
-        screen = await handle_create_screen({})
-        result = await handle_create_page(
-            {
-                "screen_id": screen["screen_id"],
-                "page_name": "promo",
-                "api_key": screen["api_key"],
-                "content": ["Special offer!"],
-                "duration": 15,
-            }
+        screen = _run_coro(handle_create_screen({}))
+        result = _run_coro(
+            handle_create_page(
+                {
+                    "screen_id": screen["screen_id"],
+                    "page_name": "promo",
+                    "api_key": screen["api_key"],
+                    "content": ["Special offer!"],
+                    "duration": 15,
+                }
+            )
         )
         assert result["success"] is True
         assert result["page"]["duration"] == 15
 
-    @pytest.mark.asyncio
-    async def test_handle_update_screen(self, setup_test_db):
+    def test_handle_update_screen(self, setup_test_db):
         """Test update_screen handler."""
         from app.mcp.handlers import handle_create_screen, handle_update_screen
 
-        screen = await handle_create_screen({"name": "Original"})
-        result = await handle_update_screen(
-            {
-                "screen_id": screen["screen_id"],
-                "api_key": screen["api_key"],
-                "name": "Updated Name",
-                "rotation_enabled": True,
-                "rotation_interval": 20,
-            }
+        screen = _run_coro(handle_create_screen({"name": "Original"}))
+        result = _run_coro(
+            handle_update_screen(
+                {
+                    "screen_id": screen["screen_id"],
+                    "api_key": screen["api_key"],
+                    "name": "Updated Name",
+                    "rotation_enabled": True,
+                    "rotation_interval": 20,
+                }
+            )
         )
         assert result["success"] is True
         assert result["settings"]["enabled"] is True
         assert result["settings"]["interval"] == 20
 
-    @pytest.mark.asyncio
-    async def test_handle_update_screen_wrong_key(self, setup_test_db):
+    def test_handle_update_screen_wrong_key(self, setup_test_db):
         """Test update_screen handler with wrong API key."""
         from app.mcp.handlers import handle_create_screen, handle_update_screen
 
-        screen = await handle_create_screen({})
-        result = await handle_update_screen(
-            {
-                "screen_id": screen["screen_id"],
-                "api_key": "sk_wrong_key",
-                "name": "Should fail",
-            }
+        screen = _run_coro(handle_create_screen({}))
+        result = _run_coro(
+            handle_update_screen(
+                {
+                    "screen_id": screen["screen_id"],
+                    "api_key": "sk_wrong_key",
+                    "name": "Should fail",
+                }
+            )
         )
         assert "error" in result
         assert "Invalid API key" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_handle_delete_screen(self, setup_test_db):
+    def test_handle_delete_screen(self, setup_test_db):
         """Test delete_screen handler."""
         from app.mcp.handlers import (
             handle_create_screen,
@@ -350,42 +370,44 @@ class TestMCPHandlers:
             handle_get_screen,
         )
 
-        screen = await handle_create_screen({})
-        result = await handle_delete_screen(
-            {
-                "screen_id": screen["screen_id"],
-                "api_key": screen["api_key"],
-            }
+        screen = _run_coro(handle_create_screen({}))
+        result = _run_coro(
+            handle_delete_screen(
+                {
+                    "screen_id": screen["screen_id"],
+                    "api_key": screen["api_key"],
+                }
+            )
         )
         assert result["success"] is True
 
-        get_result = await handle_get_screen({"screen_id": screen["screen_id"]})
+        get_result = _run_coro(handle_get_screen({"screen_id": screen["screen_id"]}))
         assert "error" in get_result
 
-    @pytest.mark.asyncio
-    async def test_handle_delete_screen_wrong_key(self, setup_test_db):
+    def test_handle_delete_screen_wrong_key(self, setup_test_db):
         """Test delete_screen handler with wrong API key."""
         from app.mcp.handlers import handle_create_screen, handle_delete_screen
 
-        screen = await handle_create_screen({})
-        result = await handle_delete_screen(
-            {
-                "screen_id": screen["screen_id"],
-                "api_key": "sk_wrong_key",
-            }
+        screen = _run_coro(handle_create_screen({}))
+        result = _run_coro(
+            handle_delete_screen(
+                {
+                    "screen_id": screen["screen_id"],
+                    "api_key": "sk_wrong_key",
+                }
+            )
         )
         assert "error" in result
         assert "Invalid API key" in result["error"]
 
-    @pytest.mark.asyncio
-    async def test_handle_tool_call_routing(self, setup_test_db):
+    def test_handle_tool_call_routing(self, setup_test_db):
         """Test that handle_tool_call routes to correct handlers."""
         from app.mcp.handlers import handle_tool_call
 
-        result = await handle_tool_call("list_layouts", {})
+        result = _run_coro(handle_tool_call("list_layouts", {}))
         assert "layouts" in result
 
-        result = await handle_tool_call("unknown_tool", {})
+        result = _run_coro(handle_tool_call("unknown_tool", {}))
         assert "error" in result
         assert "Unknown tool" in result["error"]
 
