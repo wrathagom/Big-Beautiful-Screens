@@ -1,47 +1,56 @@
-"""FastAPI routes for MCP server over HTTP/SSE.
+"""ASGI application for MCP server over HTTP/SSE.
 
-This module provides HTTP endpoints for the MCP server, allowing it to run
-as part of the FastAPI application on Railway or other hosting platforms.
+This module provides a single ASGI application that handles all MCP
+transport endpoints.  It is mounted on the main FastAPI app at ``/mcp``.
 
-The MCP protocol is exposed via Server-Sent Events (SSE) for real-time
-communication with AI agents.
+The SSE transport methods (connect_sse, handle_post_message) manage the
+full ASGI response lifecycle internally, so they cannot be wrapped in
+FastAPI/Starlette Route endpoints (which would send a second response).
+Instead, all MCP paths are routed inside a single ASGI app so that they
+share the same ``root_path`` and the SSE transport computes the correct
+message URL for clients.
 """
 
-from fastapi import APIRouter, Request
-from fastapi.responses import Response
 from mcp.server.sse import SseServerTransport
-from starlette.responses import StreamingResponse
+from starlette.responses import Response
 
 from .server import mcp_server
+from .streamable_http_asgi import streamable_http_app
 
-router = APIRouter(prefix="/mcp", tags=["MCP"])
+# "/messages" is relative — when mounted at /mcp the transport resolves
+# the full client POST path as root_path + "/messages" = "/mcp/messages".
+sse_transport = SseServerTransport("/messages")
 
-sse_transport = SseServerTransport("/mcp/messages")
 
+class MCPApp:
+    """Combined ASGI app for all MCP endpoints.
 
-@router.get("/sse")
-async def mcp_sse_endpoint(request: Request) -> StreamingResponse:
-    """SSE endpoint for MCP communication.
-
-    AI agents connect to this endpoint to receive server-sent events.
-    This is the main communication channel for the MCP protocol.
+    Routes:
+        /sse      – SSE connection for MCP communication
+        /messages – POST endpoint for MCP messages (used by SSE clients)
+        /http     – Streamable HTTP transport (Codex / non-SSE clients)
     """
-    async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
-        await mcp_server.run(
-            streams[0],
-            streams[1],
-            mcp_server.create_initialization_options(),
-        )
 
-    return Response(status_code=200)
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            return
+
+        path = scope.get("path", "")
+
+        if path in ("/sse", "/sse/"):
+            async with sse_transport.connect_sse(scope, receive, send) as streams:
+                await mcp_server.run(
+                    streams[0],
+                    streams[1],
+                    mcp_server.create_initialization_options(),
+                )
+        elif path.startswith("/messages"):
+            await sse_transport.handle_post_message(scope, receive, send)
+        elif path.startswith("/http"):
+            await streamable_http_app(scope, receive, send)
+        else:
+            response = Response("Not Found", status_code=404)
+            await response(scope, receive, send)
 
 
-@router.post("/messages")
-async def mcp_messages_endpoint(request: Request) -> Response:
-    """POST endpoint for MCP messages.
-
-    AI agents send messages to this endpoint. The messages are processed
-    and responses are sent back via the SSE connection.
-    """
-    await sse_transport.handle_post_message(request.scope, request.receive, request._send)
-    return Response(status_code=202)
+mcp_app = MCPApp()
