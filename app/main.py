@@ -171,18 +171,27 @@ async def seed_system_templates():
     """Seed system templates on first startup if none exist."""
     import secrets
 
-    from .database import create_template, delete_template, get_all_templates, get_templates_count
+    from .database import (
+        create_template,
+        delete_template,
+        get_all_templates,
+        get_template,
+        get_templates_count,
+    )
     from .seed_templates import get_system_templates
 
     try:
         # Check if any system templates exist
         count = await get_templates_count(template_type="system")
         if count > 0:
-            # Verify existing templates have pages in their configuration
+            # Spot-check that existing templates have pages in their configuration.
+            # NOTE: get_all_templates omits the configuration column for efficiency,
+            # so we must fetch a full template via get_template to inspect it.
             existing = await get_all_templates(template_type="system")
             needs_reseed = False
             for tmpl in existing:
-                config = tmpl.get("configuration", {})
+                full = await get_template(tmpl["id"])
+                config = full.get("configuration", {}) if full else {}
                 pages = config.get("pages", []) if isinstance(config, dict) else []
                 if not pages:
                     needs_reseed = True

@@ -305,6 +305,8 @@ async def handle_update_screen(arguments: dict[str, Any]) -> dict[str, Any]:
     font_family = args.font_family
     font_color = args.font_color
     default_layout = args.default_layout
+    if hasattr(default_layout, "model_dump"):
+        default_layout = default_layout.model_dump(exclude_none=True)
     transition = args.transition
     transition_duration = args.transition_duration
 
@@ -380,6 +382,8 @@ async def handle_send_message(arguments: dict[str, Any]) -> dict[str, Any]:
     normalized_content = normalize_content(content)
 
     layout_value = args.layout
+    if hasattr(layout_value, "model_dump"):
+        layout_value = layout_value.model_dump(exclude_none=True)
 
     message_payload = {
         "content": normalized_content,
@@ -420,6 +424,10 @@ async def handle_create_page(arguments: dict[str, Any]) -> dict[str, Any]:
 
     normalized_content = normalize_content(content)
 
+    layout_value = args.layout
+    if hasattr(layout_value, "model_dump"):
+        layout_value = layout_value.model_dump(exclude_none=True)
+
     message_payload = {
         "content": normalized_content,
         "background_color": args.background_color,
@@ -429,7 +437,7 @@ async def handle_create_page(arguments: dict[str, Any]) -> dict[str, Any]:
         "gap": args.gap,
         "border_radius": args.border_radius,
         "panel_shadow": args.panel_shadow,
-        "layout": args.layout,
+        "layout": layout_value,
         "transition": args.transition,
         "transition_duration": args.transition_duration,
     }
