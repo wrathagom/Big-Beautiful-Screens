@@ -192,6 +192,10 @@ const ChartWidget = {
                     dataset.borderWidth = isLine ? 2 : 1;
                 }
 
+                if (chartType === 'scatter' || chartType === 'bubble') {
+                    dataset.clip = false;
+                }
+
                 if (isLine || chartType === 'radar') {
                     dataset.fill = config.fill;
                     dataset.tension = config.tension;
@@ -238,6 +242,11 @@ const ChartWidget = {
             }
         };
 
+        const isScatterOrBubble = chartType === 'scatter' || chartType === 'bubble';
+        if (isScatterOrBubble) {
+            chartConfig.options.layout = { padding: 10 };
+        }
+
         if (hasCartesian) {
             chartConfig.options.indexAxis = config.index_axis || 'x';
             chartConfig.options.scales = {
@@ -251,7 +260,8 @@ const ChartWidget = {
                         display: config.show_grid
                     },
                     min: config.index_axis === 'y' ? config.x_min : undefined,
-                    max: config.index_axis === 'y' ? config.x_max : undefined
+                    max: config.index_axis === 'y' ? config.x_max : undefined,
+                    grace: isScatterOrBubble ? '5%' : undefined
                 },
                 y: {
                     display: true,
@@ -263,7 +273,8 @@ const ChartWidget = {
                         display: config.show_grid
                     },
                     min: config.y_min,
-                    max: config.y_max
+                    max: config.y_max,
+                    grace: isScatterOrBubble ? '5%' : undefined
                 }
             };
         } else if (isRadar) {
@@ -328,9 +339,11 @@ const ChartWidget = {
             chart.options.scales.r.grid.color = gridColor;
         }
 
-        if (isPoint) {
+        if (isPoint && chartType !== 'bubble') {
             chart.data.datasets.forEach(dataset => {
-                dataset.pointRadius = fontSizes.pointRadius;
+                dataset.pointRadius = chartType === 'scatter'
+                    ? Math.max(fontSizes.pointRadius, 5)
+                    : fontSizes.pointRadius;
                 dataset.borderWidth = Math.max(2, fontSizes.lineWidth);
             });
         }
