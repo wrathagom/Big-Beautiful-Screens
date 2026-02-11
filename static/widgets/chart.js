@@ -179,7 +179,6 @@ const ChartWidget = {
                 };
 
                 if (isPie) {
-                    const dataLen = dataset.data.length;
                     dataset.backgroundColor = ds.backgroundColor || dataset.data.map(
                         (_, i) => this._colorPalette[i % this._colorPalette.length]
                     );
