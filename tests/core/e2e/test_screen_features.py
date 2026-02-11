@@ -976,6 +976,186 @@ class TestWidgetVisualRegression:
 
         assert_snapshot(page, "widget_chart_line.png")
 
+    def test_chart_pie(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test pie chart widget."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "pie",
+                        "labels": ["Desktop", "Mobile", "Tablet"],
+                        "values": [60, 30, 10],
+                        "label": "Traffic Sources",
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_chart_pie.png")
+
+    def test_chart_doughnut(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test doughnut chart widget."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "doughnut",
+                        "labels": ["Completed", "In Progress", "Pending"],
+                        "values": [45, 35, 20],
+                        "label": "Task Status",
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_chart_doughnut.png")
+
+    def test_chart_radar(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
+        """Test radar chart widget."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "radar",
+                        "labels": ["Speed", "Reliability", "Comfort", "Safety", "Efficiency"],
+                        "values": [85, 90, 70, 95, 80],
+                        "label": "Performance",
+                        "fill": True,
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_chart_radar.png")
+
+    def test_chart_polar_area(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test polarArea chart widget."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "polarArea",
+                        "labels": ["Red", "Blue", "Yellow", "Green"],
+                        "values": [11, 16, 7, 14],
+                        "label": "Dataset",
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_chart_polar_area.png")
+
+    def test_chart_scatter(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test scatter chart widget."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "scatter",
+                        "datasets": [
+                            {
+                                "label": "Group A",
+                                "data": [
+                                    {"x": 10, "y": 20},
+                                    {"x": 15, "y": 10},
+                                    {"x": 25, "y": 30},
+                                    {"x": 35, "y": 25},
+                                ],
+                                "color": "#e74c3c",
+                            }
+                        ],
+                        "x_axis_label": "X Values",
+                        "y_axis_label": "Y Values",
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_chart_scatter.png")
+
+    def test_chart_bubble(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test bubble chart widget."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "chart",
+                    "widget_config": {
+                        "chart_type": "bubble",
+                        "datasets": [
+                            {
+                                "label": "Sales",
+                                "data": [
+                                    {"x": 20, "y": 30, "r": 10},
+                                    {"x": 40, "y": 10, "r": 15},
+                                    {"x": 30, "y": 20, "r": 8},
+                                ],
+                                "color": "#9b59b6",
+                            }
+                        ],
+                        "x_axis_label": "Revenue",
+                        "y_axis_label": "Profit",
+                    },
+                }
+            ],
+        )
+
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_chart_bubble.png")
+
     def test_stock_single(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test stock widget with single stock."""
         self.send_content(

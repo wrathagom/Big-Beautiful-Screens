@@ -226,7 +226,7 @@ Advanced CSS grid values:
   "type": "widget",
   "widget_type": "chart",
   "widget_config": {
-    "chart_type": "bar",       // "bar" | "line"
+    "chart_type": "bar",       // "bar" | "line" | "pie" | "doughnut" | "radar" | "polarArea" | "bubble" | "scatter"
     "labels": ["A", "B", "C"],
     "datasets": [{
       "data": [10, 20, 30],
@@ -260,6 +260,27 @@ Simple format (single series):
     "values": [10, 20, 30],    // Use values instead of datasets
     "color": "#3498db",
     "label": "My Data"
+  }
+}
+```
+
+Pie/Doughnut (auto-colored segments):
+```json
+{
+  "widget_config": {
+    "chart_type": "pie",
+    "labels": ["Desktop", "Mobile", "Tablet"],
+    "values": [60, 30, 10]
+  }
+}
+```
+
+Scatter (x/y coordinate pairs):
+```json
+{
+  "widget_config": {
+    "chart_type": "scatter",
+    "datasets": [{"label": "Points", "data": [{"x": 10, "y": 20}, {"x": 15, "y": 10}]}]
   }
 }
 ```
