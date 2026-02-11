@@ -925,9 +925,7 @@ class TestWidgetVisualRegression:
 
         assert_snapshot(page, "widget_chart_pie.png")
 
-    def test_chart_doughnut(
-        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
-    ):
+    def test_chart_doughnut(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test doughnut chart widget."""
         self.send_content(
             app_server,
@@ -1005,9 +1003,7 @@ class TestWidgetVisualRegression:
 
         assert_snapshot(page, "widget_chart_polar_area.png")
 
-    def test_chart_scatter(
-        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
-    ):
+    def test_chart_scatter(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test scatter chart widget."""
         self.send_content(
             app_server,
@@ -1043,9 +1039,7 @@ class TestWidgetVisualRegression:
 
         assert_snapshot(page, "widget_chart_scatter.png")
 
-    def test_chart_bubble(
-        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
-    ):
+    def test_chart_bubble(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test bubble chart widget."""
         self.send_content(
             app_server,
