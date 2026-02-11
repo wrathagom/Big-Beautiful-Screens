@@ -6,6 +6,7 @@ underlying database and API functions to perform operations.
 
 import secrets
 import uuid
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any
 
@@ -62,21 +63,21 @@ class MCPContext:
         return self.settings.APP_MODE == AppMode.SELF_HOSTED
 
 
-_mcp_context: MCPContext | None = None
+_mcp_context_var: ContextVar[MCPContext | None] = ContextVar("_mcp_context_var", default=None)
 
 
 def set_mcp_context(api_key: str | None = None, user_id: str | None = None):
-    """Set the MCP context for authentication."""
-    global _mcp_context
-    _mcp_context = MCPContext(api_key=api_key, user_id=user_id)
+    """Set the MCP context for the current async task."""
+    _mcp_context_var.set(MCPContext(api_key=api_key, user_id=user_id))
 
 
 def get_mcp_context() -> MCPContext:
-    """Get the current MCP context."""
-    global _mcp_context
-    if _mcp_context is None:
-        _mcp_context = MCPContext()
-    return _mcp_context
+    """Get the MCP context for the current async task."""
+    ctx = _mcp_context_var.get()
+    if ctx is None:
+        ctx = MCPContext()
+        _mcp_context_var.set(ctx)
+    return ctx
 
 
 def _validation_error_to_response(e: ValidationError) -> dict[str, Any]:
