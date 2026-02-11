@@ -16,7 +16,7 @@ from starlette.responses import Response
 
 from ..auth import validate_account_key
 from ..config import AppMode, get_settings
-from .handlers import set_mcp_context
+from .handlers import reset_mcp_context, set_mcp_context
 from .server import mcp_server
 from .streamable_http_asgi import streamable_http_app
 
@@ -69,26 +69,29 @@ class MCPApp:
                 await response(scope, receive, send)
                 return
 
-            set_mcp_context(api_key=api_key, user_id=user.user_id)
+            token = set_mcp_context(api_key=api_key, user_id=user.user_id)
         else:
-            set_mcp_context()
+            token = set_mcp_context()
 
-        path = self._local_path(scope)
+        try:
+            path = self._local_path(scope)
 
-        if path in ("/sse", "/sse/"):
-            async with sse_transport.connect_sse(scope, receive, send) as streams:
-                await mcp_server.run(
-                    streams[0],
-                    streams[1],
-                    mcp_server.create_initialization_options(),
-                )
-        elif path.startswith("/messages"):
-            await sse_transport.handle_post_message(scope, receive, send)
-        elif path.startswith("/http"):
-            await streamable_http_app(scope, receive, send)
-        else:
-            response = Response("Not Found", status_code=404)
-            await response(scope, receive, send)
+            if path in ("/sse", "/sse/"):
+                async with sse_transport.connect_sse(scope, receive, send) as streams:
+                    await mcp_server.run(
+                        streams[0],
+                        streams[1],
+                        mcp_server.create_initialization_options(),
+                    )
+            elif path.startswith("/messages"):
+                await sse_transport.handle_post_message(scope, receive, send)
+            elif path.startswith("/http"):
+                await streamable_http_app(scope, receive, send)
+            else:
+                response = Response("Not Found", status_code=404)
+                await response(scope, receive, send)
+        finally:
+            reset_mcp_context(token)
 
 
 mcp_app = MCPApp()
