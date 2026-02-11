@@ -398,7 +398,15 @@ class PostgresBackend(DatabaseBackend):
                     query += f" LIMIT {limit} OFFSET {offset}"
                 rows = await conn.fetch(query)
 
-            return [dict(row) for row in rows]
+            results = []
+            for row in rows:
+                result = dict(row)
+                if result.get("created_at"):
+                    result["created_at"] = result["created_at"].isoformat()
+                if result.get("last_updated"):
+                    result["last_updated"] = result["last_updated"].isoformat()
+                results.append(result)
+            return results
 
     async def get_screens_count(
         self, owner_id: str | None = None, org_id: str | None = None
