@@ -349,14 +349,28 @@ class PostgresBackend(DatabaseBackend):
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow("SELECT * FROM screens WHERE id = $1", screen_id)
-            return dict(row) if row else None
+            if not row:
+                return None
+            result = dict(row)
+            if result.get("created_at"):
+                result["created_at"] = result["created_at"].isoformat()
+            if result.get("last_updated"):
+                result["last_updated"] = result["last_updated"].isoformat()
+            return result
 
     async def get_screen_by_api_key(self, api_key: str) -> dict | None:
         """Get a screen by its API key."""
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             row = await conn.fetchrow("SELECT * FROM screens WHERE api_key = $1", api_key)
-            return dict(row) if row else None
+            if not row:
+                return None
+            result = dict(row)
+            if result.get("created_at"):
+                result["created_at"] = result["created_at"].isoformat()
+            if result.get("last_updated"):
+                result["last_updated"] = result["last_updated"].isoformat()
+            return result
 
     async def get_all_screens(
         self,
