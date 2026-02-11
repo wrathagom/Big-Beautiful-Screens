@@ -66,6 +66,8 @@ nav:
     - Self-Hosted Quick Start: getting-started/quickstart.md
     - Hosted (SaaS) Quick Start: getting-started/saas-quickstart.md
   - API Reference:
+    - MCP Server: api/mcp-server.md
+    - Account API Keys: api/account-keys.md
     - Screens: api/screens.md
     - Pages: api/pages.md
     - Messages: api/messages.md
