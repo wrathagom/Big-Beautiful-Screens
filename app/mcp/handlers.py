@@ -6,7 +6,7 @@ underlying database and API functions to perform operations.
 
 import secrets
 import uuid
-from contextvars import ContextVar
+from contextvars import ContextVar, Token
 from datetime import UTC, datetime
 from typing import Any
 
@@ -66,9 +66,18 @@ class MCPContext:
 _mcp_context_var: ContextVar[MCPContext | None] = ContextVar("_mcp_context_var", default=None)
 
 
-def set_mcp_context(api_key: str | None = None, user_id: str | None = None):
-    """Set the MCP context for the current async task."""
-    _mcp_context_var.set(MCPContext(api_key=api_key, user_id=user_id))
+def set_mcp_context(api_key: str | None = None, user_id: str | None = None) -> Token[MCPContext | None]:
+    """Set the MCP context for the current async task.
+
+    Returns a token that can be passed to reset_mcp_context() to restore
+    the previous value.
+    """
+    return _mcp_context_var.set(MCPContext(api_key=api_key, user_id=user_id))
+
+
+def reset_mcp_context(token: Token[MCPContext | None]) -> None:
+    """Reset the MCP context to its previous value using the token from set_mcp_context."""
+    _mcp_context_var.reset(token)
 
 
 def get_mcp_context() -> MCPContext:
