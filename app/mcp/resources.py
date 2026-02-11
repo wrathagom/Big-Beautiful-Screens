@@ -173,7 +173,7 @@ Displays a Chart.js chart.
 **widget_config options:**
 | Key        | Description                                    |
 |------------|------------------------------------------------|
-| `chart_type` | Chart type: `"bar"`, `"line"` (default: `"bar"`) |
+| `chart_type` | Chart type: `"bar"`, `"line"`, `"pie"`, `"doughnut"`, `"radar"`, `"polarArea"`, `"bubble"`, `"scatter"` (default: `"bar"`) |
 | `labels`   | Array of x-axis labels                         |
 | `datasets` | Array of dataset objects with `label`, `data`, `backgroundColor`, etc. |
 | `index_axis` | `"x"` (default) or `"y"` for horizontal bars |
@@ -181,6 +181,12 @@ Displays a Chart.js chart.
 | `show_grid` | Boolean (default: true)                       |
 | `fill`     | Boolean — fill area under line (default: false) |
 | `tension`  | Number — line curve, 0 = straight (default: 0.1) |
+
+**Notes on chart types:**
+- **pie / doughnut / polarArea**: Segments are auto-colored from a built-in palette. No x/y scales.
+- **radar**: Radial layout; supports `fill` and `tension` like line charts.
+- **scatter**: Requires data as `[{"x": N, "y": N}]` coordinate pairs.
+- **bubble**: Like scatter but with radius: `[{"x": N, "y": N, "r": N}]`.
 """
 
 _EXAMPLES = """\
