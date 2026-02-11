@@ -102,74 +102,102 @@ def _get_item_attr(item, key, default=None):
     return getattr(item, key, default)
 
 
+def _try_parse_json_content(s: str):
+    """Try to parse a string as a JSON content item.
+
+    Returns a dict if *s* is valid JSON with a ``type`` key (i.e. it looks
+    like a serialised ContentItem), otherwise ``None``.
+    """
+    if not s.startswith("{"):
+        return None
+    try:
+        import json
+
+        obj = json.loads(s)
+        if isinstance(obj, dict) and "type" in obj:
+            return obj
+    except (json.JSONDecodeError, ValueError):
+        pass
+    return None
+
+
 def normalize_content(content: list) -> list:
     """Normalize content items to structured format with auto-detection."""
     normalized = []
 
     for item in content:
         if isinstance(item, str):
-            normalized.append(detect_content_type(item))
-        else:
-            # Already structured (ContentItem or dict)
-            item_type = _get_item_attr(item, "type")
-            item_value = _get_item_attr(item, "value")
-            item_url = _get_item_attr(item, "url")
-
-            if item_type == "image":
-                entry = {"type": "image", "url": item_url or item_value}
-            elif item_type == "video":
-                autoplay = _get_item_attr(item, "autoplay")
-                loop = _get_item_attr(item, "loop")
-                muted = _get_item_attr(item, "muted")
-                entry = {
-                    "type": "video",
-                    "url": item_url or item_value,
-                    "autoplay": autoplay if autoplay is not None else True,
-                    "loop": loop if loop is not None else True,
-                    "muted": muted if muted is not None else True,
-                }
-            elif item_type == "widget":
-                # Support both widget_type and value for widget type specification
-                widget_type = _get_item_attr(item, "widget_type") or item_value
-                entry = {
-                    "type": "widget",
-                    "widget_type": widget_type,
-                    "widget_config": _get_item_attr(item, "widget_config") or {},
-                }
-                # Copy timezone and other widget-specific config from top level
-                timezone = _get_item_attr(item, "timezone")
-                if timezone:
-                    entry["widget_config"]["timezone"] = timezone
+            # Some MCP clients (e.g. Codex) send structured content items
+            # as JSON strings because they can't handle anyOf schemas.
+            # Try to parse as JSON; if it's a dict with a "type" key,
+            # treat it as a structured content item instead of plain text.
+            parsed = _try_parse_json_content(item)
+            if parsed is not None:
+                item = parsed
             else:
-                entry = {"type": item_type, "value": item_value}
+                normalized.append(detect_content_type(item))
+                continue
 
-            # Preserve per-panel styling if specified
-            panel_color = _get_item_attr(item, "panel_color")
-            if panel_color:
-                entry["panel_color"] = panel_color
-            panel_shadow = _get_item_attr(item, "panel_shadow")
-            if panel_shadow is not None:
-                entry["panel_shadow"] = panel_shadow
-            font_family = _get_item_attr(item, "font_family")
-            if font_family:
-                entry["font_family"] = font_family
-            font_color = _get_item_attr(item, "font_color")
-            if font_color:
-                entry["font_color"] = font_color
-            image_mode = _get_item_attr(item, "image_mode")
-            if image_mode:
-                entry["image_mode"] = image_mode
-            wrap = _get_item_attr(item, "wrap")
-            if wrap is not None:
-                entry["wrap"] = wrap
-            grid_column = _get_item_attr(item, "grid_column")
-            if grid_column:
-                entry["grid_column"] = grid_column
-            grid_row = _get_item_attr(item, "grid_row")
-            if grid_row:
-                entry["grid_row"] = grid_row
+        # Structured item (ContentItem, dict, or parsed JSON string)
+        item_type = _get_item_attr(item, "type")
+        item_value = _get_item_attr(item, "value")
+        item_url = _get_item_attr(item, "url")
 
-            normalized.append(entry)
+        if item_type == "image":
+            entry = {"type": "image", "url": item_url or item_value}
+        elif item_type == "video":
+            autoplay = _get_item_attr(item, "autoplay")
+            loop = _get_item_attr(item, "loop")
+            muted = _get_item_attr(item, "muted")
+            entry = {
+                "type": "video",
+                "url": item_url or item_value,
+                "autoplay": autoplay if autoplay is not None else True,
+                "loop": loop if loop is not None else True,
+                "muted": muted if muted is not None else True,
+            }
+        elif item_type == "widget":
+            # Support both widget_type and value for widget type specification
+            widget_type = _get_item_attr(item, "widget_type") or item_value
+            entry = {
+                "type": "widget",
+                "widget_type": widget_type,
+                "widget_config": _get_item_attr(item, "widget_config") or {},
+            }
+            # Copy timezone and other widget-specific config from top level
+            timezone = _get_item_attr(item, "timezone")
+            if timezone:
+                entry["widget_config"]["timezone"] = timezone
+        else:
+            entry = {"type": item_type, "value": item_value}
+
+        # Preserve per-panel styling if specified
+        panel_color = _get_item_attr(item, "panel_color")
+        if panel_color:
+            entry["panel_color"] = panel_color
+        panel_shadow = _get_item_attr(item, "panel_shadow")
+        if panel_shadow is not None:
+            entry["panel_shadow"] = panel_shadow
+        font_family = _get_item_attr(item, "font_family")
+        if font_family:
+            entry["font_family"] = font_family
+        font_color = _get_item_attr(item, "font_color")
+        if font_color:
+            entry["font_color"] = font_color
+        image_mode = _get_item_attr(item, "image_mode")
+        if image_mode:
+            entry["image_mode"] = image_mode
+        wrap = _get_item_attr(item, "wrap")
+        if wrap is not None:
+            entry["wrap"] = wrap
+        grid_column = _get_item_attr(item, "grid_column")
+        if grid_column:
+            entry["grid_column"] = grid_column
+        grid_row = _get_item_attr(item, "grid_row")
+        if grid_row:
+            entry["grid_row"] = grid_row
+
+        normalized.append(entry)
 
     return normalized
 

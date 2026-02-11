@@ -15,9 +15,11 @@ from typing import Any
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from mcp.types import Resource, TextContent, Tool
+from pydantic import AnyUrl
 
 from ..config import AppMode, get_settings
+from .resources import RESOURCES, get_resource_content
 from .tools import (
     create_page_tool,
     create_screen_tool,
@@ -59,6 +61,22 @@ async def call_tool(name: str, arguments: dict[str, Any] | None) -> list[TextCon
 
     result = await handle_tool_call(name, arguments or {})
     return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+
+# ---------------------------------------------------------------------------
+# Resources – read-only documentation that helps AI clients understand
+# how to use the tools effectively.
+# ---------------------------------------------------------------------------
+
+
+@mcp_server.list_resources()
+async def list_resources() -> list[Resource]:
+    return RESOURCES
+
+
+@mcp_server.read_resource()
+async def read_resource(uri: AnyUrl) -> str:
+    return get_resource_content(str(uri))
 
 
 def create_mcp_server() -> Server:

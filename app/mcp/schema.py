@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
@@ -44,11 +45,38 @@ def _simplify_anyof_nulls(schema: dict[str, Any]) -> None:
             prop["anyOf"] = non_null
 
 
+def _inline_refs(node: Any, defs: dict[str, Any]) -> Any:
+    """Recursively replace ``$ref`` pointers with the referenced definition.
+
+    This allows MCP clients that don't resolve JSON Schema ``$ref`` (e.g.
+    Codex) to see the full type information inline.
+    """
+    if isinstance(node, dict):
+        ref = node.get("$ref")
+        if ref and ref.startswith("#/$defs/"):
+            def_name = ref[len("#/$defs/") :]
+            if def_name in defs:
+                # Deep-copy to avoid mutating the shared definition, then
+                # merge any sibling keys (description, default, etc.) that
+                # sat next to the $ref.
+                resolved = copy.deepcopy(defs[def_name])
+                for k, v in node.items():
+                    if k != "$ref":
+                        resolved.setdefault(k, v)
+                return _inline_refs(resolved, defs)
+            return node
+        return {k: _inline_refs(v, defs) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_inline_refs(item, defs) for item in node]
+    return node
+
+
 def input_schema_from_model(model: type[ModelT]) -> dict[str, Any]:
     """Return a JSON Schema dict usable as an MCP Tool ``inputSchema``.
 
     Applies post-processing to make the schema friendlier for MCP clients
-    that don't fully support ``anyOf`` nullable patterns.
+    that don't fully support ``$ref``, ``$defs``, or ``anyOf`` nullable
+    patterns.
     """
 
     schema = model.model_json_schema(mode="validation")
@@ -57,11 +85,16 @@ def input_schema_from_model(model: type[ModelT]) -> dict[str, Any]:
     for k in ("title",):
         schema.pop(k, None)
 
+    # Inline all $ref pointers so clients don't need to resolve them.
+    defs = schema.get("$defs", {})
+    if defs:
+        # Simplify anyOf nulls inside $defs before inlining.
+        for defn in defs.values():
+            _simplify_anyof_nulls(defn)
+        schema = _inline_refs(schema, defs)
+        schema.pop("$defs", None)
+
     # Simplify anyOf nullable patterns in top-level properties.
     _simplify_anyof_nulls(schema)
-
-    # Also simplify inside $defs (ContentItem, LayoutConfig, etc.).
-    for defn in schema.get("$defs", {}).values():
-        _simplify_anyof_nulls(defn)
 
     return schema
