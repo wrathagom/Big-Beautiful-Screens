@@ -97,7 +97,8 @@ class ContentItem(BaseModel):
     )
     widget_type: str | None = Field(
         default=None,
-        description="Widget type for type='widget': 'clock', 'countdown', 'chart'",
+        description="Widget type for type='widget': 'clock', 'countdown', 'chart'. "
+        "Chart supports chart_type: bar, line, pie, doughnut, radar, polarArea, bubble, scatter.",
         examples=["clock", "countdown", "chart"],
     )
     widget_config: dict | None = Field(

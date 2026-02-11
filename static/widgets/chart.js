@@ -1,8 +1,8 @@
 /**
- * Chart Widget - Line and Bar charts using Chart.js
+ * Chart Widget - Charts using Chart.js
  *
  * Configuration options:
- * - chart_type: 'line' | 'bar' (default: 'bar')
+ * - chart_type: 'line' | 'bar' | 'pie' | 'doughnut' | 'radar' | 'polarArea' | 'bubble' | 'scatter' (default: 'bar')
  * - labels: array of x-axis labels
  * - values: single series data array (simple format)
  * - datasets: multi-series data array (advanced format)
@@ -33,7 +33,7 @@ const ChartWidget = {
     ],
 
     configSchema: {
-        chart_type: { enum: ['line', 'bar'], default: 'bar' },
+        chart_type: { enum: ['line', 'bar', 'pie', 'doughnut', 'radar', 'polarArea', 'bubble', 'scatter'], default: 'bar' },
         labels: { default: [] },
         datasets: { default: [] },
         values: { default: null },
@@ -122,46 +122,89 @@ const ChartWidget = {
         }
     },
 
-    _normalizeData(config) {
-        const isLine = config.chart_type === 'line';
+    _isPieType(chartType) {
+        return ['pie', 'doughnut', 'polarArea'].includes(chartType);
+    },
 
-        // Simple format: values array
+    _isPointType(chartType) {
+        return ['line', 'radar', 'scatter', 'bubble'].includes(chartType);
+    },
+
+    _hasCartesianScales(chartType) {
+        return ['line', 'bar', 'scatter', 'bubble'].includes(chartType);
+    },
+
+    _normalizeData(config) {
+        const chartType = config.chart_type;
+        const isLine = chartType === 'line';
+        const isPie = this._isPieType(chartType);
+        const isPoint = this._isPointType(chartType);
+
         if (config.values && Array.isArray(config.values)) {
             const color = config.color || this._colorPalette[0];
-            return [{
+            const dataset = {
                 label: config.label || 'Data',
-                data: config.values,
-                backgroundColor: isLine ? this._hexToRgba(color, 0.2) : color,
-                borderColor: color,
-                borderWidth: isLine ? 2 : 1,
-                fill: config.fill,
-                tension: config.tension,
-                pointRadius: config.point_radius
-            }];
+                data: config.values
+            };
+
+            if (isPie) {
+                dataset.backgroundColor = config.values.map(
+                    (_, i) => this._colorPalette[i % this._colorPalette.length]
+                );
+                dataset.borderColor = '#ffffff';
+                dataset.borderWidth = 2;
+            } else {
+                dataset.backgroundColor = isLine ? this._hexToRgba(color, 0.2) : color;
+                dataset.borderColor = color;
+                dataset.borderWidth = isLine ? 2 : 1;
+            }
+
+            if (isLine || chartType === 'radar') {
+                dataset.fill = config.fill;
+                dataset.tension = config.tension;
+            }
+            if (isPoint) {
+                dataset.pointRadius = config.point_radius;
+            }
+
+            return [dataset];
         }
 
-        // Advanced format: datasets array
         if (config.datasets && Array.isArray(config.datasets) && config.datasets.length > 0) {
             return config.datasets.map((ds, index) => {
                 const color = ds.color || this._colorPalette[index % this._colorPalette.length];
-                // Support per-bar colors via backgroundColor array
-                const bgColor = ds.backgroundColor || (isLine ? this._hexToRgba(color, 0.2) : color);
-                // Match borderColor to backgroundColor for per-bar colors, or use explicit borderColor
-                const borderColor = ds.borderColor || (Array.isArray(bgColor) ? bgColor : color);
-                return {
+                const dataset = {
                     label: ds.label || `Series ${index + 1}`,
-                    data: ds.values || ds.data || [],
-                    backgroundColor: bgColor,
-                    borderColor: borderColor,
-                    borderWidth: isLine ? 2 : 1,
-                    fill: config.fill,
-                    tension: config.tension,
-                    pointRadius: config.point_radius
+                    data: ds.values || ds.data || []
                 };
+
+                if (isPie) {
+                    const dataLen = dataset.data.length;
+                    dataset.backgroundColor = ds.backgroundColor || dataset.data.map(
+                        (_, i) => this._colorPalette[i % this._colorPalette.length]
+                    );
+                    dataset.borderColor = ds.borderColor || '#ffffff';
+                    dataset.borderWidth = ds.borderWidth !== undefined ? ds.borderWidth : 2;
+                } else {
+                    const bgColor = ds.backgroundColor || (isLine ? this._hexToRgba(color, 0.2) : color);
+                    const borderColor = ds.borderColor || (Array.isArray(bgColor) ? bgColor : color);
+                    dataset.backgroundColor = bgColor;
+                    dataset.borderColor = borderColor;
+                    dataset.borderWidth = isLine ? 2 : 1;
+                }
+
+                if (isLine || chartType === 'radar') {
+                    dataset.fill = config.fill;
+                    dataset.tension = config.tension;
+                }
+                if (isPoint) {
+                    dataset.pointRadius = config.point_radius;
+                }
+
+                return dataset;
             });
         }
 
-        // Fallback: empty dataset
         return [{
             label: 'No Data',
             data: [],
@@ -171,8 +214,12 @@ const ChartWidget = {
     },
 
     _buildChartConfig(config, datasets) {
+        const chartType = config.chart_type;
+        const hasCartesian = this._hasCartesianScales(chartType);
+        const isRadar = chartType === 'radar';
+
         const chartConfig = {
-            type: config.chart_type,
+            type: chartType,
             data: {
                 labels: config.labels || [],
                 datasets: datasets
@@ -180,7 +227,6 @@ const ChartWidget = {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                indexAxis: config.index_axis || 'x',  // 'y' for horizontal bars
                 animation: {
                     duration: 500
                 },
@@ -189,35 +235,51 @@ const ChartWidget = {
                         display: config.show_legend,
                         position: config.legend_position
                     }
-                },
-                scales: {
-                    x: {
-                        display: true,
-                        title: {
-                            display: !!config.x_axis_label,
-                            text: config.x_axis_label || ''
-                        },
-                        grid: {
-                            display: config.show_grid
-                        },
-                        min: config.index_axis === 'y' ? config.x_min : undefined,
-                        max: config.index_axis === 'y' ? config.x_max : undefined
-                    },
-                    y: {
-                        display: true,
-                        title: {
-                            display: !!config.y_axis_label,
-                            text: config.y_axis_label || ''
-                        },
-                        grid: {
-                            display: config.show_grid
-                        },
-                        min: config.y_min,
-                        max: config.y_max
-                    }
                 }
             }
         };
+
+        if (hasCartesian) {
+            chartConfig.options.indexAxis = config.index_axis || 'x';
+            chartConfig.options.scales = {
+                x: {
+                    display: true,
+                    title: {
+                        display: !!config.x_axis_label,
+                        text: config.x_axis_label || ''
+                    },
+                    grid: {
+                        display: config.show_grid
+                    },
+                    min: config.index_axis === 'y' ? config.x_min : undefined,
+                    max: config.index_axis === 'y' ? config.x_max : undefined
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: !!config.y_axis_label,
+                        text: config.y_axis_label || ''
+                    },
+                    grid: {
+                        display: config.show_grid
+                    },
+                    min: config.y_min,
+                    max: config.y_max
+                }
+            };
+        } else if (isRadar) {
+            chartConfig.options.scales = {
+                r: {
+                    grid: {
+                        display: config.show_grid
+                    },
+                    beginAtZero: true,
+                    min: config.y_min,
+                    max: config.y_max
+                }
+            };
+        }
+
         return chartConfig;
     },
 
@@ -225,42 +287,56 @@ const ChartWidget = {
         const computedStyle = getComputedStyle(wrapper);
         const textColor = computedStyle.color || '#666';
         const gridColor = this._hexToRgba(textColor, 0.1);
+        const chartType = config.chart_type;
+        const hasCartesian = this._hasCartesianScales(chartType);
+        const isRadar = chartType === 'radar';
+        const isPoint = this._isPointType(chartType);
 
-        // Calculate font sizes based on container dimensions
         const fontSizes = this._calculateFontSizes(wrapper);
 
-        // Update chart options with inherited colors and dynamic font sizes
         chart.options.plugins.legend.labels = {
             color: textColor,
             font: { size: fontSizes.legend }
         };
 
-        chart.options.scales.x.ticks = {
-            color: textColor,
-            font: { size: fontSizes.ticks }
-        };
-        chart.options.scales.y.ticks = {
-            color: textColor,
-            font: { size: fontSizes.ticks }
-        };
+        if (hasCartesian && chart.options.scales) {
+            chart.options.scales.x.ticks = {
+                color: textColor,
+                font: { size: fontSizes.ticks }
+            };
+            chart.options.scales.y.ticks = {
+                color: textColor,
+                font: { size: fontSizes.ticks }
+            };
 
-        chart.options.scales.x.title.color = textColor;
-        chart.options.scales.x.title.font = { size: fontSizes.axisTitle };
-        chart.options.scales.y.title.color = textColor;
-        chart.options.scales.y.title.font = { size: fontSizes.axisTitle };
+            chart.options.scales.x.title.color = textColor;
+            chart.options.scales.x.title.font = { size: fontSizes.axisTitle };
+            chart.options.scales.y.title.color = textColor;
+            chart.options.scales.y.title.font = { size: fontSizes.axisTitle };
 
-        chart.options.scales.x.grid.color = gridColor;
-        chart.options.scales.y.grid.color = gridColor;
+            chart.options.scales.x.grid.color = gridColor;
+            chart.options.scales.y.grid.color = gridColor;
+        } else if (isRadar && chart.options.scales && chart.options.scales.r) {
+            chart.options.scales.r.ticks = {
+                color: textColor,
+                font: { size: fontSizes.ticks },
+                backdropColor: 'transparent'
+            };
+            chart.options.scales.r.pointLabels = {
+                color: textColor,
+                font: { size: fontSizes.ticks }
+            };
+            chart.options.scales.r.grid.color = gridColor;
+        }
 
-        // Scale point radius for line charts
-        if (config.chart_type === 'line') {
+        if (isPoint) {
             chart.data.datasets.forEach(dataset => {
                 dataset.pointRadius = fontSizes.pointRadius;
                 dataset.borderWidth = Math.max(2, fontSizes.lineWidth);
             });
         }
 
-        chart.update('none'); // Update without animation
+        chart.update('none');
     },
 
     _calculateFontSizes(wrapper) {

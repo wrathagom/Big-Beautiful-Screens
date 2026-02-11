@@ -1116,6 +1116,165 @@ class TestWidgets:
         assert response.status_code == 200
         assert response.json()["success"] is True
 
+    def test_send_chart_widget_pie(self, client, screen):
+        """Test sending a pie chart widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "pie",
+                            "labels": ["Desktop", "Mobile", "Tablet"],
+                            "values": [60, 30, 10],
+                            "label": "Traffic Sources",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_chart_widget_doughnut(self, client, screen):
+        """Test sending a doughnut chart widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "doughnut",
+                            "labels": ["Completed", "In Progress", "Pending"],
+                            "values": [45, 35, 20],
+                            "label": "Task Status",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_chart_widget_radar(self, client, screen):
+        """Test sending a radar chart widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "radar",
+                            "labels": ["Speed", "Reliability", "Comfort", "Safety", "Efficiency"],
+                            "values": [85, 90, 70, 95, 80],
+                            "label": "Performance",
+                            "fill": True,
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_chart_widget_polar_area(self, client, screen):
+        """Test sending a polarArea chart widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "polarArea",
+                            "labels": ["Red", "Blue", "Yellow", "Green"],
+                            "values": [11, 16, 7, 14],
+                            "label": "Dataset",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_chart_widget_scatter(self, client, screen):
+        """Test sending a scatter chart widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "scatter",
+                            "datasets": [
+                                {
+                                    "label": "Group A",
+                                    "data": [
+                                        {"x": 10, "y": 20},
+                                        {"x": 15, "y": 10},
+                                        {"x": 25, "y": 30},
+                                    ],
+                                    "color": "#e74c3c",
+                                }
+                            ],
+                            "x_axis_label": "X Values",
+                            "y_axis_label": "Y Values",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_chart_widget_bubble(self, client, screen):
+        """Test sending a bubble chart widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "chart",
+                        "widget_config": {
+                            "chart_type": "bubble",
+                            "datasets": [
+                                {
+                                    "label": "Sales",
+                                    "data": [
+                                        {"x": 20, "y": 30, "r": 10},
+                                        {"x": 40, "y": 10, "r": 15},
+                                        {"x": 30, "y": 20, "r": 8},
+                                    ],
+                                    "color": "#9b59b6",
+                                }
+                            ],
+                            "x_axis_label": "Revenue",
+                            "y_axis_label": "Profit",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
 
 class TestThemes:
     """Tests for theme functionality."""
