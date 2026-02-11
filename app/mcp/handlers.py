@@ -66,7 +66,9 @@ class MCPContext:
 _mcp_context_var: ContextVar[MCPContext | None] = ContextVar("_mcp_context_var", default=None)
 
 
-def set_mcp_context(api_key: str | None = None, user_id: str | None = None) -> Token[MCPContext | None]:
+def set_mcp_context(
+    api_key: str | None = None, user_id: str | None = None
+) -> Token[MCPContext | None]:
     """Set the MCP context for the current async task.
 
     Returns a token that can be passed to reset_mcp_context() to restore
