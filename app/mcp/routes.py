@@ -31,11 +31,25 @@ class MCPApp:
         /http     – Streamable HTTP transport (Codex / non-SSE clients)
     """
 
+    @staticmethod
+    def _local_path(scope):
+        """Return the path relative to this app's mount point.
+
+        Starlette's Mount does not modify ``scope["path"]``; it only
+        updates ``root_path``.  We strip root_path to get the local
+        portion that this app should route on.
+        """
+        path = scope.get("path", "")
+        root = scope.get("root_path", "")
+        if root and path.startswith(root):
+            path = path[len(root) :]
+        return path or "/"
+
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return
 
-        path = scope.get("path", "")
+        path = self._local_path(scope)
 
         if path in ("/sse", "/sse/"):
             async with sse_transport.connect_sse(scope, receive, send) as streams:
