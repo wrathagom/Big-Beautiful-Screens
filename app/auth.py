@@ -269,6 +269,47 @@ async def require_auth_or_api_key(
     )
 
 
+async def validate_account_key(api_key: str) -> AuthUser | None:
+    """Validate account API key and return AuthUser.
+
+    This is a standalone version of get_user_from_account_api_key that doesn't
+    require a FastAPI Request object, for use in ASGI middleware.
+
+    Args:
+        api_key: The account API key to validate (should start with 'ak_')
+
+    Returns:
+        AuthUser if valid, None otherwise
+    """
+    if not api_key or not api_key.startswith("ak_"):
+        return None
+
+    db = get_database()
+    key_data = await db.get_account_api_key_by_key(api_key)
+
+    if not key_data:
+        return None
+
+    if key_data.get("expires_at"):
+        expires_at = datetime.fromisoformat(key_data["expires_at"])
+        if expires_at < datetime.now(UTC):
+            return None
+
+    await db.update_account_api_key_last_used(key_data["id"])
+
+    user_data = await db.get_user(key_data["user_id"])
+    if not user_data:
+        return None
+
+    return AuthUser(
+        user_id=key_data["user_id"],
+        email=user_data.get("email"),
+        name=user_data.get("name"),
+        org_id=None,
+        org_role=None,
+    )
+
+
 async def get_user_from_account_api_key(
     request: Request, x_api_key: str | None = Header(default=None, alias="X-API-Key")
 ) -> AuthUser | None:

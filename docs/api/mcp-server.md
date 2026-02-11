@@ -281,7 +281,9 @@ What layouts are available?
 
 ### SaaS Mode
 
-In SaaS mode, the MCP server uses account API keys (`ak_` prefix) for authentication. These keys provide access to account-level operations like listing and creating screens.
+In SaaS mode, the MCP server **requires** authentication via account API keys (`ak_` prefix) for all HTTP/SSE endpoints. You must include the `X-API-Key` header with a valid account key in all requests.
+
+**Important**: The HTTP/SSE endpoints (`/mcp/sse`, `/mcp/messages`, `/mcp/http`) will return a `401 Unauthorized` error if the `X-API-Key` header is missing or invalid in SaaS mode.
 
 To create an account API key:
 
@@ -289,6 +291,25 @@ To create an account API key:
 2. Go to Settings → API Keys
 3. Create a new account key
 4. Copy the key and add it to your MCP configuration
+
+When configuring Claude Desktop for SaaS mode, include the API key as a custom header:
+
+```json
+{
+  "mcpServers": {
+    "big-beautiful-screens": {
+      "url": "https://your-bbs-instance.railway.app/mcp/sse",
+      "transport": "sse",
+      "headers": {
+        "X-API-Key": "ak_your-account-api-key"
+      }
+    }
+  }
+}
+```
+
+!!! note
+    The exact method for passing custom headers may vary depending on your MCP client. Consult your client's documentation if the `headers` field is not supported.
 
 ### Self-Hosted Mode
 
