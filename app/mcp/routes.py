@@ -14,6 +14,9 @@ message URL for clients.
 from mcp.server.sse import SseServerTransport
 from starlette.responses import Response
 
+from ..auth import validate_account_key
+from ..config import AppMode, get_settings
+from .handlers import set_mcp_context
 from .server import mcp_server
 from .streamable_http_asgi import streamable_http_app
 
@@ -48,6 +51,27 @@ class MCPApp:
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
             return
+
+        settings = get_settings()
+
+        headers = dict(scope.get("headers", []))
+        api_key = headers.get(b"x-api-key", b"").decode("utf-8")
+
+        if settings.APP_MODE == AppMode.SAAS:
+            if not api_key or not api_key.startswith("ak_"):
+                response = Response("Unauthorized: X-API-Key header required", status_code=401)
+                await response(scope, receive, send)
+                return
+
+            user = await validate_account_key(api_key)
+            if not user:
+                response = Response("Unauthorized: Invalid or expired API key", status_code=401)
+                await response(scope, receive, send)
+                return
+
+            set_mcp_context(api_key=api_key, user_id=user.user_id)
+        else:
+            set_mcp_context()
 
         path = self._local_path(scope)
 
