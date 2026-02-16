@@ -846,6 +846,86 @@ class TestWidgetVisualRegression:
 
         assert_snapshot(page, "widget_countdown_expired.png")
 
+    def test_countup_labeled(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test count-up widget with labeled style."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "countup",
+                    "widget_config": {
+                        "start": "2025-01-14T12:00:00Z",
+                        "style": "labeled",
+                    },
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_countup_labeled.png")
+
+    def test_countup_simple(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test count-up widget with simple style."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "countup",
+                    "widget_config": {
+                        "start": "2025-01-14T12:00:00Z",
+                        "style": "simple",
+                    },
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_countup_simple.png")
+
+    def test_countup_with_label(
+        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
+    ):
+        """Test count-up widget with label text."""
+        self.send_content(
+            app_server,
+            screen_data["screen_id"],
+            screen_data["api_key"],
+            content=[
+                {
+                    "type": "widget",
+                    "widget_type": "countup",
+                    "widget_config": {
+                        "start": "2025-01-14T12:00:00Z",
+                        "label": "Since last update",
+                        "label_position": "below",
+                        "style": "labeled",
+                    },
+                }
+            ],
+        )
+
+        mock_javascript_time(page)
+        page.goto(f"{app_server}/screen/{screen_data['screen_id']}")
+        self.wait_for_stable_screen(page)
+
+        assert_snapshot(page, "widget_countup_with_label.png")
+
     def test_chart_bar(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test bar chart widget."""
         self.send_content(

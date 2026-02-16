@@ -23,6 +23,7 @@ Unlike static content types, widgets are active—they update themselves without
 |--------|-------------|
 | `clock` | Digital or analog clock display |
 | `countdown` | Countdown timer to a target date/time |
+| `countup` | Count-up timer from a start date/time |
 | `chart` | Line and bar charts for data visualization |
 | `weather` | Current conditions and forecasts using Open-Meteo API |
 | `stock` | Stock ticker display with adaptive layouts |
@@ -223,6 +224,125 @@ curl -X POST http://localhost:8000/api/v1/screens/abc123/message \
     "expired_text": "Event Started!",
     "show_days": false,
     "show_hours": false,
+    "style": "simple"
+  }
+}
+```
+
+---
+
+## Count-Up Widget
+
+Display a count-up timer from a start date/time.
+
+### Basic Count-Up
+
+```json
+{
+  "type": "widget",
+  "widget_type": "countup",
+  "widget_config": {
+    "start": "2025-01-01T00:00:00Z"
+  }
+}
+```
+
+### Count-Up with Label
+
+```json
+{
+  "type": "widget",
+  "widget_type": "countup",
+  "widget_config": {
+    "start": "2025-01-01T00:00:00Z",
+    "label": "Since last update",
+    "label_position": "below",
+    "style": "labeled"
+  }
+}
+```
+
+### Configuration Options
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `start` | string | (required) | ISO 8601 datetime (e.g., `"2025-01-01T00:00:00Z"`) |
+| `label` | string | `null` | Optional descriptive text to display with the timer |
+| `label_position` | string | `"below"` | `"above"`, `"below"`, or `"inline"` |
+| `style` | string | `"labeled"` | `"labeled"` or `"simple"` |
+| `show_days` | boolean | `true` | Show days in count-up |
+| `show_hours` | boolean | `true` | Show hours in count-up |
+| `show_minutes` | boolean | `true` | Show minutes in count-up |
+| `show_seconds` | boolean | `true` | Show seconds in count-up |
+
+### Styles
+
+**Labeled style** (default):
+```
+2 days  15 hrs  30 min  45 sec
+```
+
+**Simple style**:
+```
+2:15:30:45
+```
+
+### Label Positions
+
+**Below** (default): Label appears below the timer
+```
+02h 30m 45s
+Since last update
+```
+
+**Above**: Label appears above the timer
+```
+Since last update
+02h 30m 45s
+```
+
+**Inline**: Label appears inline with the timer
+```
+Since last update 02h 30m 45s
+```
+
+### Examples
+
+**Uptime Counter:**
+
+```bash
+curl -X POST http://localhost:8000/api/v1/screens/abc123/message \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: sk_your_api_key" \
+  -d '{
+    "content": [
+      {"type": "markdown", "value": "# System Uptime"},
+      {
+        "type": "widget",
+        "widget_type": "countup",
+        "widget_config": {
+          "start": "2025-06-01T00:00:00Z",
+          "label": "Since last restart",
+          "label_position": "below",
+          "style": "labeled"
+        }
+      }
+    ],
+    "background_color": "#1a1a2e",
+    "panel_color": "#16213e"
+  }'
+```
+
+**Simple Timer (hours and minutes only):**
+
+```json
+{
+  "type": "widget",
+  "widget_type": "countup",
+  "widget_config": {
+    "start": "2025-01-01T00:00:00Z",
+    "show_days": false,
+    "show_seconds": false,
     "style": "simple"
   }
 }
