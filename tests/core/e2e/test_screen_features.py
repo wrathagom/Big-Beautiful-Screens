@@ -846,9 +846,7 @@ class TestWidgetVisualRegression:
 
         assert_snapshot(page, "widget_countdown_expired.png")
 
-    def test_countup_labeled(
-        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
-    ):
+    def test_countup_labeled(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test count-up widget with labeled style."""
         self.send_content(
             app_server,
@@ -872,9 +870,7 @@ class TestWidgetVisualRegression:
 
         assert_snapshot(page, "widget_countup_labeled.png")
 
-    def test_countup_simple(
-        self, page: Page, app_server: str, screen_data: dict, assert_snapshot
-    ):
+    def test_countup_simple(self, page: Page, app_server: str, screen_data: dict, assert_snapshot):
         """Test count-up widget with simple style."""
         self.send_content(
             app_server,
