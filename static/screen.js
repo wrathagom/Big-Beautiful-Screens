@@ -2,6 +2,7 @@
 import { createWidget, destroyWidget } from './widgets/registry.js';
 import './widgets/clock.js';      // Register clock widget
 import './widgets/countdown.js';  // Register countdown widget
+import './widgets/countup.js';    // Register count-up widget
 import './widgets/chart.js';      // Register chart widget
 import './widgets/weather.js';    // Register weather widget
 import './widgets/stock.js';      // Register stock widget

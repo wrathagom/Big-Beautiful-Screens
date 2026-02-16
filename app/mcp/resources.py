@@ -152,6 +152,34 @@ Counts down to a target date/time.
 | `target`       | ISO 8601 datetime to count down to       |
 | `expired_text` | Text shown when countdown reaches zero   |
 
+## Count-Up
+
+Counts up from a start date/time.
+
+```json
+{
+  "type": "widget",
+  "widget_type": "countup",
+  "widget_config": {
+    "start": "2025-01-01T00:00:00Z",
+    "label": "Since last update",
+    "label_position": "below"
+  }
+}
+```
+
+**widget_config options:**
+| Key              | Description                                      |
+|------------------|--------------------------------------------------|
+| `start`          | ISO 8601 datetime to count up from               |
+| `label`          | Optional descriptive text displayed with timer    |
+| `label_position` | `"above"`, `"below"`, `"inline"` (default: `"below"`) |
+| `style`          | `"labeled"` or `"simple"` (default: `"labeled"`) |
+| `show_days`      | Boolean (default: true)                           |
+| `show_hours`     | Boolean (default: true)                           |
+| `show_minutes`   | Boolean (default: true)                           |
+| `show_seconds`   | Boolean (default: true)                           |
+
 ## Chart
 
 Displays a Chart.js chart.
