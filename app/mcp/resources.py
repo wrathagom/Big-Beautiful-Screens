@@ -238,6 +238,24 @@ send_message(screen_id="...", api_key="...", layout="dashboard-header", content=
     {"type": "widget", "widget_type": "clock", "widget_config": {"style": "digital", "format": "24h"}}
 ])
 ```
+
+## Pie / Doughnut Charts
+
+```
+send_message(screen_id="...", api_key="...", layout="horizontal", content=[
+    {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "pie", "labels": ["Desktop","Mobile","Tablet"], "values": [60,30,10], "label": "Traffic Sources"}},
+    {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "doughnut", "labels": ["Chrome","Firefox","Safari","Edge"], "values": [65,15,12,8], "label": "Browsers"}}
+])
+```
+
+## Scatter / Bubble Charts
+
+```
+send_message(screen_id="...", api_key="...", layout="horizontal", content=[
+    {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "scatter", "datasets": [{"label": "Group A", "data": [{"x":10,"y":20},{"x":15,"y":10},{"x":25,"y":30}], "color": "#e74c3c"}], "x_axis_label": "X", "y_axis_label": "Y"}},
+    {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "bubble", "datasets": [{"label": "Sales", "data": [{"x":20,"y":30,"r":10},{"x":40,"y":10,"r":15},{"x":30,"y":20,"r":8}], "color": "#9b59b6"}]}}
+])
+```
 """
 
 # ---------------------------------------------------------------------------
