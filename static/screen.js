@@ -2,6 +2,7 @@
 import { createWidget, destroyWidget } from './widgets/registry.js';
 import './widgets/clock.js';      // Register clock widget
 import './widgets/countdown.js';  // Register countdown widget
+import './widgets/countup.js';    // Register count-up widget
 import './widgets/chart.js';      // Register chart widget
 import './widgets/weather.js';    // Register weather widget
 import './widgets/stock.js';      // Register stock widget
@@ -33,9 +34,9 @@ const LAYOUT_PRESETS = {
     "grid-4x4": { columns: 4, rows: 4 },
 
     // Dashboard layouts (header/footer span full width)
-    "dashboard-header": { columns: 3, rows: "auto 1fr 1fr", header_rows: 1 },
-    "dashboard-footer": { columns: 3, rows: "1fr 1fr auto", footer_rows: 1 },
-    "dashboard-both": { columns: 3, rows: "auto 1fr 1fr auto", header_rows: 1, footer_rows: 1 },
+    "dashboard-header": { columns: 3, rows: "1fr 2fr 2fr", header_rows: 1 },
+    "dashboard-footer": { columns: 3, rows: "2fr 2fr 1fr", footer_rows: 1 },
+    "dashboard-both": { columns: 3, rows: "1fr 2fr 2fr 1fr", header_rows: 1, footer_rows: 1 },
 
     // Menu/schedule layouts
     "menu-board": { columns: 2, rows: "auto 1fr 1fr 1fr 1fr 1fr 1fr", header_rows: 1 },

@@ -1,7 +1,7 @@
 """Visual regression tests for screen layouts.
 
 These tests verify that screen layouts render consistently across code changes.
-Screenshots are stored in tests/e2e/screenshots/ and compared against baseline.
+Screenshots are stored in tests/core/e2e/screenshots/ and compared against baseline.
 """
 
 import httpx

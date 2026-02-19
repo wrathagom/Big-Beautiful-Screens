@@ -546,6 +546,13 @@ h1 {
         text-align: center;
     }
 
+    .nav-links .btn-delete {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        justify-content: center;
+        text-align: center;
+    }
+
     .card-summary {
         gap: 0.5rem;
     }
@@ -652,10 +659,64 @@ h1 {
     text-decoration: none;
 }
 
+.nav-links .btn-delete {
+    /* Keep "Sign Out" visually aligned with the purple nav button. */
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    border-radius: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .nav-links {
     display: flex;
     gap: 0.75rem;
     align-items: center;
+}
+
+/* Navigation Dropdown */
+.nav-dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.nav-dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 0.25rem;
+    background: #1a1a2e;
+    border: 1px solid #3a3a5e;
+    border-radius: 0.5rem;
+    min-width: 180px;
+    z-index: 1000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+}
+
+.nav-dropdown-menu.show {
+    display: block;
+}
+
+.nav-dropdown-menu a {
+    display: block;
+    padding: 0.75rem 1rem;
+    color: #ccc;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+}
+
+.nav-dropdown-menu a:hover {
+    background: #2a2a4e;
+    color: #fff;
+}
+
+.nav-dropdown-menu a.active {
+    background: #3a3a5e;
+    color: #fff;
 }
 
 /* ============== Theme Management ============== */

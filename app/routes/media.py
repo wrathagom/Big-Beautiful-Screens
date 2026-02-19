@@ -7,7 +7,7 @@ from typing import Literal
 from fastapi import APIRouter, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse, RedirectResponse
 
-from ..auth import OptionalUser
+from ..auth import AuthOrAccountKey, OptionalUser
 from ..config import (
     ALLOWED_MEDIA_TYPES,
     PLAN_LIMITS,
@@ -38,7 +38,9 @@ from ..storage.local import LocalStorage
 router = APIRouter(prefix="/api/v1/media", tags=["Media"])
 
 
-def _can_use_media_library(user: OptionalUser, settings) -> tuple[bool, str | None]:
+def _can_use_media_library(
+    user: AuthOrAccountKey | OptionalUser, settings
+) -> tuple[bool, str | None]:
     """Check if the user can use the media library.
 
     Returns (can_use, error_message).
@@ -54,7 +56,7 @@ def _can_use_media_library(user: OptionalUser, settings) -> tuple[bool, str | No
     return True, None
 
 
-async def _check_media_enabled(user: OptionalUser) -> tuple[bool, str | None]:
+async def _check_media_enabled(user: AuthOrAccountKey | OptionalUser) -> tuple[bool, str | None]:
     """Check if media is enabled for this user's plan.
 
     Returns (enabled, error_message).
@@ -83,7 +85,7 @@ async def _check_media_enabled(user: OptionalUser) -> tuple[bool, str | None]:
     return True, None
 
 
-async def _get_storage_quota(user: OptionalUser) -> int:
+async def _get_storage_quota(user: AuthOrAccountKey | OptionalUser) -> int:
     """Get storage quota in bytes for the user. Returns -1 for unlimited."""
     settings = get_settings()
 
@@ -102,7 +104,9 @@ async def _get_storage_quota(user: OptionalUser) -> int:
     return limits.get("storage_bytes", 0)
 
 
-async def _check_storage_quota(user: OptionalUser, file_size: int) -> tuple[bool, str | None]:
+async def _check_storage_quota(
+    user: AuthOrAccountKey | OptionalUser, file_size: int
+) -> tuple[bool, str | None]:
     """Check if adding this file would exceed storage quota.
 
     Returns (within_quota, error_message).
@@ -129,7 +133,7 @@ async def _check_storage_quota(user: OptionalUser, file_size: int) -> tuple[bool
     return True, None
 
 
-def _can_access_media(user: OptionalUser, media: dict, settings) -> bool:
+def _can_access_media(user: AuthOrAccountKey | OptionalUser, media: dict, settings) -> bool:
     """Check if user can access this media item."""
     # Self-hosted: all accessible
     if settings.APP_MODE == AppMode.SELF_HOSTED:
@@ -161,11 +165,12 @@ def _can_access_media(user: OptionalUser, media: dict, settings) -> bool:
 async def upload_media(
     request: Request,
     file: UploadFile = File(...),
-    user: OptionalUser = None,
+    user: AuthOrAccountKey = None,
 ):
     """Upload a media file (image or video).
 
-    In SaaS mode, requires authentication and checks plan limits.
+    In SaaS mode, requires authentication (Clerk session or account API key with ak_ prefix)
+    and checks plan limits.
     In self-hosted mode, uploads are unlimited.
     """
     settings = get_settings()
@@ -252,11 +257,12 @@ async def list_media(
     content_type: Literal["image", "video"] | None = Query(
         None, description="Filter by content type"
     ),
-    user: OptionalUser = None,
+    user: AuthOrAccountKey = None,
 ):
     """List media files with pagination.
 
-    In SaaS mode, returns only the user's media.
+    In SaaS mode, requires authentication (Clerk session or account API key with ak_ prefix)
+    and returns only the user's media.
     In self-hosted mode, returns all media.
     """
     settings = get_settings()
@@ -323,9 +329,12 @@ async def list_media(
 )
 async def get_media(
     media_id: str,
-    user: OptionalUser = None,
+    user: AuthOrAccountKey = None,
 ):
-    """Get details of a specific media item."""
+    """Get details of a specific media item.
+
+    Requires authentication (Clerk session or account API key with ak_ prefix) in SaaS mode.
+    """
     settings = get_settings()
 
     # Check access
@@ -369,11 +378,13 @@ async def get_media(
 async def delete_media_item(
     request: Request,
     media_id: str,
-    user: OptionalUser = None,
+    user: AuthOrAccountKey = None,
 ):
     """Delete a media file.
 
     Removes the file from storage and the database record.
+
+    Requires authentication (Clerk session or account API key with ak_ prefix) in SaaS mode.
     """
     settings = get_settings()
 

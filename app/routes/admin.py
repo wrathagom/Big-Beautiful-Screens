@@ -503,6 +503,35 @@ async def admin_usage(request: Request, checkout: str | None = None):
     )
 
 
+@router.get("/admin/api-keys", response_class=HTMLResponse)
+async def admin_api_keys(request: Request):
+    """Admin page for managing account-level API keys.
+
+    Only available in SaaS mode. Requires authentication.
+    """
+    settings = get_settings()
+
+    # Only available in SaaS mode
+    if settings.APP_MODE != AppMode.SAAS:
+        return RedirectResponse(url="/admin/screens", status_code=302)
+
+    user = await get_current_user(request)
+    if not user:
+        return RedirectResponse(
+            url=get_clerk_sign_in_url("/admin/api-keys", request=request), status_code=302
+        )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_api_keys.html",
+        context={
+            "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
+            "help_url": settings.HELP_URL,
+            "help_text": _get_help_text(),
+        },
+    )
+
+
 @router.get("/admin/pricing", response_class=HTMLResponse)
 async def admin_pricing(request: Request):
     """Pricing page with Stripe pricing table.

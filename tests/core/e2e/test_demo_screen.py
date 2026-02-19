@@ -8,7 +8,7 @@ import httpx
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.e2e.conftest import mock_javascript_time
+from tests.core.e2e.conftest import mock_javascript_time
 
 # Demo screen rotation interval (from demo_screen.json)
 ROTATION_INTERVAL_MS = 8000
@@ -28,7 +28,7 @@ class TestDemoScreenPages:
         """Find the demo screen ID (should be the only screen on fresh start)."""
         with httpx.Client() as client:
             # Get all screens - demo screen is auto-created
-            response = client.get(f"{app_server}/api/v1/screens")
+            response = client.get(f"{app_server}/api/v1/screens", params={"per_page": 100})
             assert response.status_code == 200
             data = response.json()
             screens = data.get("screens", [])
@@ -142,7 +142,7 @@ class TestDemoScreenTransitions:
     def demo_screen_id(self, app_server: str):
         """Find the demo screen ID."""
         with httpx.Client() as client:
-            response = client.get(f"{app_server}/api/v1/screens")
+            response = client.get(f"{app_server}/api/v1/screens", params={"per_page": 100})
             assert response.status_code == 200
             data = response.json()
             screens = data.get("screens", [])

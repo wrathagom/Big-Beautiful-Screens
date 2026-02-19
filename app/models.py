@@ -106,6 +106,11 @@ class ContentItem(BaseModel):
         examples=[
             {"style": "digital", "timezone": "America/New_York", "format": "12h"},
             {"target": "2025-01-01T00:00:00Z", "expired_text": "Happy New Year!"},
+            {
+                "chart_type": "bar",
+                "labels": ["A", "B", "C"],
+                "datasets": [{"label": "Sales", "data": [10, 20, 30]}],
+            },
         ],
     )
     grid_column: str | None = Field(

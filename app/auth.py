@@ -4,7 +4,9 @@ Handles Clerk authentication in SaaS mode using the official Clerk SDK.
 In self-hosted mode, authentication is bypassed.
 """
 
+import inspect
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Annotated
 from urllib.parse import quote
 
@@ -12,6 +14,7 @@ from clerk_backend_api import AuthenticateRequestOptions, Clerk
 from fastapi import Depends, Header, HTTPException, Request
 
 from .config import AppMode, get_settings
+from .db import get_database
 
 # Clerk SDK instance (lazy initialized)
 _clerk_client: Clerk | None = None
@@ -267,10 +270,146 @@ async def require_auth_or_api_key(
     )
 
 
+async def validate_account_key(api_key: str) -> AuthUser | None:
+    """Validate account API key and return AuthUser.
+
+    This is a standalone version of get_user_from_account_api_key that doesn't
+    require a FastAPI Request object, for use in ASGI middleware.
+
+    Args:
+        api_key: The account API key to validate (should start with 'ak_')
+
+    Returns:
+        AuthUser if valid, None otherwise
+    """
+    if not api_key or not api_key.startswith("ak_"):
+        return None
+
+    db = get_database()
+    key_data = await db.get_account_api_key_by_key(api_key)
+
+    if not key_data:
+        return None
+
+    if key_data.get("expires_at"):
+        expires_at = datetime.fromisoformat(key_data["expires_at"])
+        if expires_at < datetime.now(UTC):
+            return None
+
+    await db.update_account_api_key_last_used(key_data["id"])
+
+    user_data = await db.get_user(key_data["user_id"])
+    if not user_data:
+        return None
+
+    return AuthUser(
+        user_id=key_data["user_id"],
+        email=user_data.get("email"),
+        name=user_data.get("name"),
+        org_id=None,
+        org_role=None,
+    )
+
+
+async def get_user_from_account_api_key(
+    request: Request, x_api_key: str | None = Header(default=None, alias="X-API-Key")
+) -> AuthUser | None:
+    """Get user from account-level API key (ak_ prefix).
+
+    Returns AuthUser if valid account key, None otherwise.
+    Only works in SaaS mode.
+    """
+    settings = get_settings()
+
+    if settings.APP_MODE != AppMode.SAAS:
+        return None
+
+    if not x_api_key or not x_api_key.startswith("ak_"):
+        return None
+
+    db = get_database()
+    key_data = await db.get_account_api_key_by_key(x_api_key)
+
+    if not key_data:
+        return None
+
+    # Check expiration
+    if key_data.get("expires_at"):
+        expires_at = datetime.fromisoformat(key_data["expires_at"])
+        if expires_at < datetime.now(UTC):
+            return None
+
+    # Update last_used_at timestamp
+    await db.update_account_api_key_last_used(key_data["id"])
+
+    # Get user info
+    user_data = await db.get_user(key_data["user_id"])
+    if not user_data:
+        return None
+
+    return AuthUser(
+        user_id=key_data["user_id"],
+        email=user_data.get("email"),
+        name=user_data.get("name"),
+        org_id=None,
+        org_role=None,
+    )
+
+
+async def require_auth_or_account_api_key(
+    request: Request, x_api_key: str | None = Header(default=None, alias="X-API-Key")
+) -> AuthUser:
+    """Require either Clerk authentication or account-level API key (ak_ prefix).
+
+    This is for account-level operations like listing screens, creating screens,
+    managing templates, themes, and media. Does NOT work with screen-level keys (sk_).
+    """
+    settings = get_settings()
+
+    # In self-hosted mode, return a default user
+    if settings.APP_MODE == AppMode.SELF_HOSTED:
+        return AuthUser(user_id="self-hosted", email=None, name="Self-Hosted User")
+
+    # Check for account-level API key first
+    if x_api_key and x_api_key.startswith("ak_"):
+        user = await get_user_from_account_api_key(request, x_api_key)
+        if user:
+            return user
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or expired account API key",
+            headers={"X-API-Key": "Required"},
+        )
+
+    # Fall back to Clerk authentication.
+    # Respect FastAPI dependency overrides (used heavily in tests).
+    override = getattr(getattr(request, "app", None), "dependency_overrides", {}).get(
+        get_current_user
+    )
+    auth_func = override or get_current_user
+    if inspect.iscoroutinefunction(auth_func):
+        user = (
+            await auth_func(request)
+            if len(inspect.signature(auth_func).parameters)
+            else await auth_func()
+        )
+    else:
+        user = auth_func(request) if len(inspect.signature(auth_func).parameters) else auth_func()
+    if user:
+        return user
+
+    raise HTTPException(
+        status_code=401,
+        detail="Authentication required",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
 # FastAPI dependency types
 OptionalUser = Annotated[AuthUser | None, Depends(get_current_user)]
 RequiredUser = Annotated[AuthUser, Depends(require_auth)]
 AuthOrApiKey = Annotated[AuthUser | str, Depends(require_auth_or_api_key)]
+AuthOrAccountKey = Annotated[AuthUser, Depends(require_auth_or_account_api_key)]
 
 
 # ============== Access Control Helpers ==============

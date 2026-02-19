@@ -202,6 +202,24 @@ Advanced CSS grid values:
 }
 ```
 
+### Count-Up Widget
+```json
+{
+  "type": "widget",
+  "widget_type": "countup",
+  "widget_config": {
+    "start": "2025-01-01T00:00:00Z",  // ISO 8601 datetime (required)
+    "label": "Since last update",
+    "label_position": "below",         // "above" | "below" | "inline"
+    "show_days": true,
+    "show_hours": true,
+    "show_minutes": true,
+    "show_seconds": true,
+    "style": "labeled"                 // "simple" | "labeled"
+  }
+}
+```
+
 ### Chart Widget
 ```json
 {

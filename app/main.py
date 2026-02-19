@@ -11,7 +11,9 @@ from slowapi.errors import RateLimitExceeded
 from .config import AppMode, get_settings
 from .database import init_db
 from .logging_middleware import UsageLoggingMiddleware, configure_usage_logging
+from .mcp.routes import mcp_app
 from .rate_limit import limiter
+from .routes.account_keys import router as account_keys_router
 from .routes.admin import router as admin_router
 from .routes.billing import router as billing_router
 from .routes.clerk_proxy import router as clerk_proxy_router
@@ -118,6 +120,7 @@ app.include_router(admin_router)
 app.include_router(media_router)
 app.include_router(media_public_router)
 app.include_router(proxy_router)
+app.mount("/mcp", mcp_app)
 
 # Include SaaS-only routers
 if settings.APP_MODE == AppMode.SAAS:
@@ -125,6 +128,7 @@ if settings.APP_MODE == AppMode.SAAS:
     app.include_router(me_router)
     app.include_router(billing_router)
     app.include_router(clerk_proxy_router)
+    app.include_router(account_keys_router)
 
 # Add usage logging middleware in SaaS mode
 if settings.APP_MODE == AppMode.SAAS:
@@ -165,18 +169,27 @@ async def seed_system_templates():
     """Seed system templates on first startup if none exist."""
     import secrets
 
-    from .database import create_template, delete_template, get_all_templates, get_templates_count
+    from .database import (
+        create_template,
+        delete_template,
+        get_all_templates,
+        get_template,
+        get_templates_count,
+    )
     from .seed_templates import get_system_templates
 
     try:
         # Check if any system templates exist
         count = await get_templates_count(template_type="system")
         if count > 0:
-            # Verify existing templates have pages in their configuration
+            # Spot-check that existing templates have pages in their configuration.
+            # NOTE: get_all_templates omits the configuration column for efficiency,
+            # so we must fetch a full template via get_template to inspect it.
             existing = await get_all_templates(template_type="system")
             needs_reseed = False
             for tmpl in existing:
-                config = tmpl.get("configuration", {})
+                full = await get_template(tmpl["id"])
+                config = full.get("configuration", {}) if full else {}
                 pages = config.get("pages", []) if isinstance(config, dict) else []
                 if not pages:
                     needs_reseed = True

@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     STRIPE_PRICE_PREMIUM_MONTHLY: str | None = None
     STRIPE_PRICE_PREMIUM_YEARLY: str | None = None
 
+    # API key hashing (SaaS)
+    ACCOUNT_API_KEY_PEPPER: str | None = None
+
     # Usage logging
     USAGE_LOG_DESTINATION: str = "stdout"  # stdout, file, or external
     USAGE_LOG_FILE_PATH: str = "logs/usage.log"

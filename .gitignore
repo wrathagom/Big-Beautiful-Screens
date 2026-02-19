@@ -47,6 +47,9 @@ site/
 # Task tracking
 .taskmaster/
 
+# Claude Code
+.claude/
+
 # Package managers
 uv.lock
 

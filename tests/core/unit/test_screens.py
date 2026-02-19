@@ -1036,6 +1036,88 @@ class TestWidgets:
         )
         assert response.status_code == 200
 
+    def test_send_countup_widget(self, client, screen):
+        """Test sending a count-up widget."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "countup",
+                        "widget_config": {"start": "2025-01-01T00:00:00Z"},
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["success"] is True
+
+    def test_send_countup_with_label(self, client, screen):
+        """Test sending a count-up with label text."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "countup",
+                        "widget_config": {
+                            "start": "2025-01-01T00:00:00Z",
+                            "label": "Since last update",
+                            "label_position": "below",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_countup_display_options(self, client, screen):
+        """Test sending a count-up with display options."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "countup",
+                        "widget_config": {
+                            "start": "2025-01-01T00:00:00Z",
+                            "show_days": True,
+                            "show_hours": True,
+                            "show_minutes": True,
+                            "show_seconds": False,
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
+    def test_send_countup_simple_style(self, client, screen):
+        """Test sending a count-up with simple style."""
+        response = client.post(
+            f"/api/v1/screens/{screen['screen_id']}/message",
+            headers={"X-API-Key": screen["api_key"]},
+            json={
+                "content": [
+                    {
+                        "type": "widget",
+                        "widget_type": "countup",
+                        "widget_config": {
+                            "start": "2025-01-01T00:00:00Z",
+                            "style": "simple",
+                        },
+                    }
+                ]
+            },
+        )
+        assert response.status_code == 200
+
     def test_send_chart_widget_line(self, client, screen):
         """Test sending a line chart widget."""
         response = client.post(

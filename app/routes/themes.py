@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 
-from ..auth import OptionalUser
+from ..auth import AuthOrAccountKey
 from ..config import PLAN_LIMITS, AppMode, get_settings
 from ..database import (
     create_theme_in_db,
@@ -55,19 +55,16 @@ async def get_theme_by_name(theme_name: str):
 
 
 @router.post("")
-async def create_theme(request: ThemeCreate, user: OptionalUser = None):
+async def create_theme(request: ThemeCreate, user: AuthOrAccountKey):
     """Create a new custom theme.
 
-    In SaaS mode, requires authentication, enforces plan limits, and sets ownership.
+    In SaaS mode, requires authentication (Clerk session or account API key with ak_ prefix),
+    enforces plan limits, and sets ownership.
     """
     settings = get_settings()
 
-    # In SaaS mode, require authentication to prevent orphan themes
-    if settings.APP_MODE == AppMode.SAAS and not user:
-        raise HTTPException(status_code=401, detail="Authentication required to create themes")
-
     # Check plan limits in SaaS mode
-    if settings.APP_MODE == AppMode.SAAS and user:
+    if settings.APP_MODE == AppMode.SAAS:
         db = get_database()
         user_data = await db.get_user(user.user_id)
         plan = user_data.get("plan", "free") if user_data else "free"
@@ -112,11 +109,13 @@ async def create_theme(request: ThemeCreate, user: OptionalUser = None):
 
 
 @router.patch("/{theme_name}")
-async def update_theme(theme_name: str, request: ThemeUpdate, user: OptionalUser = None):
+async def update_theme(theme_name: str, request: ThemeUpdate, user: AuthOrAccountKey):
     """Update a theme. All fields are optional for partial updates.
 
     In SaaS mode, only the theme owner can modify custom themes.
     Built-in themes cannot be modified.
+
+    Requires authentication (Clerk session or account API key with ak_ prefix) in SaaS mode.
     """
     # Check if theme exists
     existing = await get_theme_from_db(theme_name)
@@ -129,11 +128,12 @@ async def update_theme(theme_name: str, request: ThemeUpdate, user: OptionalUser
 
     # In SaaS mode, verify ownership
     settings = get_settings()
-    if settings.APP_MODE == AppMode.SAAS:
-        if not user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        if existing.get("owner_id") and existing["owner_id"] != user.user_id:
-            raise HTTPException(status_code=403, detail="Not authorized to modify this theme")
+    if (
+        settings.APP_MODE == AppMode.SAAS
+        and existing.get("owner_id")
+        and existing["owner_id"] != user.user_id
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to modify this theme")
 
     theme = await update_theme_in_db(
         name=theme_name,
@@ -151,11 +151,13 @@ async def update_theme(theme_name: str, request: ThemeUpdate, user: OptionalUser
 
 
 @router.delete("/{theme_name}")
-async def delete_theme(theme_name: str, user: OptionalUser = None):
+async def delete_theme(theme_name: str, user: AuthOrAccountKey):
     """Delete a theme. Will fail if the theme is in use by any screens.
 
     In SaaS mode, only the theme owner can delete custom themes.
     Built-in themes cannot be deleted.
+
+    Requires authentication (Clerk session or account API key with ak_ prefix) in SaaS mode.
     """
     # Check if theme exists
     existing = await get_theme_from_db(theme_name)
@@ -168,11 +170,12 @@ async def delete_theme(theme_name: str, user: OptionalUser = None):
 
     # In SaaS mode, verify ownership
     settings = get_settings()
-    if settings.APP_MODE == AppMode.SAAS:
-        if not user:
-            raise HTTPException(status_code=401, detail="Authentication required")
-        if existing.get("owner_id") and existing["owner_id"] != user.user_id:
-            raise HTTPException(status_code=403, detail="Not authorized to delete this theme")
+    if (
+        settings.APP_MODE == AppMode.SAAS
+        and existing.get("owner_id")
+        and existing["owner_id"] != user.user_id
+    ):
+        raise HTTPException(status_code=403, detail="Not authorized to delete this theme")
 
     success, error = await delete_theme_from_db(theme_name)
     if not success:
