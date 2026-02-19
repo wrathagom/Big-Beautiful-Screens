@@ -41,6 +41,14 @@ class LocalStorage(StorageBackend):
 
         # Ensure base directory exists
         self.base_path.mkdir(parents=True, exist_ok=True)
+        self._resolved_base_path = self.base_path.resolve()
+
+    def _resolve_storage_path(self, storage_path: str) -> Path:
+        """Resolve and validate that path stays under the storage base directory."""
+        candidate = (self._resolved_base_path / storage_path).resolve()
+        if not str(candidate).startswith(str(self._resolved_base_path) + os.sep):
+            raise ValueError("Invalid storage path")
+        return candidate
 
     async def upload(
         self,
@@ -75,7 +83,10 @@ class LocalStorage(StorageBackend):
 
     async def delete(self, storage_path: str) -> bool:
         """Delete a file from local storage."""
-        file_path = self.base_path / storage_path
+        try:
+            file_path = self._resolve_storage_path(storage_path)
+        except ValueError:
+            return False
 
         if not file_path.exists():
             return False
@@ -86,7 +97,7 @@ class LocalStorage(StorageBackend):
         # Try to clean up empty parent directories
         parent = file_path.parent
         try:
-            while parent != self.base_path:
+            while parent != self._resolved_base_path:
                 if not any(parent.iterdir()):
                     await aiofiles.os.rmdir(parent)
                     parent = parent.parent
@@ -105,9 +116,12 @@ class LocalStorage(StorageBackend):
 
     async def exists(self, storage_path: str) -> bool:
         """Check if a file exists in local storage."""
-        file_path = self.base_path / storage_path
+        try:
+            file_path = self._resolve_storage_path(storage_path)
+        except ValueError:
+            return False
         return file_path.exists() and file_path.is_file()
 
     def get_file_path(self, storage_path: str) -> Path:
         """Get the full filesystem path for a stored file."""
-        return self.base_path / storage_path
+        return self._resolve_storage_path(storage_path)

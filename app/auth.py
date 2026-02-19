@@ -4,6 +4,7 @@ Handles Clerk authentication in SaaS mode using the official Clerk SDK.
 In self-hosted mode, authentication is bypassed.
 """
 
+import inspect
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated
@@ -380,8 +381,20 @@ async def require_auth_or_account_api_key(
             headers={"X-API-Key": "Required"},
         )
 
-    # Fall back to Clerk authentication
-    user = await get_current_user(request)
+    # Fall back to Clerk authentication.
+    # Respect FastAPI dependency overrides (used heavily in tests).
+    override = getattr(getattr(request, "app", None), "dependency_overrides", {}).get(
+        get_current_user
+    )
+    auth_func = override or get_current_user
+    if inspect.iscoroutinefunction(auth_func):
+        user = (
+            await auth_func(request)
+            if len(inspect.signature(auth_func).parameters)
+            else await auth_func()
+        )
+    else:
+        user = auth_func(request) if len(inspect.signature(auth_func).parameters) else auth_func()
     if user:
         return user
 

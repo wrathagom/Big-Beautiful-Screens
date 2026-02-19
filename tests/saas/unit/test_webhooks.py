@@ -6,6 +6,7 @@ accidentally overwriting important fields like subscription plan.
 Uses mocked database to test webhook handler logic independently.
 """
 
+import json
 import os
 from unittest.mock import patch
 
@@ -24,6 +25,7 @@ def saas_environment():
         "APP_MODE": os.environ.get("APP_MODE"),
         "CLERK_SECRET_KEY": os.environ.get("CLERK_SECRET_KEY"),
         "CLERK_PUBLISHABLE_KEY": os.environ.get("CLERK_PUBLISHABLE_KEY"),
+        "CLERK_WEBHOOK_SECRET": os.environ.get("CLERK_WEBHOOK_SECRET"),
         "DATABASE_URL": os.environ.get("DATABASE_URL"),
         "STRIPE_SECRET_KEY": os.environ.get("STRIPE_SECRET_KEY"),
         "STRIPE_WEBHOOK_SECRET": os.environ.get("STRIPE_WEBHOOK_SECRET"),
@@ -34,6 +36,7 @@ def saas_environment():
     os.environ["APP_MODE"] = "saas"
     os.environ["CLERK_SECRET_KEY"] = "sk_test_fake"
     os.environ["CLERK_PUBLISHABLE_KEY"] = "pk_test_fake"
+    os.environ["CLERK_WEBHOOK_SECRET"] = "whsec_clerk_test_fake"
     os.environ["DATABASE_URL"] = "postgresql://fake:fake@localhost/fake"
     os.environ["STRIPE_SECRET_KEY"] = "sk_test_fake"
     os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_test_fake"
@@ -61,6 +64,7 @@ class MockDatabase:
     def __init__(self):
         self.users = {}
         self.organizations = {}
+        self.webhook_events = set()
 
     async def get_user(self, user_id: str):
         return self.users.get(user_id)
@@ -115,6 +119,14 @@ class MockDatabase:
             return True
         return False
 
+    async def record_webhook_event(self, provider: str, event_id: str) -> bool:
+        """Idempotency: returns True only for first-seen provider+event_id."""
+        key = (provider, event_id)
+        if key in self.webhook_events:
+            return False
+        self.webhook_events.add(key)
+        return True
+
 
 @pytest.fixture
 def mock_db():
@@ -127,9 +139,26 @@ def saas_client(mock_db):
     """Create test client with mocked SaaS dependencies."""
     from app.main import app
 
+    class MockSvixWebhook:
+        def __init__(self, _secret: str):
+            pass
+
+        def verify(self, body: bytes, _headers: dict):
+            return json.loads(body.decode("utf-8"))
+
     # Patch the database to use our mock
-    with patch("app.webhooks.get_database", return_value=mock_db):
+    with (
+        patch("app.webhooks.get_database", return_value=mock_db),
+        patch("app.webhooks.Webhook", MockSvixWebhook),
+    ):
         client = TestClient(app)
+        client.headers.update(
+            {
+                "svix-id": "msg_test_123",
+                "svix-timestamp": "1700000000",
+                "svix-signature": "v1,test",
+            }
+        )
         yield client, mock_db
 
 

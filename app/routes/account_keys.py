@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from ..auth import RequiredUser
 from ..config import AppMode, get_settings
 from ..db import get_database
+from ..security import make_api_key_preview
 
 router = APIRouter(prefix="/api/v1/account/keys", tags=["Account Keys"])
 
@@ -153,18 +154,12 @@ async def list_account_keys(
         offset=offset,
     )
 
-    def make_key_preview(key: str) -> str:
-        """Create a preview of the key showing first 4 and last 4 characters."""
-        if len(key) <= 12:
-            return key[:4] + "..." + key[-4:]
-        return key[:7] + "..." + key[-4:]
-
     return {
         "keys": [
             AccountKeyListItem(
                 id=k["id"],
                 name=k["name"],
-                key_preview=make_key_preview(k["key"]),
+                key_preview=k.get("key_preview") or make_api_key_preview(k.get("key", "")),
                 scopes=k["scopes"],
                 expires_at=k["expires_at"],
                 created_at=k["created_at"],

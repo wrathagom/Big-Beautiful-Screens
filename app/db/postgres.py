@@ -10,6 +10,7 @@ from datetime import date as date_type
 import asyncpg
 
 from ..config import get_settings
+from ..security import hash_account_api_key, make_api_key_preview
 from ..themes import get_builtin_themes, get_theme
 from .base import DatabaseBackend
 
@@ -265,6 +266,10 @@ class PostgresBackend(DatabaseBackend):
             """)
             await conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_account_api_keys_user ON account_api_keys(user_id)
+            """)
+            await conn.execute("""
+                ALTER TABLE account_api_keys
+                ADD COLUMN IF NOT EXISTS key_preview TEXT
             """)
 
             # Seed built-in themes
@@ -1742,20 +1747,23 @@ class PostgresBackend(DatabaseBackend):
         pool = await self._get_pool()
         now = datetime.now(UTC)
         scopes_json = json.dumps(scopes or ["*"])
+        key_hash = hash_account_api_key(key)
+        key_preview = make_api_key_preview(key)
 
         async with pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO account_api_keys (id, key, user_id, name, scopes, expires_at, created_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO account_api_keys (id, key, user_id, name, scopes, expires_at, created_at, key_preview)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             """,
                 key_id,
-                key,
+                key_hash,
                 user_id,
                 name,
                 scopes_json,
                 expires_at,
                 now,
+                key_preview,
             )
 
             return {
@@ -1764,6 +1772,7 @@ class PostgresBackend(DatabaseBackend):
                 "user_id": user_id,
                 "name": name,
                 "scopes": scopes or ["*"],
+                "key_preview": key_preview,
                 "expires_at": expires_at.isoformat() if expires_at else None,
                 "created_at": now.isoformat(),
                 "last_used_at": None,
@@ -1772,17 +1781,35 @@ class PostgresBackend(DatabaseBackend):
     async def get_account_api_key_by_key(self, key: str) -> dict | None:
         """Get an account API key by its key value."""
         pool = await self._get_pool()
+        key_hash = hash_account_api_key(key)
         async with pool.acquire() as conn:
-            row = await conn.fetchrow("SELECT * FROM account_api_keys WHERE key = $1", key)
+            row = await conn.fetchrow(
+                "SELECT * FROM account_api_keys WHERE key = $1 OR key = $2",
+                key_hash,
+                key,
+            )
             if not row:
                 return None
 
+            # Legacy migration path for pre-hash deployments.
+            if row["key"] == key:
+                await conn.execute(
+                    "UPDATE account_api_keys SET key = $1, key_preview = COALESCE(key_preview, $2) WHERE id = $3",
+                    key_hash,
+                    make_api_key_preview(key),
+                    row["id"],
+                )
+                stored_key = key_hash
+            else:
+                stored_key = row["key"]
+
             return {
                 "id": row["id"],
-                "key": row["key"],
+                "key": stored_key,
                 "user_id": row["user_id"],
                 "name": row["name"],
                 "scopes": json.loads(row["scopes"]) if row["scopes"] else ["*"],
+                "key_preview": row["key_preview"],
                 "expires_at": row["expires_at"].isoformat() if row["expires_at"] else None,
                 "created_at": row["created_at"].isoformat() if row["created_at"] else None,
                 "last_used_at": row["last_used_at"].isoformat() if row["last_used_at"] else None,
@@ -1795,7 +1822,7 @@ class PostgresBackend(DatabaseBackend):
         pool = await self._get_pool()
         async with pool.acquire() as conn:
             query = """
-                SELECT id, key, user_id, name, scopes, expires_at, created_at, last_used_at
+                SELECT id, key, key_preview, user_id, name, scopes, expires_at, created_at, last_used_at
                 FROM account_api_keys
                 WHERE user_id = $1
                 ORDER BY created_at DESC
@@ -1810,6 +1837,7 @@ class PostgresBackend(DatabaseBackend):
                 {
                     "id": row["id"],
                     "key": row["key"],
+                    "key_preview": row["key_preview"],
                     "user_id": row["user_id"],
                     "name": row["name"],
                     "scopes": json.loads(row["scopes"]) if row["scopes"] else ["*"],
