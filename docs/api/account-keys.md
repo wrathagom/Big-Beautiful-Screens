@@ -34,7 +34,7 @@ POST /api/v1/account/keys
 **Example:**
 
 ```bash
-curl -X POST https://app.example.com/api/v1/account/keys \
+curl -X POST https://app.bigbeautifulscreens.com/api/v1/account/keys \
   -H "Authorization: Bearer {clerk_token}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -79,7 +79,7 @@ GET /api/v1/account/keys
 **Example:**
 
 ```bash
-curl https://app.example.com/api/v1/account/keys \
+curl https://app.bigbeautifulscreens.com/api/v1/account/keys \
   -H "Authorization: Bearer {clerk_token}"
 ```
 
@@ -117,7 +117,7 @@ DELETE /api/v1/account/keys/{key_id}
 **Example:**
 
 ```bash
-curl -X DELETE https://app.example.com/api/v1/account/keys/ak_id_abc123 \
+curl -X DELETE https://app.bigbeautifulscreens.com/api/v1/account/keys/ak_id_abc123 \
   -H "Authorization: Bearer {clerk_token}"
 ```
 
@@ -137,28 +137,28 @@ Once created, use account keys in the `X-API-Key` header for account-level opera
 ### List Your Screens
 
 ```bash
-curl https://app.example.com/api/v1/screens \
+curl https://app.bigbeautifulscreens.com/api/v1/screens \
   -H "X-API-Key: ak_your_account_key"
 ```
 
 ### Create a Screen
 
 ```bash
-curl -X POST https://app.example.com/api/v1/screens \
+curl -X POST https://app.bigbeautifulscreens.com/api/v1/screens \
   -H "X-API-Key: ak_your_account_key"
 ```
 
 ### List Templates
 
 ```bash
-curl https://app.example.com/api/v1/templates \
+curl https://app.bigbeautifulscreens.com/api/v1/templates \
   -H "X-API-Key: ak_your_account_key"
 ```
 
 ### Create a Theme
 
 ```bash
-curl -X POST https://app.example.com/api/v1/themes \
+curl -X POST https://app.bigbeautifulscreens.com/api/v1/themes \
   -H "X-API-Key: ak_your_account_key" \
   -H "Content-Type: application/json" \
   -d '{
