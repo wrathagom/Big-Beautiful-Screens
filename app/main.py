@@ -60,7 +60,10 @@ async def add_security_headers(request: Request, call_next):
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
-    response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    # Embeddable screens opt out of X-Frame-Options (set via request.state by the
+    # screen viewer) so it doesn't conflict with their CSP frame-ancestors allowlist.
+    if not getattr(request.state, "allow_embed", False):
+        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
 
     proto = request.headers.get("x-forwarded-proto", request.url.scheme)
     if proto == "https":
