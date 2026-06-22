@@ -87,6 +87,10 @@ class Settings(BaseSettings):
     # Debug logging
     AUTH_DEBUG: bool = False
 
+    # Iframe embedding (config-driven, demo screen only). Both empty = feature off.
+    EMBED_ALLOWED_ORIGINS: str = ""  # space/comma-separated parent origins allowed to frame
+    EMBED_SCREEN_IDS: str = ""  # comma/space-separated screen IDs permitted to be framed
+
     class Config:
         env_file = ".env"
         case_sensitive = True
@@ -100,6 +104,16 @@ class Settings(BaseSettings):
     def is_self_hosted(self) -> bool:
         """Check if running in self-hosted mode."""
         return self.APP_MODE == AppMode.SELF_HOSTED
+
+    @property
+    def embed_allowed_origins(self) -> list[str]:
+        """Parent origins allowed to frame embeddable screens (empty = none)."""
+        return [o for o in self.EMBED_ALLOWED_ORIGINS.replace(",", " ").split() if o]
+
+    @property
+    def embed_screen_ids(self) -> set[str]:
+        """Screen IDs permitted to be framed cross-origin (empty = none)."""
+        return {s for s in self.EMBED_SCREEN_IDS.replace(",", " ").split() if s}
 
     def validate_saas_config(self) -> list[str]:
         """Validate that required SaaS settings are present. Returns list of missing settings."""

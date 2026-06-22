@@ -52,18 +52,25 @@ router = APIRouter(tags=["Screens"])
 
 static_path = Path(__file__).parent.parent.parent / "static"
 
-SCREEN_CSP = (
-    "default-src 'self'; "
-    "script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
-    "img-src 'self' data: https:; "
-    "media-src 'self' https: blob:; "
-    "font-src 'self' https://fonts.gstatic.com data:; "
-    "connect-src 'self' ws: wss:; "
-    "object-src 'none'; "
-    "base-uri 'self'; "
-    "frame-ancestors 'none'"
-)
+
+def build_screen_csp(frame_ancestors: str = "'none'") -> str:
+    """Build the screen-viewer CSP. Defaults to blocking all framing.
+
+    `frame_ancestors` is the value for the frame-ancestors directive, e.g.
+    "'none'" (default) or a space-separated origin allowlist for embeddable screens.
+    """
+    return (
+        "default-src 'self'; "
+        "script-src 'self' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "img-src 'self' data: https:; "
+        "media-src 'self' https: blob:; "
+        "font-src 'self' https://fonts.gstatic.com data:; "
+        "connect-src 'self' ws: wss:; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        f"frame-ancestors {frame_ancestors}"
+    )
 
 
 # ============== Screen Endpoints ==============
@@ -869,15 +876,27 @@ async def reorder_pages_endpoint(
 
 
 @router.get("/screen/{screen_id}", response_class=HTMLResponse, include_in_schema=False)
-async def view_screen(screen_id: str):
+async def view_screen(screen_id: str, request: Request):
     """Serve the screen viewer page."""
     screen = await get_screen_by_id(screen_id)
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
 
+    # Config-driven embedding: a screen listed in EMBED_SCREEN_IDS (with a
+    # non-empty origin allowlist) may be framed by those origins. All other
+    # screens stay locked to frame-ancestors 'none'.
+    settings = get_settings()
+    if screen_id in settings.embed_screen_ids and settings.embed_allowed_origins:
+        frame_ancestors = " ".join(settings.embed_allowed_origins)
+        # Signal the security-headers middleware to omit X-Frame-Options, which
+        # cannot express a multi-origin allowlist and would conflict otherwise.
+        request.state.allow_embed = True
+    else:
+        frame_ancestors = "'none'"
+
     html_path = static_path / "screen.html"
     response = HTMLResponse(content=html_path.read_text())
-    response.headers["Content-Security-Policy"] = SCREEN_CSP
+    response.headers["Content-Security-Policy"] = build_screen_csp(frame_ancestors)
     return response
 
 
