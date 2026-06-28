@@ -15,6 +15,21 @@ from ..themes import get_builtin_themes, get_theme
 from .base import DatabaseBackend
 
 
+def _to_timestamptz(value: str | datetime | None) -> datetime | None:
+    """Coerce an ISO-8601 string (or datetime) to a tz-aware datetime for asyncpg.
+
+    The page-write layer passes `expires_at` as an ISO string, but asyncpg binds
+    it to a TIMESTAMPTZ column and requires a `datetime`. Naive values are assumed
+    to be UTC.
+    """
+    if value is None:
+        return None
+    dt = value if isinstance(value, datetime) else datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return dt
+
+
 class PostgresBackend(DatabaseBackend):
     """PostgreSQL implementation of the database backend."""
 
@@ -603,6 +618,7 @@ class PostgresBackend(DatabaseBackend):
     ) -> dict:
         """Create or update a page."""
         now = datetime.now(UTC)
+        expires_at_ts = _to_timestamptz(expires_at)
         pool = await self._get_pool()
 
         async with pool.acquire() as conn:
@@ -621,7 +637,7 @@ class PostgresBackend(DatabaseBackend):
                 """,
                     json.dumps(payload),
                     duration,
-                    expires_at,
+                    expires_at_ts,
                     now,
                     screen_id,
                     name,
@@ -644,7 +660,7 @@ class PostgresBackend(DatabaseBackend):
                     json.dumps(payload),
                     display_order,
                     duration,
-                    expires_at,
+                    expires_at_ts,
                     now,
                 )
 
@@ -806,7 +822,9 @@ class PostgresBackend(DatabaseBackend):
                 existing_data["transition_duration"] = transition_duration
 
             new_duration = duration if duration is not None else row["duration"]
-            new_expires_at = expires_at if expires_at is not None else row["expires_at"]
+            new_expires_at = (
+                _to_timestamptz(expires_at) if expires_at is not None else row["expires_at"]
+            )
 
             await conn.execute(
                 """
