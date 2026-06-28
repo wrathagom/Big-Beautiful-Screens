@@ -59,7 +59,11 @@ bbs-mcp-server
 
 ### Claude Desktop Configuration
 
-Add the following to your Claude Desktop configuration file:
+Add the following to your Claude Desktop configuration file (`claude_desktop_config.json`):
+
+- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
 === "SaaS Mode (HTTP/SSE)"
 
@@ -67,12 +71,18 @@ Add the following to your Claude Desktop configuration file:
     {
       "mcpServers": {
         "big-beautiful-screens": {
-          "url": "https://your-bbs-instance.railway.app/mcp/sse",
-          "transport": "sse"
+          "url": "https://app.bigbeautifulscreens.com/mcp/sse",
+          "transport": "sse",
+          "headers": {
+            "X-API-Key": "ak_your-account-api-key"
+          }
         }
       }
     }
     ```
+
+    !!! tip "Getting an API Key"
+        Create an account API key from your Big Beautiful Screens dashboard under **Settings → API Keys**. See [Account API Keys](account-keys.md) for details.
 
 === "Self-Hosted Mode (HTTP/SSE)"
 
@@ -226,6 +236,7 @@ Send content to a screen's default page.
 | `panel_color` | string | No | Panel color |
 | `font_family` | string | No | Font family |
 | `font_color` | string | No | Text color |
+| `show_now` | boolean | No | Display this update immediately, interrupting rotation (default `false`) |
 
 **Content Types:**
 
@@ -260,6 +271,7 @@ Create or update a named page for rotation.
 | `background_color` | string | No | Page background color |
 | `panel_color` | string | No | Page panel color |
 | `transition` | string | No | Transition effect |
+| `show_now` | boolean | No | Jump to this page and display it immediately, interrupting rotation (default `false`) |
 
 **Example:**
 
@@ -298,7 +310,7 @@ When configuring Claude Desktop for SaaS mode, include the API key as a custom h
 {
   "mcpServers": {
     "big-beautiful-screens": {
-      "url": "https://your-bbs-instance.railway.app/mcp/sse",
+      "url": "https://app.bigbeautifulscreens.com/mcp/sse",
       "transport": "sse",
       "headers": {
         "X-API-Key": "ak_your-account-api-key"

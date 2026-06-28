@@ -97,7 +97,8 @@ class ContentItem(BaseModel):
     )
     widget_type: str | None = Field(
         default=None,
-        description="Widget type for type='widget': 'clock', 'countdown', 'chart'",
+        description="Widget type for type='widget': 'clock', 'countdown', 'chart'. "
+        "Chart supports chart_type: bar, line, pie, doughnut, radar, polarArea, bubble, scatter.",
         examples=["clock", "countdown", "chart"],
     )
     widget_config: dict | None = Field(
@@ -204,6 +205,11 @@ class MessageRequest(BaseModel):
         "Examples: 'vertical', 'grid-2x2', 'dashboard-header', or custom config.",
         examples=["vertical", "grid-3x2", {"columns": 3, "rows": "auto 1fr 1fr"}],
     )
+    show_now: bool = Field(
+        default=False,
+        description="If true, viewers jump to this page and display it immediately, "
+        "interrupting rotation. Not persisted — affects this update only.",
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -265,6 +271,11 @@ class PageRequest(BaseModel):
         ge=0,
         le=5000,
     )
+    show_now: bool = Field(
+        default=False,
+        description="If true, viewers jump to this page and display it immediately, "
+        "interrupting rotation. Not persisted — affects this update only.",
+    )
 
 
 class PageUpdateRequest(BaseModel):
@@ -288,6 +299,11 @@ class PageUpdateRequest(BaseModel):
     )
     transition_duration: int | None = Field(
         default=None, description="Transition duration in milliseconds", ge=0, le=5000
+    )
+    show_now: bool = Field(
+        default=False,
+        description="If true, viewers jump to this page and display it immediately, "
+        "interrupting rotation. Not persisted — affects this update only.",
     )
 
 

@@ -411,7 +411,9 @@ async def handle_send_message(arguments: dict[str, Any]) -> dict[str, Any]:
 
     page_data = await upsert_page(screen_id, "default", message_payload)
 
-    viewers = await manager.broadcast(screen_id, {"type": "page_update", "page": page_data})
+    viewers = await manager.broadcast(
+        screen_id, {"type": "page_update", "page": page_data, "show_now": args.show_now}
+    )
 
     return {"success": True, "viewers": viewers}
 
@@ -458,7 +460,9 @@ async def handle_create_page(arguments: dict[str, Any]) -> dict[str, Any]:
 
     page_data = await upsert_page(screen_id, page_name, message_payload, duration=duration)
 
-    viewers = await manager.broadcast(screen_id, {"type": "page_update", "page": page_data})
+    viewers = await manager.broadcast(
+        screen_id, {"type": "page_update", "page": page_data, "show_now": args.show_now}
+    )
 
     return {"success": True, "page": page_data, "viewers": viewers}
 

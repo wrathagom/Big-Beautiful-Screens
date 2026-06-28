@@ -137,6 +137,20 @@ class TestMCPTools:
         assert "content" in tool.inputSchema["required"]
         assert "duration" in tool.inputSchema["properties"]
 
+    def test_send_message_tool_exposes_show_now(self):
+        """send_message tool advertises the show_now parameter."""
+        from app.mcp.tools import send_message_tool
+
+        tool = send_message_tool()
+        assert "show_now" in tool.inputSchema["properties"]
+
+    def test_create_page_tool_exposes_show_now(self):
+        """create_page tool advertises the show_now parameter."""
+        from app.mcp.tools import create_page_tool
+
+        tool = create_page_tool()
+        assert "show_now" in tool.inputSchema["properties"]
+
     def test_list_layouts_tool(self):
         """Test list_layouts tool definition."""
         from app.mcp.tools import list_layouts_tool
@@ -324,6 +338,59 @@ class TestMCPHandlers:
         )
         assert result["success"] is True
         assert result["page"]["duration"] == 15
+
+    def test_handle_send_message_show_now_in_broadcast(self, setup_test_db, monkeypatch):
+        """send_message handler forwards show_now in the page_update broadcast."""
+        from app.mcp import handlers
+        from app.mcp.handlers import handle_create_screen, handle_send_message
+
+        captured = {}
+
+        async def fake_broadcast(screen_id, payload):
+            captured["payload"] = payload
+            return 0
+
+        monkeypatch.setattr(handlers.manager, "broadcast", fake_broadcast)
+
+        screen = _run_coro(handle_create_screen({}))
+        _run_coro(
+            handle_send_message(
+                {
+                    "screen_id": screen["screen_id"],
+                    "api_key": screen["api_key"],
+                    "content": ["urgent"],
+                    "show_now": True,
+                }
+            )
+        )
+        assert captured["payload"]["show_now"] is True
+
+    def test_handle_create_page_show_now_in_broadcast(self, setup_test_db, monkeypatch):
+        """create_page handler forwards show_now in the page_update broadcast."""
+        from app.mcp import handlers
+        from app.mcp.handlers import handle_create_page, handle_create_screen
+
+        captured = {}
+
+        async def fake_broadcast(screen_id, payload):
+            captured["payload"] = payload
+            return 0
+
+        monkeypatch.setattr(handlers.manager, "broadcast", fake_broadcast)
+
+        screen = _run_coro(handle_create_screen({}))
+        _run_coro(
+            handle_create_page(
+                {
+                    "screen_id": screen["screen_id"],
+                    "page_name": "alerts",
+                    "api_key": screen["api_key"],
+                    "content": ["Alert!"],
+                    "show_now": True,
+                }
+            )
+        )
+        assert captured["payload"]["show_now"] is True
 
     def test_handle_update_screen(self, setup_test_db):
         """Test update_screen handler."""

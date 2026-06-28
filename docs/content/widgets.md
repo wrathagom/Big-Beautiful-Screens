@@ -352,7 +352,7 @@ curl -X POST http://localhost:8000/api/v1/screens/abc123/message \
 
 ## Chart Widget
 
-Display line or bar charts using Chart.js.
+Display charts using Chart.js. Supports line, bar, pie, doughnut, radar, polarArea, bubble, and scatter chart types.
 
 ### Simple Line Chart
 
@@ -411,7 +411,7 @@ Display line or bar charts using Chart.js.
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `chart_type` | string | `"bar"` | `"line"` or `"bar"` |
+| `chart_type` | string | `"bar"` | `"line"`, `"bar"`, `"pie"`, `"doughnut"`, `"radar"`, `"polarArea"`, `"bubble"`, `"scatter"` |
 | `labels` | array | `[]` | X-axis labels |
 | `values` | array | `null` | Data values (simple single-series format) |
 | `datasets` | array | `[]` | Multiple data series (advanced format) |
@@ -448,6 +448,27 @@ Display line or bar charts using Chart.js.
     {"label": "Series 2", "values": [15, 25, 20], "color": "#e74c3c"}
   ]
 }
+```
+
+**Scatter/Bubble format** (x/y coordinate pairs):
+```json
+{
+  "datasets": [
+    {
+      "label": "Points",
+      "data": [
+        {"x": 10, "y": 20},
+        {"x": 15, "y": 25},
+        {"x": 20, "y": 10}
+      ]
+    }
+  ]
+}
+```
+
+For bubble charts, include a radius (`r`) value:
+```json
+{"x": 10, "y": 20, "r": 5}
 ```
 
 ### Examples
@@ -505,6 +526,118 @@ curl -X POST http://localhost:8000/api/v1/screens/abc123/message \
     "panel_color": "#313244",
     "font_color": "#cdd6f4"
   }'
+```
+
+### Pie Chart
+
+```json
+{
+  "type": "widget",
+  "widget_type": "chart",
+  "widget_config": {
+    "chart_type": "pie",
+    "labels": ["Desktop", "Mobile", "Tablet"],
+    "values": [60, 30, 10],
+    "label": "Traffic Sources"
+  }
+}
+```
+
+### Doughnut Chart
+
+```json
+{
+  "type": "widget",
+  "widget_type": "chart",
+  "widget_config": {
+    "chart_type": "doughnut",
+    "labels": ["Completed", "In Progress", "Pending"],
+    "values": [45, 35, 20],
+    "label": "Task Status"
+  }
+}
+```
+
+### Radar Chart
+
+```json
+{
+  "type": "widget",
+  "widget_type": "chart",
+  "widget_config": {
+    "chart_type": "radar",
+    "labels": ["Speed", "Reliability", "Comfort", "Safety", "Efficiency"],
+    "values": [85, 90, 70, 95, 80],
+    "label": "Performance",
+    "fill": true
+  }
+}
+```
+
+### Polar Area Chart
+
+```json
+{
+  "type": "widget",
+  "widget_type": "chart",
+  "widget_config": {
+    "chart_type": "polarArea",
+    "labels": ["Red", "Blue", "Yellow", "Green"],
+    "values": [11, 16, 7, 14],
+    "label": "Dataset"
+  }
+}
+```
+
+### Scatter Chart
+
+```json
+{
+  "type": "widget",
+  "widget_type": "chart",
+  "widget_config": {
+    "chart_type": "scatter",
+    "datasets": [
+      {
+        "label": "Group A",
+        "data": [
+          {"x": 10, "y": 20},
+          {"x": 15, "y": 10},
+          {"x": 25, "y": 30},
+          {"x": 35, "y": 25}
+        ],
+        "color": "#e74c3c"
+      }
+    ],
+    "x_axis_label": "X Values",
+    "y_axis_label": "Y Values"
+  }
+}
+```
+
+### Bubble Chart
+
+```json
+{
+  "type": "widget",
+  "widget_type": "chart",
+  "widget_config": {
+    "chart_type": "bubble",
+    "datasets": [
+      {
+        "label": "Sales",
+        "data": [
+          {"x": 20, "y": 30, "r": 10},
+          {"x": 40, "y": 10, "r": 15},
+          {"x": 30, "y": 20, "r": 8}
+        ],
+        "color": "#9b59b6"
+      }
+    ],
+    "x_axis_label": "Revenue",
+    "y_axis_label": "Profit"
+  }
+}
 ```
 
 ---

@@ -201,7 +201,7 @@ Displays a Chart.js chart.
 **widget_config options:**
 | Key        | Description                                    |
 |------------|------------------------------------------------|
-| `chart_type` | Chart type: `"bar"`, `"line"` (default: `"bar"`) |
+| `chart_type` | Chart type: `"bar"`, `"line"`, `"pie"`, `"doughnut"`, `"radar"`, `"polarArea"`, `"bubble"`, `"scatter"` (default: `"bar"`) |
 | `labels`   | Array of x-axis labels                         |
 | `datasets` | Array of dataset objects with `label`, `data`, `backgroundColor`, etc. |
 | `index_axis` | `"x"` (default) or `"y"` for horizontal bars |
@@ -209,6 +209,12 @@ Displays a Chart.js chart.
 | `show_grid` | Boolean (default: true)                       |
 | `fill`     | Boolean — fill area under line (default: false) |
 | `tension`  | Number — line curve, 0 = straight (default: 0.1) |
+
+**Notes on chart types:**
+- **pie / doughnut / polarArea**: Segments are auto-colored from a built-in palette. No x/y scales.
+- **radar**: Radial layout; supports `fill` and `tension` like line charts.
+- **scatter**: Requires data as `[{"x": N, "y": N}]` coordinate pairs.
+- **bubble**: Like scatter but with radius: `[{"x": N, "y": N, "r": N}]`.
 """
 
 _EXAMPLES = """\
@@ -258,6 +264,24 @@ send_message(screen_id="...", api_key="...", layout="dashboard-header", content=
     {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "bar", "labels": ["Q1","Q2","Q3","Q4"], "datasets": [{"label": "Revenue ($k)", "data": [120,180,240,310], "backgroundColor": "#89b4fa"}]}},
     {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "line", "labels": ["Jan","Feb","Mar","Apr","May","Jun"], "datasets": [{"label": "Users", "data": [120,190,300,500,800,1200], "color": "#a6e3a1"}]}},
     {"type": "widget", "widget_type": "clock", "widget_config": {"style": "digital", "format": "24h"}}
+])
+```
+
+## Pie / Doughnut Charts
+
+```
+send_message(screen_id="...", api_key="...", layout="horizontal", content=[
+    {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "pie", "labels": ["Desktop","Mobile","Tablet"], "values": [60,30,10], "label": "Traffic Sources"}},
+    {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "doughnut", "labels": ["Chrome","Firefox","Safari","Edge"], "values": [65,15,12,8], "label": "Browsers"}}
+])
+```
+
+## Scatter / Bubble Charts
+
+```
+send_message(screen_id="...", api_key="...", layout="horizontal", content=[
+    {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "scatter", "datasets": [{"label": "Group A", "data": [{"x":10,"y":20},{"x":15,"y":10},{"x":25,"y":30}], "color": "#e74c3c"}], "x_axis_label": "X", "y_axis_label": "Y"}},
+    {"type": "widget", "widget_type": "chart", "widget_config": {"chart_type": "bubble", "datasets": [{"label": "Sales", "data": [{"x":20,"y":30,"r":10},{"x":40,"y":10,"r":15},{"x":30,"y":20,"r":8}], "color": "#9b59b6"}]}}
 ])
 ```
 """

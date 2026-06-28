@@ -86,7 +86,7 @@ def send_message_tool() -> Tool:
         name="send_message",
         description=(
             "Send content to a screen's default page. Content can be text, markdown, "
-            "images, or videos. Strings are auto-detected. "
+            "images, videos, or widgets (clock, countdown, chart). Strings are auto-detected. "
             "Use structured content items for explicit control over content type and styling."
         ),
         inputSchema=input_schema_from_model(SendMessageArgs),
@@ -98,7 +98,7 @@ def create_page_tool() -> Tool:
         name="create_page",
         description=(
             "Create or update a named page on a screen. Pages are used for rotation/carousel. "
-            "Each page can have its own content, layout, and styling. "
+            "Each page can have its own content (text, markdown, images, videos, widgets), layout, and styling. "
             "The 'default' page is the main page shown when rotation is disabled."
         ),
         inputSchema=input_schema_from_model(CreatePageArgs),
