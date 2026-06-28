@@ -26,9 +26,7 @@ def demo_screen_id(app_server: str):
         pytest.skip("Demo screen not found - test requires fresh database")
 
 
-def test_screen_posts_ready_message_once_rendered(
-    page: Page, app_server: str, demo_screen_id: str
-):
+def test_screen_posts_ready_message_once_rendered(page: Page, app_server: str, demo_screen_id: str):
     """The screen page posts `bbs-screen-ready` to its parent once content renders."""
     # Record any messages posted to this window (parent === self when not framed).
     page.add_init_script(
@@ -44,8 +42,7 @@ def test_screen_posts_ready_message_once_rendered(
 
     # The signal fires after WebSocket sync + first render, so wait for it.
     page.wait_for_function(
-        "() => (window.__bbsMessages || [])"
-        ".some((m) => m && m.type === 'bbs-screen-ready')"
+        "() => (window.__bbsMessages || []).some((m) => m && m.type === 'bbs-screen-ready')"
     )
 
     messages = page.evaluate("() => window.__bbsMessages")
