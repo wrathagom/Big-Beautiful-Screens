@@ -296,7 +296,9 @@ async def send_message(
     page_data = await upsert_page(screen_id, "default", message_payload)
 
     # Broadcast page update to all connected viewers
-    viewers = await manager.broadcast(screen_id, {"type": "page_update", "page": page_data})
+    viewers = await manager.broadcast(
+        screen_id, {"type": "page_update", "page": page_data, "show_now": request.show_now}
+    )
 
     return MessageResponse(success=True, viewers=viewers)
 
@@ -753,7 +755,9 @@ async def create_or_update_page(
     )
 
     # Broadcast page update
-    viewers = await manager.broadcast(screen_id, {"type": "page_update", "page": page_data})
+    viewers = await manager.broadcast(
+        screen_id, {"type": "page_update", "page": page_data, "show_now": request.show_now}
+    )
 
     return {"success": True, "page": page_data, "viewers": viewers}
 
@@ -816,7 +820,9 @@ async def patch_page(
         raise HTTPException(status_code=404, detail="Page not found")
 
     # Broadcast page update
-    viewers = await manager.broadcast(screen_id, {"type": "page_update", "page": page_data})
+    viewers = await manager.broadcast(
+        screen_id, {"type": "page_update", "page": page_data, "show_now": request.show_now}
+    )
 
     return {"success": True, "page": page_data, "viewers": viewers}
 

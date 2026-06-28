@@ -284,11 +284,13 @@ html, body {
 /* Connection status indicator */
 .connection-status {
     position: fixed;
-    bottom: 2rem;
-    right: 2rem;
-    padding: 1.25rem 2.5rem;
-    border-radius: 3rem;
-    font-size: 1.5rem;
+    /* Fluid sizing so the toast shrinks on small/embedded viewports.
+       Upper bounds equal the original full-screen sizes. */
+    bottom: clamp(0.5rem, 3vmin, 2rem);
+    right: clamp(0.5rem, 3vmin, 2rem);
+    padding: clamp(0.4rem, 1.6vmin, 1.25rem) clamp(0.8rem, 3.2vmin, 2.5rem);
+    border-radius: clamp(1rem, 4vmin, 3rem);
+    font-size: clamp(0.75rem, 2.6vmin, 1.5rem);
     font-weight: 600;
     opacity: 0;
     transition: opacity 0.3s;
