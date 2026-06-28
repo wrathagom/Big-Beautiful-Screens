@@ -47,6 +47,6 @@ def test_screen_posts_ready_message_once_rendered(page: Page, app_server: str, d
 
     messages = page.evaluate("() => window.__bbsMessages")
     ready_messages = [m for m in messages if m and m.get("type") == "bbs-screen-ready"]
-    assert len(ready_messages) == 1, (
-        f"expected exactly one bbs-screen-ready message, got {ready_messages!r}"
-    )
+    assert (
+        len(ready_messages) == 1
+    ), f"expected exactly one bbs-screen-ready message, got {ready_messages!r}"
