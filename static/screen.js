@@ -134,7 +134,7 @@ function connect() {
 
             case 'page_update':
                 // Upsert single page
-                handlePageUpdate(data.page);
+                handlePageUpdate(data.page, data.show_now);
                 break;
 
             case 'page_delete':
@@ -482,7 +482,7 @@ function handlePagesSync(newPages, rotation) {
     }
 }
 
-function handlePageUpdate(page) {
+function handlePageUpdate(page, showNow = false) {
     if (!page) return;
 
     // Find existing page by name
@@ -497,8 +497,24 @@ function handlePageUpdate(page) {
         pages.sort((a, b) => a.display_order - b.display_order);
     }
 
-    // Re-render if viewing the updated page
     const activePages = getActivePages();
+
+    // show_now: jump to this page and render it immediately (instant swap),
+    // interrupting rotation. Only if the page is currently active (not expired).
+    if (showNow) {
+        const targetIndex = activePages.findIndex(p => p.name === page.name);
+        if (targetIndex >= 0) {
+            currentPageIndex = targetIndex;
+            renderCurrentPage();
+            // Restart the rotation timer so the jumped-to page gets its full duration.
+            if (rotationEnabled && pages.length > 1) {
+                startRotation();
+            }
+            return;
+        }
+    }
+
+    // Re-render if viewing the updated page
     if (activePages.length > 0 && currentPageIndex < activePages.length) {
         const currentPage = activePages[currentPageIndex];
         if (currentPage.name === page.name) {
