@@ -112,6 +112,11 @@ class SendMessageArgs(BaseModel):
         default=None, description="Panel corner rounding (CSS length)"
     )
     panel_shadow: str | None = Field(default=None, description="Panel drop shadow (CSS box-shadow)")
+    show_now: bool = Field(
+        default=False,
+        description="If true, viewers display this update immediately, interrupting rotation. "
+        "Not persisted.",
+    )
 
 
 class CreatePageArgs(BaseModel):
@@ -148,6 +153,11 @@ class CreatePageArgs(BaseModel):
     )
     transition_duration: int | None = Field(
         default=None, description="Transition duration in milliseconds", ge=0, le=5000
+    )
+    show_now: bool = Field(
+        default=False,
+        description="If true, viewers jump to this page and display it immediately, "
+        "interrupting rotation. Not persisted.",
     )
 
 

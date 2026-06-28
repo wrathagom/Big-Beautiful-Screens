@@ -236,6 +236,7 @@ Send content to a screen's default page.
 | `panel_color` | string | No | Panel color |
 | `font_family` | string | No | Font family |
 | `font_color` | string | No | Text color |
+| `show_now` | boolean | No | Display this update immediately, interrupting rotation (default `false`) |
 
 **Content Types:**
 
@@ -270,6 +271,7 @@ Create or update a named page for rotation.
 | `background_color` | string | No | Page background color |
 | `panel_color` | string | No | Page panel color |
 | `transition` | string | No | Transition effect |
+| `show_now` | boolean | No | Jump to this page and display it immediately, interrupting rotation (default `false`) |
 
 **Example:**
 
