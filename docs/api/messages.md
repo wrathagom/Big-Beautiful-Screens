@@ -29,6 +29,7 @@ POST /api/v1/screens/{screen_id}/message
 | `gap` | string | Space between panels |
 | `border_radius` | string | Panel corner radius |
 | `panel_shadow` | string | Panel box-shadow |
+| `show_now` | boolean | If `true`, viewers display this update immediately, interrupting rotation (default `false`). Not persisted. |
 
 ## Simple Text
 

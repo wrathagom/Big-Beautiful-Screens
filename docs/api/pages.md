@@ -67,6 +67,7 @@ POST /api/v1/screens/{screen_id}/pages/{page_name}
 | `expires_at` | string | ISO timestamp for auto-expiry |
 | `transition` | string | Transition effect when entering page: `"none"`, `"fade"`, `"slide-left"` |
 | `transition_duration` | integer | Transition duration in milliseconds (0-5000) |
+| `show_now` | boolean | If `true`, viewers jump to this page and display it immediately, interrupting rotation (default `false`). Not persisted. |
 | `background_color` | string | Page background color |
 | `panel_color` | string | Page panel color |
 | `font_family` | string | Page font family |
