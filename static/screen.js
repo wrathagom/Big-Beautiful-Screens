@@ -88,6 +88,20 @@ let debugEnabled = localStorage.getItem('debugEnabled') === 'true';
 // Active widget elements for cleanup
 let activeWidgets = [];
 
+// Notify an embedding parent (e.g. marketing site iframe) that the screen has
+// rendered its first content. Fired at most once. When not framed,
+// window.parent === window, so this is a harmless self-post.
+let screenReadySignaled = false;
+function signalScreenReady() {
+    if (screenReadySignaled) return;
+    screenReadySignaled = true;
+    try {
+        window.parent.postMessage({ type: 'bbs-screen-ready' }, '*');
+    } catch (e) {
+        // postMessage can throw in some sandboxed contexts; ignore.
+    }
+}
+
 // Initialize
 connect();
 
@@ -558,6 +572,8 @@ function renderCurrentPage() {
         // No pages to show
         screenEl.innerHTML = '<div class="panel"><div class="panel-content"><div class="content-text">No content</div></div></div>';
         screenEl.className = 'screen panels-1';
+        // The screen booted and painted (empty) — still signal readiness.
+        signalScreenReady();
         return;
     }
 
@@ -1070,6 +1086,8 @@ function renderContent(content, styles = {}) {
         if (debugEnabled) {
             updateDebugDisplay();
         }
+        // First content paint is done — tell any embedding parent.
+        signalScreenReady();
     });
 }
 
