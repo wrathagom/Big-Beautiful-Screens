@@ -22,5 +22,5 @@ svix>=1.4.0
 stripe>=7.0.0
 
 # MCP (Model Context Protocol)
-mcp>=1.0.0
+mcp>=1.0.0,<2
 
