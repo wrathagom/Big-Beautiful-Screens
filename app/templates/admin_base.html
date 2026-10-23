@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Big Beautiful Screens{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/static/logo.png">
+    <link rel="stylesheet" href="/static/admin.css">
+    {% if clerk_publishable_key %}
+    <script
+        data-clerk-publishable-key="{{ clerk_publishable_key }}"
+        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@6/dist/clerk.browser.js"
+        async
+    ></script>
+    {% endif %}
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% block body %}
+    <div class="container">
+        <div class="admin-header">
+            <div class="header-title">
+                <img src="/static/logo.png" alt="BBS Logo" class="header-logo">
+                <div>
+                    <h1>{% block heading %}Big Beautiful Screens{% endblock %}</h1>
+                    <p class="subtitle">{% block subtitle %}{% endblock %}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            {% block primary_action %}<div></div>{% endblock %}
+            {% include 'partials/admin_nav.html' %}
+        </div>
+
+        {% block content %}{% endblock %}
+    </div>
+    {% endblock %}
+
+    {% block modals %}{% endblock %}
+
+    <script src="/static/admin.js"></script>
+    {% block scripts %}{% endblock %}
+
+    {% include 'partials/footer.html' %}
+
+    <!-- Help Button -->
+    <div class="help-container">
+        <span class="help-text">{{ help_text }}</span>
+        <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
+    </div>
+</body>
+</html>

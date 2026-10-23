@@ -1,18 +1,8 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pricing - Big Beautiful Screens</title>
-    <link rel="icon" type="image/png" href="/static/logo.png">
-    <link rel="stylesheet" href="/static/admin.css">
-    {% if clerk_publishable_key %}
-    <script
-        data-clerk-publishable-key="{{ clerk_publishable_key }}"
-        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-        async
-    ></script>
-    {% endif %}
+{% extends 'admin_base.html' %}
+
+{% block title %}Pricing - Big Beautiful Screens{% endblock %}
+
+{% block head %}
     <script async src="https://js.stripe.com/v3/pricing-table.js"></script>
     <style>
         .pricing-container {
@@ -57,8 +47,9 @@
             border-radius: 0.5rem;
         }
     </style>
-</head>
-<body>
+{% endblock %}
+
+{% block body %}
     <div class="pricing-container">
         <a href="/admin/usage" class="back-link">&larr; Back to Usage & Billing</a>
 
@@ -71,29 +62,10 @@
             <div class="loading">Loading pricing options...</div>
         </div>
     </div>
+{% endblock %}
 
+{% block scripts %}
     <script>
-        async function signOut() {
-            if (typeof Clerk !== 'undefined' && Clerk.loaded) {
-                await Clerk.signOut();
-            }
-            window.location.href = '/auth/logout';
-        }
-
-        // Helper to get Clerk session token for API calls
-        async function getAuthHeaders() {
-            if (typeof Clerk === 'undefined') return {};
-            if (!Clerk.loaded) await Clerk.load();
-            if (!Clerk.session) return {};
-            try {
-                const token = await Clerk.session.getToken();
-                if (token) return { 'Authorization': `Bearer ${token}` };
-            } catch (e) {
-                console.error('[Auth] Error getting token:', e);
-            }
-            return {};
-        }
-
         async function initPricingTable() {
             const container = document.getElementById('pricing-table-container');
 
@@ -137,14 +109,4 @@
             });
         }
     </script>
-
-    <!-- Footer -->
-    {% include 'partials/footer.html' %}
-
-    <!-- Help Button -->
-    <div class="help-container">
-        <span class="help-text">{{ help_text }}</span>
-        <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
-    </div>
-</body>
-</html>
+{% endblock %}
