@@ -519,6 +519,47 @@ class TestAccountKeyManagement:
         finally:
             app.dependency_overrides.clear()
 
+    def test_deleted_key_stops_validating_immediately(self, patched_app):
+        """Deleting a key purges it from the validate_account_key cache."""
+        import asyncio
+
+        from app.auth import AuthUser, get_current_user, require_auth, validate_account_key
+
+        app, mock_db = patched_app
+
+        alice_auth = AuthUser(
+            user_id="user_alice",
+            email="alice@example.com",
+            name="Alice",
+        )
+
+        async def mock_get_current_user():
+            return alice_auth
+
+        async def mock_require_auth():
+            return alice_auth
+
+        app.dependency_overrides[get_current_user] = mock_get_current_user
+        app.dependency_overrides[require_auth] = mock_require_auth
+        try:
+            client = TestClient(app)
+
+            create_response = client.post(
+                "/api/v1/account/keys",
+                json={"name": "To Delete"},
+            )
+            key_id = create_response.json()["id"]
+            raw_key = create_response.json()["key"]
+
+            assert asyncio.run(validate_account_key(raw_key)) is not None
+
+            delete_response = client.delete(f"/api/v1/account/keys/{key_id}")
+            assert delete_response.status_code == 200
+
+            assert asyncio.run(validate_account_key(raw_key)) is None
+        finally:
+            app.dependency_overrides.clear()
+
 
 class TestAccountKeyAuthentication:
     """Tests for account key authentication flow."""

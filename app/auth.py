@@ -5,6 +5,7 @@ In self-hosted mode, authentication is bypassed.
 """
 
 import inspect
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Annotated
@@ -270,11 +271,27 @@ async def require_auth_or_api_key(
     )
 
 
+# Successful validate_account_key results, keyed by raw key:
+# api_key -> (AuthUser, key_id, expires_at, cached_until monotonic time).
+# MCP clients reconnect often; caching keeps each reconnect off the database.
+ACCOUNT_KEY_CACHE_TTL_SECONDS = 60
+_account_key_cache: dict[str, tuple["AuthUser", str, datetime | None, float]] = {}
+
+
+def invalidate_account_key_cache(key_id: str) -> None:
+    """Drop any cached validation for the given account key ID."""
+    for api_key in [k for k, v in _account_key_cache.items() if v[1] == key_id]:
+        _account_key_cache.pop(api_key, None)
+
+
 async def validate_account_key(api_key: str) -> AuthUser | None:
     """Validate account API key and return AuthUser.
 
     This is a standalone version of get_user_from_account_api_key that doesn't
     require a FastAPI Request object, for use in ASGI middleware.
+
+    Valid results are cached for ACCOUNT_KEY_CACHE_TTL_SECONDS, so last_used_at
+    is updated at most once per TTL per key.
 
     Args:
         api_key: The account API key to validate (should start with 'ak_')
@@ -285,12 +302,23 @@ async def validate_account_key(api_key: str) -> AuthUser | None:
     if not api_key or not api_key.startswith("ak_"):
         return None
 
+    cached = _account_key_cache.get(api_key)
+    if cached:
+        user, _key_id, expires_at, cached_until = cached
+        if time.monotonic() < cached_until:
+            if expires_at and expires_at < datetime.now(UTC):
+                _account_key_cache.pop(api_key, None)
+                return None
+            return user
+        _account_key_cache.pop(api_key, None)
+
     db = get_database()
     key_data = await db.get_account_api_key_by_key(api_key)
 
     if not key_data:
         return None
 
+    expires_at = None
     if key_data.get("expires_at"):
         expires_at = datetime.fromisoformat(key_data["expires_at"])
         if expires_at < datetime.now(UTC):
@@ -302,13 +330,20 @@ async def validate_account_key(api_key: str) -> AuthUser | None:
     if not user_data:
         return None
 
-    return AuthUser(
+    user = AuthUser(
         user_id=key_data["user_id"],
         email=user_data.get("email"),
         name=user_data.get("name"),
         org_id=None,
         org_role=None,
     )
+    _account_key_cache[api_key] = (
+        user,
+        key_data["id"],
+        expires_at,
+        time.monotonic() + ACCOUNT_KEY_CACHE_TTL_SECONDS,
+    )
+    return user
 
 
 async def get_user_from_account_api_key(
