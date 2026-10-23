@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     # App URL (for Stripe redirects)
     APP_URL: str = "http://localhost:8000"
 
+    # Operator notifications (Resend)
+    RESEND_API_KEY: str | None = None
+    SIGNUP_NOTIFY_EMAIL: str | None = None  # Where signup notifications are sent
+    SIGNUP_NOTIFY_FROM: str = "Big Beautiful Screens <onboarding@resend.dev>"
+
     # Media Storage Backend
     STORAGE_BACKEND: StorageBackendType = "local"
 

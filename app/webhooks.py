@@ -10,6 +10,7 @@ from svix.webhooks import Webhook, WebhookVerificationError
 
 from .config import AppMode, get_settings
 from .db import get_database
+from .notifications import send_signup_notification
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 
@@ -110,6 +111,11 @@ async def clerk_webhook(
                     print(f"Created demo screen for user {user_id}")
                 except Exception as e:
                     print(f"Failed to create demo screen for user {user_id}: {e}")
+
+                try:
+                    await send_signup_notification(email=email, name=name, user_id=user_id)
+                except Exception as e:
+                    print(f"Failed to send signup notification for user {user_id}: {e}")
 
     elif event_type == "user.deleted":
         user_id = data.get("id")
