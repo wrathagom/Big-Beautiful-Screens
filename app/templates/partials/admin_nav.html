@@ -1,0 +1,18 @@
+<div class="nav-links">
+    <div class="nav-dropdown">
+        <button class="nav-link" onclick="toggleNavDropdown(this)">Menu &#9662;</button>
+        <div class="nav-dropdown-menu">
+            <a href="/admin/screens"{% if active_page == 'screens' %} class="active"{% endif %}>Screens</a>
+            <a href="/admin/templates"{% if active_page == 'templates' %} class="active"{% endif %}>Templates</a>
+            <a href="/admin/themes"{% if active_page == 'themes' %} class="active"{% endif %}>Themes</a>
+            <a href="/admin/media"{% if active_page == 'media' %} class="active"{% endif %}>Media</a>
+            {% if clerk_publishable_key %}
+            <a href="/admin/usage"{% if active_page == 'usage' %} class="active"{% endif %}>Usage & Billing</a>
+            <a href="/admin/api-keys"{% if active_page == 'api_keys' %} class="active"{% endif %}>API Keys</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if clerk_publishable_key %}
+    <button class="btn-delete" onclick="signOut()">Sign Out</button>
+    {% endif %}
+</div>

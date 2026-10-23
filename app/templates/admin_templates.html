@@ -1,18 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Templates - Big Beautiful Screens</title>
-    <link rel="icon" type="image/png" href="/static/logo.png">
-    <link rel="stylesheet" href="/static/admin.css">
-    {% if clerk_publishable_key %}
-    <script
-        data-clerk-publishable-key="{{ clerk_publishable_key }}"
-        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-        async
-    ></script>
-    {% endif %}
+{% extends 'admin_base.html' %}
+{% set active_page = 'templates' %}
+
+{% block title %}My Templates - Big Beautiful Screens{% endblock %}
+
+{% block head %}
     <style>
         .template-grid {
             display: grid;
@@ -268,41 +259,14 @@
             border-top: 1px solid var(--border-color, #3a3a5e);
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <div class="admin-header">
-            <div class="header-title">
-                <img src="/static/logo.png" alt="BBS Logo" class="header-logo">
-                <div>
-                    <h1>My Templates</h1>
-                    <p class="subtitle">Manage your saved screen templates</p>
-                </div>
-            </div>
-        </div>
+{% endblock %}
 
-        <div class="actions">
-            <a href="/admin/screens" class="btn-primary">+ Create New Screen</a>
-            <div class="nav-links">
-                <div class="nav-dropdown">
-                    <button class="nav-link" onclick="toggleNavDropdown(this)">Menu &#9662;</button>
-                    <div class="nav-dropdown-menu">
-                        <a href="/admin/screens">Screens</a>
-                        <a href="/admin/templates" class="active">Templates</a>
-                        <a href="/admin/themes">Themes</a>
-                        <a href="/admin/media">Media</a>
-                        {% if clerk_publishable_key %}
-                        <a href="/admin/usage">Usage & Billing</a>
-                        <a href="/admin/api-keys">API Keys</a>
-                        {% endif %}
-                    </div>
-                </div>
-                {% if clerk_publishable_key %}
-                <button class="btn-delete" onclick="signOut()">Sign Out</button>
-                {% endif %}
-            </div>
-        </div>
+{% block heading %}My Templates{% endblock %}
+{% block subtitle %}Manage your saved screen templates{% endblock %}
 
+{% block primary_action %}<a href="/admin/screens" class="btn-primary">+ Create New Screen</a>{% endblock %}
+
+{% block content %}
         {% if templates %}
         <div class="filter-bar">
             <span>Filter by category:</span>
@@ -362,8 +326,9 @@
             <a href="/admin/screens" class="btn-primary">Go to Screens</a>
         </div>
         {% endif %}
-    </div>
+{% endblock %}
 
+{% block modals %}
     <!-- Edit Template Modal -->
     <div id="edit-modal" class="modal" onclick="if(event.target === this) closeEditModal()">
         <div class="modal-content">
@@ -396,51 +361,10 @@
             </div>
         </div>
     </div>
+{% endblock %}
 
+{% block scripts %}
     <script>
-        // Clerk sign out
-        async function signOut() {
-            if (window.Clerk) {
-                await window.Clerk.signOut();
-                window.location.href = '/';
-            }
-        }
-
-        // Get auth headers for API calls
-        async function getAuthHeaders() {
-            const headers = { 'Content-Type': 'application/json' };
-            {% if clerk_publishable_key %}
-            if (window.Clerk && window.Clerk.session) {
-                const token = await window.Clerk.session.getToken();
-                if (token) {
-                    headers['Authorization'] = `Bearer ${token}`;
-                }
-            }
-            {% endif %}
-            return headers;
-        }
-
-        function toggleNavDropdown(btn) {
-            const menu = btn.nextElementSibling;
-            const wasOpen = menu.classList.contains('show');
-
-            document.querySelectorAll('.nav-dropdown-menu.show').forEach(m => {
-                m.classList.remove('show');
-            });
-
-            if (!wasOpen) {
-                menu.classList.add('show');
-            }
-        }
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.nav-dropdown')) {
-                document.querySelectorAll('.nav-dropdown-menu.show').forEach(menu => {
-                    menu.classList.remove('show');
-                });
-            }
-        });
-
         // Filter by category
         function filterByCategory(category) {
             const url = new URL(window.location);
@@ -497,10 +421,10 @@
                 return;
             }
 
-            const headers = await getAuthHeaders();
+            const authHeaders = await getAuthHeaders();
             const response = await fetch(`/api/v1/templates/${id}`, {
                 method: 'PATCH',
-                headers: headers,
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 credentials: 'include',
                 body: JSON.stringify({ name, description: description || null, category })
             });
@@ -541,7 +465,4 @@
         });
         {% endif %}
     </script>
-
-    {% include 'partials/footer.html' %}
-</body>
-</html>
+{% endblock %}
