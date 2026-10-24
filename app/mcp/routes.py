@@ -16,6 +16,7 @@ from starlette.responses import Response
 
 from ..auth import validate_account_key
 from ..config import AppMode, get_settings
+from ..rate_limit import hit_mcp_sse_limit
 from .handlers import reset_mcp_context, set_mcp_context
 from .server import mcp_server
 from .streamable_http_asgi import streamable_http_app
@@ -57,9 +58,21 @@ class MCPApp:
         headers = dict(scope.get("headers", []))
         api_key = headers.get(b"x-api-key", b"").decode("utf-8")
 
+        path = self._local_path(scope)
+
         if settings.APP_MODE == AppMode.SAAS:
             if not api_key or not api_key.startswith("ak_"):
                 response = Response("Unauthorized: X-API-Key header required", status_code=401)
+                await response(scope, receive, send)
+                return
+
+            # Checked before key validation so reconnect loops never reach the DB.
+            if path in ("/sse", "/sse/") and not hit_mcp_sse_limit(api_key):
+                response = Response(
+                    "Too Many Requests: MCP SSE connection limit exceeded",
+                    status_code=429,
+                    headers={"Retry-After": "60"},
+                )
                 await response(scope, receive, send)
                 return
 
@@ -74,8 +87,6 @@ class MCPApp:
             token = set_mcp_context()
 
         try:
-            path = self._local_path(scope)
-
             if path in ("/sse", "/sse/"):
                 async with sse_transport.connect_sse(scope, receive, send) as streams:
                     await mcp_server.run(
