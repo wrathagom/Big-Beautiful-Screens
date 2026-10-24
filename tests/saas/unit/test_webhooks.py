@@ -184,6 +184,52 @@ class TestClerkWebhooks:
         assert user["email"] == "newuser@example.com"
         assert user["plan"] == "free"
 
+    def test_user_created_sends_signup_notification(self, saas_client):
+        """A brand-new user triggers one signup notification email."""
+        client, db = saas_client
+
+        payload = load_fixture("recorded/clerk_user_created.json")
+
+        with patch("app.webhooks.send_signup_notification") as notify:
+            response = client.post("/webhooks/clerk", json=payload)
+
+        assert response.status_code == 200
+        notify.assert_called_once()
+        assert notify.call_args.kwargs["email"] == "newuser@example.com"
+        assert notify.call_args.kwargs["user_id"] == "user_2abc123def456"
+
+    def test_existing_user_does_not_send_signup_notification(self, saas_client):
+        """user.updated for a known user must not send a signup email."""
+        client, db = saas_client
+
+        db.users["user_2abc123def456"] = {
+            "id": "user_2abc123def456",
+            "email": "newuser@example.com",
+            "plan": "starter",
+        }
+        payload = load_fixture("recorded/clerk_user_created.json")
+        payload["type"] = "user.updated"
+
+        with patch("app.webhooks.send_signup_notification") as notify:
+            response = client.post("/webhooks/clerk", json=payload)
+
+        assert response.status_code == 200
+        notify.assert_not_called()
+
+    def test_signup_notification_failure_does_not_fail_webhook(self, saas_client):
+        """Clerk must still get a 200 if the notification email fails."""
+        client, db = saas_client
+
+        payload = load_fixture("recorded/clerk_user_created.json")
+
+        with patch(
+            "app.webhooks.send_signup_notification", side_effect=RuntimeError("resend down")
+        ):
+            response = client.post("/webhooks/clerk", json=payload)
+
+        assert response.status_code == 200
+        assert db.users.get("user_2abc123def456") is not None
+
     def test_user_updated_preserves_paid_plan(self, saas_client):
         """CRITICAL: user.updated webhook must NOT overwrite paid plan.
 

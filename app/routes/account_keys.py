@@ -10,7 +10,7 @@ from datetime import UTC, datetime, timedelta
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from ..auth import RequiredUser
+from ..auth import RequiredUser, invalidate_account_key_cache
 from ..config import AppMode, get_settings
 from ..db import get_database
 from ..security import make_api_key_preview
@@ -203,5 +203,7 @@ async def delete_account_key(key_id: str, user: RequiredUser):
     success = await db.delete_account_api_key(key_id)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to delete API key")
+
+    invalidate_account_key_cache(key_id)
 
     return {"success": True, "message": "API key deleted"}

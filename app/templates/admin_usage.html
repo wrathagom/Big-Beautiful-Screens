@@ -1,18 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Big Beautiful Screens - Usage & Billing</title>
-    <link rel="icon" type="image/png" href="/static/logo.png">
-    <link rel="stylesheet" href="/static/admin.css">
-    {% if clerk_publishable_key %}
-    <script
-        data-clerk-publishable-key="{{ clerk_publishable_key }}"
-        src="https://cdn.jsdelivr.net/npm/@clerk/clerk-js@latest/dist/clerk.browser.js"
-        async
-    ></script>
-    {% endif %}
+{% extends 'admin_base.html' %}
+{% set active_page = 'usage' %}
+
+{% block title %}Big Beautiful Screens - Usage & Billing{% endblock %}
+
+{% block head %}
     <style>
         /* Usage Dashboard Specific Styles */
         .usage-dashboard {
@@ -323,41 +314,12 @@
             }
         }
     </style>
-</head>
-<body>
-    <div class="container">
-        <div class="admin-header">
-            <div class="header-title">
-                <img src="/static/logo.png" alt="BBS Logo" class="header-logo">
-                <div>
-                    <h1>Big Beautiful Screens</h1>
-                    <p class="subtitle">Usage & Billing</p>
-                </div>
-            </div>
-        </div>
+{% endblock %}
 
-        <div class="actions">
-            <div></div>
-            <div class="nav-links">
-                <div class="nav-dropdown">
-                    <button class="nav-link" onclick="toggleNavDropdown(this)">Menu &#9662;</button>
-                    <div class="nav-dropdown-menu">
-                        <a href="/admin/screens">Screens</a>
-                        <a href="/admin/templates">Templates</a>
-                        <a href="/admin/themes">Themes</a>
-                        <a href="/admin/media">Media</a>
-                        {% if clerk_publishable_key %}
-                        <a href="/admin/usage" class="active">Usage & Billing</a>
-                        <a href="/admin/api-keys">API Keys</a>
-                        {% endif %}
-                    </div>
-                </div>
-                {% if clerk_publishable_key %}
-                <button class="btn-delete" onclick="signOut()">Sign Out</button>
-                {% endif %}
-            </div>
-        </div>
+{% block heading %}Big Beautiful Screens{% endblock %}
+{% block subtitle %}Usage & Billing{% endblock %}
 
+{% block content %}
         {% if checkout == 'success' %}
         <div class="alert alert-success">
             Payment successful! Your plan has been upgraded. It may take a moment for changes to reflect.
@@ -499,57 +461,13 @@
             </div>
             {% endif %}
         </div>
-    </div>
+{% endblock %}
 
+{% block modals %}
+{% endblock %}
+
+{% block scripts %}
     <script>
-        // Helper to get Clerk session token for API calls (SaaS mode)
-        // Returns empty headers in self-hosted mode where Clerk isn't loaded
-        async function getAuthHeaders() {
-            if (typeof Clerk === 'undefined') return {};
-
-            // Wait for Clerk to be ready if needed
-            if (!Clerk.loaded) await Clerk.load();
-            if (!Clerk.session) return {};
-
-            try {
-                const token = await Clerk.session.getToken();
-                if (token) {
-                    return { 'Authorization': `Bearer ${token}` };
-                }
-            } catch (e) {
-                console.error('[Auth] Error getting token:', e);
-            }
-            return {};
-        }
-
-        async function signOut() {
-            if (typeof Clerk !== 'undefined' && Clerk.loaded) {
-                await Clerk.signOut();
-            }
-            window.location.href = '/auth/logout';
-        }
-
-        function toggleNavDropdown(btn) {
-            const menu = btn.nextElementSibling;
-            const wasOpen = menu.classList.contains('show');
-
-            document.querySelectorAll('.nav-dropdown-menu.show').forEach(m => {
-                m.classList.remove('show');
-            });
-
-            if (!wasOpen) {
-                menu.classList.add('show');
-            }
-        }
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.nav-dropdown')) {
-                document.querySelectorAll('.nav-dropdown-menu.show').forEach(menu => {
-                    menu.classList.remove('show');
-                });
-            }
-        });
-
         // Countdown to midnight UTC
         function updateCountdown() {
             const now = new Date();
@@ -590,14 +508,4 @@
             }
         }
     </script>
-
-    <!-- Footer -->
-    {% include 'partials/footer.html' %}
-
-    <!-- Help Button -->
-    <div class="help-container">
-        <span class="help-text">{{ help_text }}</span>
-        <a href="{{ help_url }}" target="_blank" class="help-button" title="Get Help">?</a>
-    </div>
-</body>
-</html>
+{% endblock %}
