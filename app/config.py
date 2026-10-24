@@ -144,6 +144,7 @@ PLAN_LIMITS = {
         "api_calls_daily": 100,
         "media_enabled": False,
         "storage_bytes": 0,
+        "account_key_max_days": 30,
     },
     "starter": {
         "screens": 25,
@@ -152,6 +153,7 @@ PLAN_LIMITS = {
         "api_calls_daily": 1000,
         "media_enabled": True,
         "storage_bytes": 1073741824,  # 1GB
+        "account_key_max_days": None,  # None = keys may never expire
     },
     "premium": {
         "screens": 100,
@@ -160,6 +162,7 @@ PLAN_LIMITS = {
         "api_calls_daily": -1,
         "media_enabled": True,
         "storage_bytes": 10737418240,  # 10GB
+        "account_key_max_days": None,
     },
 }
 
