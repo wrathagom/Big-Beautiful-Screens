@@ -203,6 +203,17 @@
             background: #0d1b2a;
             color: #fff;
             font-size: 1rem;
+            line-height: 1.25;
+        }
+
+        .form-group select {
+            appearance: none;
+            -webkit-appearance: none;
+            padding-right: 2.5rem;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.875rem center;
+            cursor: pointer;
         }
 
         .form-group input:focus,
@@ -312,8 +323,8 @@
                         {% if not key_max_days %}
                         <option value="">Never expires</option>
                         {% endif %}
-                        {% for days in [30, 60, 90, 180, 365] if not key_max_days or days <= key_max_days %}
-                        <option value="{{ days }}">{{ days }} days</option>
+                        {% for days in [1, 7, 14, 30, 60, 90, 180, 365] if not key_max_days or days <= key_max_days %}
+                        <option value="{{ days }}"{% if days == key_max_days %} selected{% endif %}>{{ days }} day{{ "s" if days != 1 }}</option>
                         {% endfor %}
                     </select>
                     {% if key_max_days %}
