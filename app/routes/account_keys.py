@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from ..auth import RequiredUser, invalidate_account_key_cache
-from ..config import AppMode, get_settings
+from ..config import PLAN_LIMITS, AppMode, get_settings
 from ..db import get_database
 from ..security import make_api_key_preview
 
@@ -26,7 +26,8 @@ class AccountKeyCreate(BaseModel):
         default=None,
         ge=1,
         le=365,
-        description="Number of days until the key expires (1-365). Leave empty for no expiration.",
+        description="Number of days until the key expires (1-365). Leave empty for no expiration "
+        "(free plan: defaults to and is capped at 30 days).",
     )
 
 
@@ -88,10 +89,25 @@ async def create_account_key(request: AccountKeyCreate, user: RequiredUser):
 
     db = get_database()
 
-    # Calculate expiration if specified
+    # Plans with a key lifetime cap default to it and reject anything longer
+    user_data = await db.get_user(user.user_id)
+    plan = user_data.get("plan", "free") if user_data else "free"
+    max_days = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["account_key_max_days"]
+
+    expires_in_days = request.expires_in_days
+    if max_days is not None:
+        if expires_in_days is None:
+            expires_in_days = max_days
+        elif expires_in_days > max_days:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Keys on the {plan} plan can last at most {max_days} days. "
+                "Upgrade for longer-lived keys.",
+            )
+
     expires_at = None
-    if request.expires_in_days:
-        expires_at = datetime.now(UTC) + timedelta(days=request.expires_in_days)
+    if expires_in_days:
+        expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
 
     # Generate key ID and value
     key_id = generate_account_key_id()

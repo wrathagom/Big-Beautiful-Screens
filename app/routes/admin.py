@@ -521,10 +521,16 @@ async def admin_api_keys(request: Request):
             url=get_clerk_sign_in_url("/admin/api-keys", request=request), status_code=302
         )
 
+    db = get_database()
+    user_data = await db.get_user(user.user_id)
+    plan = user_data.get("plan", "free") if user_data else "free"
+    key_max_days = PLAN_LIMITS.get(plan, PLAN_LIMITS["free"])["account_key_max_days"]
+
     return templates.TemplateResponse(
         request=request,
         name="admin_api_keys.html",
         context={
+            "key_max_days": key_max_days,
             "clerk_publishable_key": settings.CLERK_PUBLISHABLE_KEY,
             "help_url": settings.HELP_URL,
             "help_text": _get_help_text(),

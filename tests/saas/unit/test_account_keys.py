@@ -849,6 +849,52 @@ class TestAccountKeyLastUsed:
         assert mock_db.account_api_keys["key_alice"]["last_used_at"] is not None
 
 
+class TestFreePlanKeyExpiry:
+    """Free-plan account keys are capped at 30 days."""
+
+    def _create(self, patched_app, plan: str, body: dict):
+        from app.auth import AuthUser, require_auth
+
+        app, mock_db = patched_app
+        mock_db.users["user_alice"]["plan"] = plan
+        alice_auth = AuthUser(user_id="user_alice", email="alice@example.com", name="Alice")
+
+        async def mock_require_auth():
+            return alice_auth
+
+        app.dependency_overrides[require_auth] = mock_require_auth
+        try:
+            return TestClient(app).post("/api/v1/account/keys", json=body)
+        finally:
+            app.dependency_overrides.clear()
+
+    def test_free_key_without_expiry_defaults_to_30_days(self, patched_app):
+        response = self._create(patched_app, "free", {"name": "Free Key"})
+
+        assert response.status_code == 200
+        expires_at = datetime.fromisoformat(response.json()["expires_at"])
+        assert timedelta(days=29) < expires_at - datetime.now(UTC) <= timedelta(days=30)
+
+    def test_free_key_longer_than_30_days_rejected(self, patched_app):
+        response = self._create(patched_app, "free", {"name": "Free Key", "expires_in_days": 90})
+
+        assert response.status_code == 400
+        assert "30 days" in response.json()["detail"]
+
+    def test_free_key_shorter_expiry_allowed(self, patched_app):
+        response = self._create(patched_app, "free", {"name": "Free Key", "expires_in_days": 7})
+
+        assert response.status_code == 200
+        expires_at = datetime.fromisoformat(response.json()["expires_at"])
+        assert expires_at - datetime.now(UTC) <= timedelta(days=7)
+
+    def test_paid_key_can_still_never_expire(self, patched_app):
+        response = self._create(patched_app, "starter", {"name": "Paid Key"})
+
+        assert response.status_code == 200
+        assert response.json()["expires_at"] is None
+
+
 class TestAccountKeySaaSOnly:
     """Tests verifying account keys are SaaS-only."""
 
